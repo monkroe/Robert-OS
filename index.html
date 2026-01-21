@@ -3,86 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ROBERT ❤️ OS v6.0.3</title>
+    <meta name="theme-color" content="#14b8a6">
+    <title>ROBERT ❤️ OS v6.0.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="min-h-screen">
 
+    <!-- AUTH SCREEN -->
     <div id="auth-screen" class="fixed inset-0 z-[300] bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6 hidden">
-        <div class="w-full max-w-sm text-center space-y-8">
-            <h1 class="text-3xl font-black uppercase tracking-tighter">ROBERT ❤️ OS</h1>
+        <div class="w-full max-w-sm text-center space-y-10">
+            <div class="w-20 h-20 mx-auto bg-teal-500 rounded-[2rem] flex items-center justify-center shadow-2xl">
+                <i class="fa-solid fa-bolt text-white text-3xl"></i>
+            </div>
+            <h1 class="text-4xl font-black uppercase tracking-tighter">ROBERT ❤️ OS</h1>
             <div class="space-y-3 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl">
-                <input type="email" id="auth-email" placeholder="Email" class="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none outline-none font-bold">
-                <input type="password" id="auth-pass" placeholder="Password" class="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none outline-none font-bold">
-                <button onclick="login()" class="w-full bg-teal-500 text-white p-4 rounded-2xl font-black uppercase tracking-widest mt-4">Login</button>
+                <input type="email" id="auth-email" placeholder="Email" class="input-field" autocomplete="email">
+                <input type="password" id="auth-pass" placeholder="Password" class="input-field" autocomplete="current-password">
+                <button onclick="login()" class="btn-primary mt-4">Prisijungti</button>
             </div>
         </div>
     </div>
 
+    <!-- APP CONTENT -->
     <div id="app-content" class="hidden">
+        
+        <!-- HEADER -->
         <header class="global-header">
-            <div class="logo-text">Robert ❤️ OS</div>
+            <div class="logo-text uppercase">Robert ❤️ OS</div>
             <div class="flex gap-2">
-                <button onclick="toggleSettings()" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center"><i class="fa-solid fa-gear"></i></button>
-                <button onclick="logout()" class="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center"><i class="fa-solid fa-power-off"></i></button>
+                <button onclick="toggleSettings()" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-teal-500 hover:text-white transition-all">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <button onclick="logout()" class="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
             </div>
         </header>
 
+        <!-- COCKPIT TAB -->
         <div id="tab-cockpit" class="tab-content active">
             <div class="max-w-md mx-auto space-y-8">
                 <div class="text-center">
-                    <span class="label-tiny">Safety Buffer</span>
-                    <div class="buffer-track"><div id="buffer-bar" class="buffer-fill" style="width: 0%"></div></div>
+                    <span class="label-tiny">Avarinė atsarga</span>
+                    <div class="buffer-track">
+                        <div id="buffer-bar" class="buffer-fill" style="width: 0%; background: linear-gradient(90deg, #14b8a6, #10b981);"></div>
+                    </div>
                 </div>
-                <div class="cockpit-card">
-                    <span class="label-tiny opacity-50 mb-4">Shift Timer</span>
-                    <h1 id="shift-timer" class="display-value font-mono">00:00:00</h1>
+                <div class="cockpit-card text-center">
+                    <span class="label-tiny text-white/50 mb-2">Pamainos laikas</span>
+                    <h1 id="shift-timer" class="display-value text-white font-mono">00:00:00</h1>
                     <div class="grid grid-cols-2 gap-3 my-6">
-                        <button class="btn-secondary" onclick="openTx('in')">Income</button>
-                        <button class="btn-secondary" onclick="openTx('out')">Expense</button>
+                        <button class="btn-secondary" onclick="openTx('in')">
+                            <i class="fa-solid fa-arrow-down mr-1"></i>Pajamos
+                        </button>
+                        <button class="btn-secondary" onclick="openTx('out')">
+                            <i class="fa-solid fa-arrow-up mr-1"></i>Išlaidos
+                        </button>
                     </div>
-                    <button id="shift-btn" onclick="openOdoModal()" class="btn-primary-os">Start Shift</button>
+                    <button id="shift-btn" onclick="openOdoModal()" class="w-full bg-white text-teal-600 py-5 rounded-[1.5rem] font-black uppercase text-lg shadow-xl hover:shadow-2xl transition-all">
+                        <i class="fa-solid fa-play mr-2"></i>Pradėti pamainą
+                    </button>
                 </div>
             </div>
         </div>
 
-        <div id="tab-runway" class="tab-content text-center">
-            <div class="max-w-md mx-auto space-y-6">
-                <div class="cockpit-card py-12">
-                    <span class="label-tiny">Survival Runway</span>
-                    <h1 id="runway-val" class="display-value" style="font-size: 5rem;">0.0</h1>
-                    <p class="label-tiny opacity-50">Mėnesiai laisvės</p>
+        <!-- RUNWAY TAB -->
+        <div id="tab-runway" class="tab-content">
+            <div class="max-w-md mx-auto text-center space-y-6">
+                <div class="glass-card py-10">
+                    <span class="label-tiny">Išgyvenimo laikas</span>
+                    <h1 id="runway-val" class="display-value text-teal-500" style="font-size: 5rem;">0.0</h1>
+                    <p class="label-tiny opacity-50 mt-2">Mėnesiai laisvės</p>
                 </div>
-                <div class="stats-row flex justify-around">
+                <div class="stats-row">
                     <div class="stat-card">
-                        <p class="label-tiny">Liquid</p>
-                        <span id="stat-liquid" class="font-black">$0</span>
+                        <p>💰 Likvidus</p>
+                        <span id="stat-liquid">$0</span>
                     </div>
                     <div class="stat-card">
-                        <p class="label-tiny">Burn</p>
-                        <span id="stat-burn" class="font-black">$0</span>
+                        <p>🔥 Deginimas</p>
+                        <span id="stat-burn">$0</span>
+                    </div>
+                    <div class="stat-card">
+                        <p>🛡️ Saugumas</p>
+                        <span id="stat-safety">0%</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="tab-projection" class="tab-content p-6" id="eta-container"></div>
-        <div id="tab-vault" class="tab-content p-6" id="asset-list"></div>
-        <div id="tab-audit" class="tab-content p-6" id="audit-list"></div>
+        <!-- PROJECTION TAB -->
+        <div id="tab-projection" class="tab-content">
+            <div class="max-w-md mx-auto space-y-4">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-black uppercase">Ateities žemėlapis</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Finansinė prognozė</p>
+                </div>
+                <div id="eta-container"></div>
+            </div>
+        </div>
 
+        <!-- VAULT TAB -->
+        <div id="tab-vault" class="tab-content">
+            <div class="max-w-md mx-auto space-y-4">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-black uppercase">Turto saugykla</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Investicijos ir aktyvai</p>
+                </div>
+                <div id="asset-list"></div>
+            </div>
+        </div>
+
+        <!-- AUDIT TAB -->
+        <div id="tab-audit" class="tab-content">
+            <div class="max-w-md mx-auto space-y-2">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-black uppercase">Audito istorija</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Visos transakcijos</p>
+                </div>
+                <div id="audit-list"></div>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
         <nav class="bottom-nav">
-            <div onclick="switchTab('cockpit')" class="nav-item active" id="btn-cockpit"><i class="fa-solid fa-gauge-high"></i><span>Cockpit</span></div>
-            <div onclick="switchTab('runway')" class="nav-item" id="btn-runway"><i class="fa-solid fa-plane-arrival"></i><span>Runway</span></div>
-            <div onclick="switchTab('projection')" class="nav-item" id="btn-projection"><i class="fa-solid fa-compass"></i><span>Future</span></div>
-            <div onclick="switchTab('vault')" class="nav-item" id="btn-vault"><i class="fa-solid fa-vault"></i><span>Vault</span></div>
-            <div onclick="switchTab('audit')" class="nav-item" id="btn-audit"><i class="fa-solid fa-receipt"></i><span>Audit</span></div>
+            <button onclick="switchTab('cockpit')" class="nav-item active" id="btn-cockpit">
+                <i class="fa-solid fa-gauge-high"></i>
+                <span>Cockpit</span>
+            </button>
+            <button onclick="switchTab('runway')" class="nav-item" id="btn-runway">
+                <i class="fa-solid fa-plane-arrival"></i>
+                <span>Runway</span>
+            </button>
+            <button onclick="switchTab('projection')" class="nav-item" id="btn-projection">
+                <i class="fa-solid fa-compass"></i>
+                <span>Tikslai</span>
+            </button>
+            <button onclick="switchTab('vault')" class="nav-item" id="btn-vault">
+                <i class="fa-solid fa-vault"></i>
+                <span>Turtas</span>
+            </button>
+            <button onclick="switchTab('audit')" class="nav-item" id="btn-audit">
+                <i class="fa-solid fa-receipt"></i>
+                <span>Auditas</span>
+            </button>
         </nav>
+
+        <!-- FOOTER -->
+        <footer class="text-center pb-28 pt-12 opacity-30 text-[9px] font-black uppercase tracking-wider">
+            &copy; <span id="auto-year"></span> Robert OS · v6.0.2
+        </footer>
     </div>
 
-    <div id="odo-modal" class="hidden fixed inset-0 z-[400] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"><div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 space-y-6 text-center"><h3 id="odo-title" class="font-black text-xl uppercase">Odometras</h3><input type="number" id="odo-input" class="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 font-bold text-center text-2xl" placeholder="000000"><button onclick="confirmShiftAction()" class="w-full bg-teal-500 text-white p-4 rounded-2xl font-black uppercase">Confirm</button><button onclick="closeModals()" class="label-tiny pt-2">Cancel</button></div></div>
+    <!-- ODOMETER MODAL -->
+    <div id="odo-modal" class="hidden fixed inset-0 z-[400] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 space-y-6 text-center shadow-2xl">
+            <i class="fa-solid fa-tachometer-alt text-teal-500 text-5xl"></i>
+            <h3 id="odo-title" class="font-black text-2xl uppercase">Odometras</h3>
+            <input type="number" id="odo-input" class="input-field" placeholder="000000" min="0">
+            <button onclick="confirmShiftAction()" class="btn-primary">
+                <i class="fa-solid fa-check mr-2"></i>Patvirtinti
+            </button>
+            <button onclick="closeModals()" class="w-full text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 pt-2">
+                Atšaukti
+            </button>
+        </div>
+    </div>
+    
+    <!-- TRANSACTION MODAL -->
+    <div id="tx-modal" class="hidden fixed inset-0 z-[400] bg-black/80 backdrop-blur-md flex items-end justify-center pb-6">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-10 space-y-6 shadow-2xl">
+            <div class="text-center">
+                <i class="fa-solid fa-dollar-sign text-teal-500 text-4xl mb-4"></i>
+                <h3 class="font-black text-xl uppercase mb-2">Nauja transakcija</h3>
+            </div>
+            <input type="number" id="tx-amount" placeholder="0.00" class="input-field text-4xl py-6" step="0.01" min="0">
+            <button onclick="saveTx()" class="btn-primary">
+                <i class="fa-solid fa-save mr-2"></i>Išsaugoti
+            </button>
+            <button onclick="closeModals()" class="w-full text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 pt-2">
+                Grįžti
+            </button>
+        </div>
+    </div>
 
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-[400] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 space-y-6 text-center shadow-2xl">
+            <i class="fa-solid fa-sliders text-teal-500 text-5xl"></i>
+            <h3 class="font-black text-2xl uppercase">Nustatymai</h3>
+            
+            <div>
+                <p class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wide">Tema</p>
+                <div class="grid grid-cols-3 gap-3">
+                    <button onclick="setTheme('light')" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-700 hover:bg-teal-500 hover:text-white font-bold text-xs uppercase transition-all">
+                        <i class="fa-solid fa-sun text-2xl mb-2"></i><br>Šviesi
+                    </button>
+                    <button onclick="setTheme('dark')" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-700 hover:bg-teal-500 hover:text-white font-bold text-xs uppercase transition-all">
+                        <i class="fa-solid fa-moon text-2xl mb-2"></i><br>Tamsi
+                    </button>
+                    <button onclick="setTheme('system')" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-700 hover:bg-teal-500 hover:text-white font-bold text-xs uppercase transition-all">
+                        <i class="fa-solid fa-desktop text-2xl mb-2"></i><br>Auto
+                    </button>
+                </div>
+            </div>
+            
+            <button onclick="closeModals()" class="btn-primary">
+                <i class="fa-solid fa-times mr-2"></i>Uždaryti
+            </button>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/app.js"></script>
 </body>

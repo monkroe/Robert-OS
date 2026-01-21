@@ -1,4 +1,4 @@
-/* ROBERT ❤️ OS v6.1.1 - HARDENED ENGINE */
+/* ROBERT ❤️ OS v6.1.2 - ENGINE */
 
 const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
@@ -35,18 +35,46 @@ async function switchTab(tabId) {
     if (tabId === 'audit') await refreshAudit();
 }
 
-// FIX: Laikmatis skaičiuojamas nuo realaus laiko skirtumo (No drift)
-function startTimer() {
-    if (state.timerInterval) clearInterval(state.timerInterval);
-    state.timerInterval = setInterval(() => {
-        const diffInMs = new Date() - state.shiftStartTime;
-        const diff = Math.floor(diffInMs / 1000);
-        if (diff < 0) return;
-        const h = String(Math.floor(diff/3600)).padStart(2,'0');
-        const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
-        const s = String(diff%60).padStart(2,'0');
-        $('shift-timer').innerText = `${h}:${m}:${s}`;
-    }, 1000);
+async function refreshCockpit() {
+    const { data } = await db.from('emergency_buffer_view').select('buffer_pct').maybeSingle();
+    if (data && $('buffer-bar')) $('buffer-bar').style.width = `${data.buffer_pct}%`;
+}
+
+async function refreshRunway() {
+    const { data: rw } = await db.from('runway_view').select('*').maybeSingle();
+    const { data: buf } = await db.from('emergency_buffer_view').select('buffer_pct').maybeSingle();
+    if (rw) {
+        $('runway-val').innerText = rw.runway_months || '0.0';
+        $('stat-liquid').innerText = `$${Math.round(rw.liquid_cash).toLocaleString()}`;
+        $('stat-burn').innerText = `$${Math.round(rw.monthly_burn).toLocaleString()}`;
+        $('stat-safety').innerText = `${buf?.buffer_pct || 0}%`;
+    }
+}
+
+async function refreshProjection() {
+    const { data: nw } = await db.from('total_net_worth_view').select('total_net_worth').maybeSingle();
+    const container = $('eta-container');
+    if (nw) container.innerHTML = `<div class="glass-card text-center py-10"><p class="label-tiny">Net Worth</p><p class="display-value">$${parseFloat(nw.total_net_worth).toLocaleString()}</p></div>`;
+}
+
+async function refreshVault() {
+    const { data } = await db.from('investment_portfolio_view').select('*');
+    const container = $('asset-list');
+    if (data) container.innerHTML = data.map(a => `
+        <div class="glass-card flex justify-between items-center">
+            <div><p class="label-tiny">${a.symbol}</p><p class="font-bold">${parseFloat(a.quantity).toLocaleString()}</p></div>
+            <b class="text-teal-500">$${parseFloat(a.market_value).toLocaleString()}</b>
+        </div>`).join('');
+}
+
+async function refreshAudit() {
+    const { data } = await db.from('finance_transactions').select('*').order('date',{ascending:false}).limit(15);
+    const container = $('audit-list');
+    if (data) container.innerHTML = data.map(t => `
+        <div class="glass-card p-4 flex justify-between items-center">
+            <div class="text-left"><p class="label-tiny">${new Date(t.date).toLocaleDateString()}</p><p class="font-bold text-[10px] opacity-40 uppercase">${t.source}</p></div>
+            <p class="font-black ${t.direction === 'in' ? 'text-teal-500' : 'text-red-400'} text-lg">${t.direction === 'in' ? '+' : '-'}$${t.amount.toLocaleString()}</p>
+        </div>`).join('');
 }
 
 async function checkActiveShift() {
@@ -88,7 +116,6 @@ async function confirmShiftAction() {
     const odo = parseInt($('odo-input').value);
     const vId = $('vehicle-select').value;
     if (isNaN(odo)) return alert("Įveskite ridą");
-
     if (!state.activeShiftId) {
         await db.from('finance_shifts').insert([{start_odometer: odo, vehicle_id: vId, status: 'active', user_id: state.user.id}]);
     } else {
@@ -97,59 +124,37 @@ async function confirmShiftAction() {
     closeModals(); await checkActiveShift();
 }
 
+function openTx(m) { state.txMode = m; const modal = document.createElement('div'); $('tx-modal').classList.remove('hidden'); }
 async function saveTx() {
     const amount = parseFloat($('tx-amount').value); if (!amount) return;
     try {
-        let { data: asset } = await db.from('finance_assets')
-            .select('id').eq('user_id', state.user.id).eq('is_liquid', true)
-            .order('cached_balance', { ascending: false }).limit(1).single();
-
-        if (!asset) throw new Error("Nėra liquid sąskaitos");
-
+        let { data: asset } = await db.from('finance_assets').select('id').eq('user_id', state.user.id).eq('is_liquid', true).order('cached_balance',{ascending:false}).limit(1).single();
         await db.from('finance_transactions').insert([{amount, direction: state.txMode, asset_id: asset.id, source:'shift', shift_id: state.activeShiftId, user_id: state.user.id}]);
         await db.rpc('increment_asset_balance', { asset_uuid: asset.id, delta: (state.txMode=='in'?amount:-amount) });
         closeModals(); await refreshCockpit();
-    } catch(e) { alert(e.message); }
+    } catch(e) { console.error(e); }
 }
 
-async function refreshCockpit() {
-    const { data } = await db.from('emergency_buffer_view').select('buffer_pct').maybeSingle();
-    if (data && $('buffer-bar')) $('buffer-bar').style.width = `${data.buffer_pct}%`;
+function startTimer() {
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    state.timerInterval = setInterval(() => {
+        const diffInMs = new Date() - state.shiftStartTime;
+        const diff = Math.floor(diffInMs / 1000);
+        const h = String(Math.floor(diff/3600)).padStart(2,'0'), m = String(Math.floor((diff%3600)/60)).padStart(2,'0'), s = String(diff%60).padStart(2,'0');
+        $('shift-timer').innerText = `${h}:${m}:${s}`;
+    }, 1000);
 }
 
-async function refreshRunway() {
-    const { data: rw } = await db.from('runway_view').select('*').maybeSingle();
-    const { data: buf } = await db.from('emergency_buffer_view').select('buffer_pct').maybeSingle();
-    if (rw) {
-        $('runway-val').innerText = rw.runway_months || '0.0';
-        $('stat-liquid').innerText = `$${Math.round(rw.liquid_cash).toLocaleString()}`;
-        $('stat-burn').innerText = `$${Math.round(rw.monthly_burn).toLocaleString()}`;
-        $('stat-safety').innerText = `${buf?.buffer_pct || 0}%`;
-    }
-}
-
-async function refreshProjection() {
-    const { data: nw } = await db.from('total_net_worth_view').select('total_net_worth').maybeSingle();
-    if (nw) $('eta-container').innerHTML = `<div class="glass-card text-center py-10"><p class="label-tiny">Net Worth</p><p class="text-5xl font-black text-teal-500">$${parseFloat(nw.total_net_worth).toLocaleString()}</p></div>`;
-}
-
-async function refreshVault() {
-    const { data } = await db.from('investment_portfolio_view').select('*');
-    if (data) $('asset-list').innerHTML = data.map(a => `<div class="glass-card flex justify-between items-center"><div class="text-left"><p class="label-tiny">${a.symbol}</p><p class="font-bold">${parseFloat(a.quantity).toLocaleString()}</p></div><b class="text-teal-500">$${parseFloat(a.market_value).toLocaleString()}</b></div>`).join('');
-}
-
-async function refreshAudit() {
-    const { data } = await db.from('finance_transactions').select('*').order('date',{ascending:false}).limit(10);
-    if (data) $('audit-list').innerHTML = data.map(t => `<div class="glass-card flex justify-between"><span>${new Date(t.date).toLocaleDateString()}</span><b class="${t.direction=='in'?'text-teal-500':'text-red-400'}">$${t.amount}</b></div>`).join('');
-}
-
-async function login() {
-    const email = $('auth-email').value, pass = $('auth-pass').value;
-    const { error } = await db.auth.signInWithPassword({ email, password: pass });
-    if (error) alert(error.message); else location.reload();
-}
-function logout() { db.auth.signOut(); localStorage.clear(); location.reload(); }
-function initTheme() { document.documentElement.classList.toggle('dark', localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)); }
 function toggleSettings() { $('settings-modal').classList.toggle('hidden'); }
 function closeModals() { ['odo-modal','tx-modal','settings-modal'].forEach(id => $(id).classList.add('hidden')); }
+function setTheme(m) { localStorage.theme = m; initTheme(); closeModals(); }
+function initTheme() { 
+    const isDark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', isDark); 
+}
+async function login() {
+    const { error } = await db.auth.signInWithPassword({ email: $('auth-email').value, password: $('auth-pass').value });
+    if (error) alert(error.message); else location.reload();
+}
+async function logout() { await db.auth.signOut(); location.reload(); }
 window.addEventListener('DOMContentLoaded', init);

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Robert OS</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gray: { 900: '#111827', 800: '#1f2937', 700: '#374151' },
+                        green: { 500: '#10b981', 600: '#059669' }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body { overscroll-behavior: none; background-color: #000; color: white; }
+        .btn-touch { touch-action: manipulation; }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-mono">
+
+    <div id="login-screen" class="hidden flex-col justify-center items-center h-full p-6 space-y-6">
+        <h1 class="text-3xl font-bold tracking-widest text-green-500">ROBERT OS</h1>
+        <div class="text-xs text-gray-500 uppercase">System v1.4</div>
+        
+        <input type="email" id="email" placeholder="Email" class="w-full bg-gray-900 border border-gray-700 p-4 rounded text-center text-white outline-none focus:border-green-500">
+        <input type="password" id="password" placeholder="Password" class="w-full bg-gray-900 border border-gray-700 p-4 rounded text-center text-white outline-none focus:border-green-500">
+        
+        <button onclick="login()" class="w-full bg-green-600 text-black font-bold py-4 rounded text-xl uppercase btn-touch">
+            Initialize
+        </button>
+        <div id="login-status" class="text-red-500 text-sm h-6"></div>
+    </div>
+
+    <div id="cockpit-screen" class="hidden flex-col h-full">
+        <div class="bg-gray-900 p-4 border-b border-gray-800 flex justify-between items-center">
+            <div>
+                <div class="text-[10px] text-gray-400">SYSTEM</div>
+                <div class="text-green-500 font-bold text-sm">ONLINE</div>
+            </div>
+            <div class="text-right">
+                <div class="text-[10px] text-gray-400">DATABASE</div>
+                <div id="db-indicator" class="text-yellow-500 font-bold text-sm">Connecting...</div>
+            </div>
+        </div>
+
+        <div class="flex-1 p-6 flex flex-col justify-center space-y-4">
+            <div class="text-center text-gray-500 mb-4">Awaiting Shift Command</div>
+            
+            <button class="w-full bg-gray-800 border border-gray-600 h-24 rounded-xl flex items-center justify-center space-x-4 btn-touch active:bg-gray-700">
+                <span class="text-4xl">🟢</span>
+                <span class="text-2xl font-bold">START SHIFT</span>
+            </button>
+            
+             <button onclick="logout()" class="mt-8 text-gray-600 text-xs underline">TERMINATE SESSION</button>
+        </div>
+    </div>
+
+    <script>
+        // --- ⚠️ ČIA ĮKLIJUOK SAVO RAKTUS ⚠️ ---
+        const SUPABASE_URL = 'PAKEISK_MANE_URL';
+        const SUPABASE_KEY = 'PAKEISK_MANE_RAKTAS';
+        // ---------------------------------------
+
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // UI Elementai
+        const loginScreen = document.getElementById('login-screen');
+        const cockpitScreen = document.getElementById('cockpit-screen');
+        const dbIndicator = document.getElementById('db-indicator');
+
+        // Sesijos patikra
+        async function checkSession() {
+            const { data: { session } } = await db.auth.getSession();
+            if (session) {
+                showCockpit();
+            } else {
+                showLogin();
+            }
+        }
+
+        // Login
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const status = document.getElementById('login-status');
+            
+            status.innerText = "Authenticating...";
+            
+            const { data, error } = await db.auth.signInWithPassword({ email, password });
+            
+            if (error) {
+                status.innerText = "Access Denied: " + error.message;
+            } else {
+                showCockpit();
+            }
+        }
+
+        // Logout
+        async function logout() {
+            await db.auth.signOut();
+            showLogin();
+        }
+
+        // Ekranų valdymas
+        function showLogin() {
+            loginScreen.classList.remove('hidden');
+            loginScreen.classList.add('flex');
+            cockpitScreen.classList.add('hidden');
+        }
+
+        async function showCockpit() {
+            loginScreen.classList.add('hidden');
+            loginScreen.classList.remove('flex');
+            cockpitScreen.classList.remove('hidden');
+            cockpitScreen.classList.add('flex');
+            
+            // Tikriname ryšį su DB
+            testConnection();
+        }
+
+        // DB Testas (Pabandom gauti kategorijas)
+        async function testConnection() {
+            const { data, error } = await db.from('finance_categories').select('name').limit(1);
+            if (!error) {
+                dbIndicator.innerText = "CONNECTED";
+                dbIndicator.className = "text-green-500 font-bold text-sm";
+            } else {
+                dbIndicator.innerText = "ERROR";
+                dbIndicator.className = "text-red-500 font-bold text-sm";
+                alert("DB Error: " + error.message);
+            }
+        }
+
+        // Start
+        checkSession();
+    </script>
+</body>
+</html>

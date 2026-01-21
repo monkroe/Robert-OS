@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ROBERT OS v8.2.1</title>
+    <title>ROBERT OS v8.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="antialiased">
+
+    <div id="toast-container" class="fixed top-4 left-4 right-4 z-[2000] flex flex-col gap-2 pointer-events-none"></div>
 
     <div id="auth-screen" class="fixed inset-0 z-[500] bg-black flex items-center justify-center p-6 hidden">
         <div class="w-full max-w-sm text-center space-y-8 animate-slideUp">
@@ -29,7 +31,7 @@
         <header class="global-header">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
-                <span class="font-bold uppercase tracking-widest text-xs">OS v8.2</span>
+                <span class="font-bold uppercase tracking-widest text-xs">OS v8.3</span>
             </div>
             <div class="flex gap-2">
                 <button onclick="toggleTheme()" class="header-btn" id="theme-icon"><i class="fa-solid fa-moon"></i></button>
@@ -46,7 +48,6 @@
                 </div>
 
                 <div class="bento-grid">
-                    
                     <div class="bento-card col-span-2 text-center py-8">
                         <span class="label-xs">Active Session</span>
                         <h2 id="shift-timer" class="val-timer my-4 text-white">00:00:00</h2>
@@ -80,7 +81,6 @@
                             <i class="fa-solid fa-arrow-up text-red-500"></i> OUT
                         </button>
                     </div>
-
                 </div>
             </section>
 

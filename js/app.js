@@ -1,4 +1,4 @@
-/* ROBERT OS v4.7.2 - STRATEGIC WEALTH OS */
+/* ROBERT ❤️ OS v4.8.0 - WEALTH CONTROL */
 
 const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
@@ -21,7 +21,6 @@ async function init() {
         await checkActiveShift();
     } else {
         getEl('auth-screen').classList.remove('hidden');
-        getEl('app-content').classList.add('hidden');
     }
 }
 
@@ -30,35 +29,62 @@ function updateFooter() {
     if (yearEl) yearEl.innerText = new Date().getFullYear();
 }
 
-// --- WINDOWS MANAGEMENT ---
-function setWindow(days) {
-    selectedWindow = days;
-    document.querySelectorAll('.window-btn').forEach(b => {
-        b.classList.remove('bg-primary-500', 'text-black', 'border-primary-500');
-        b.classList.add('bg-gray-100', 'dark:bg-gray-800', 'text-gray-500');
-    });
-    const activeBtn = getEl(`win-${days}`);
-    activeBtn.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'text-gray-500');
-    activeBtn.classList.add('bg-primary-500', 'text-black', 'border-primary-500');
-    loadAllData();
+// --- ASSET MANAGEMENT (Manual Overrides) ---
+function toggleAssetManageModal() {
+    const modal = getEl('asset-manage-modal');
+    modal.classList.toggle('hidden');
+    if (!modal.classList.contains('hidden')) {
+        prepareAssetManageFields();
+    }
 }
 
+async function prepareAssetManageFields() {
+    // Užpildome laukus esamomis reikšmėmis iš DB
+    const { data: fiat } = await db.from('finance_assets').select('cached_balance').eq('name', 'Liquid Cash').single();
+    const { data: kas } = await db.from('investment_assets').select('quantity, current_price').eq('symbol', 'KAS').single();
+
+    if (fiat) getEl('edit-fiat-balance').value = fiat.cached_balance;
+    if (kas) {
+        getEl('edit-kas-qty').value = kas.quantity;
+        getEl('edit-kas-price').value = kas.current_price;
+    }
+}
+
+async function saveAssetAdjustments() {
+    const newFiat = parseFloat(getEl('edit-fiat-balance').value) || 0;
+    const newKasQty = parseFloat(getEl('edit-kas-qty').value) || 0;
+    const newKasPrice = parseFloat(getEl('edit-kas-price').value) || 0;
+
+    try {
+        // Atnaujiname Fiat (Liquid Cash)
+        await db.from('finance_assets').update({ cached_balance: newFiat }).eq('name', 'Liquid Cash');
+        
+        // Atnaujiname Crypto (KAS)
+        await db.from('investment_assets').update({ 
+            quantity: newKasQty, 
+            current_price: newKasPrice 
+        }).eq('symbol', 'KAS');
+
+        alert("Duomenys sėkmingai atnaujinti!");
+        location.reload();
+    } catch (e) {
+        alert("Klaida atnaujinant: " + e.message);
+    }
+}
+
+// --- DATA LOADING ---
 async function loadAllData() {
     const { data: proj } = await db.from('goal_projection_view').select('*').maybeSingle();
-    
     if (proj) {
         getEl('net-worth-display').innerText = `$${parseFloat(proj.current_nw).toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
         const etaMonths = proj[`eta_${selectedWindow}d`];
-        
         if (etaMonths && etaMonths > 0) {
-            const years = (etaMonths / 12).toFixed(1);
-            getEl('eta-display').innerText = `ETA: ${years} m. (pagal ${selectedWindow}D tempą)`;
+            getEl('eta-display').innerText = `ETA: ${(etaMonths / 12).toFixed(1)} m. (pagal ${selectedWindow}D tempą)`;
             getEl('eta-display').classList.remove('bg-orange-500/10', 'text-orange-500');
         } else {
             getEl('eta-display').innerText = `STALL MODE: Neigiamas srautas`;
             getEl('eta-display').classList.add('bg-orange-500/10', 'text-orange-500');
         }
-
         if (proj.delta_impact > 0) {
             getEl('delta-impact-display').innerText = `1h kelyje = -${proj.delta_impact.toFixed(1)} d. laisvės`;
             getEl('delta-impact-display').classList.remove('hidden');
@@ -68,9 +94,9 @@ async function loadAllData() {
     const { data: port } = await db.from('investment_portfolio_view').select('*');
     if (port) {
         getEl('portfolio-list').innerHTML = port.map(i => `
-            <div class="glass-card p-4 rounded-3xl flex justify-between items-center border border-primary-500/10 mb-2">
-                <div><p class="label-tiny">${i.symbol}</p><p class="font-black text-sm">${i.quantity.toLocaleString()}</p></div>
-                <div class="text-right"><p class="font-bold text-primary-500">$${(i.market_value).toLocaleString()}</p></div>
+            <div class="glass-card p-5 rounded-[2rem] flex justify-between items-center border border-primary-500/5 mb-3">
+                <div class="flex flex-col"><span class="label-tiny">${i.symbol} Portfolio</span><span class="font-black text-lg">${i.quantity.toLocaleString()}</span></div>
+                <div class="text-right"><span class="block font-black text-primary-500 text-xl">$${(i.market_value).toLocaleString()}</span><span class="label-tiny">Market Value</span></div>
             </div>
         `).join('');
     }
@@ -93,14 +119,12 @@ async function checkActiveShift() {
 }
 
 function startTimerLogic() {
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
+    setInterval(() => {
         const diff = Math.floor((new Date() - shiftStartTime) / 1000);
         const h = String(Math.floor(diff/3600)).padStart(2,'0');
         const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
         const s = String(diff%60).padStart(2,'0');
-        const el = getEl('shift-timer');
-        if (el) el.innerText = `${h}:${m}:${s}`;
+        if (getEl('shift-timer')) getEl('shift-timer').innerText = `${h}:${m}:${s}`;
     }, 1000);
 }
 
@@ -119,62 +143,35 @@ async function saveIncome() {
     location.reload();
 }
 
-async function completeShift() {
-    const endOdo = getEl('end-odometer').value;
-    if (!endOdo) return alert("Įveskite pabaigos ridą!");
-    await db.from('finance_shifts').update({ end_odometer: parseFloat(endOdo), status: 'completed', end_time: new Date().toISOString() }).eq('id', activeShiftId);
-    location.reload();
+// --- COMMON UTILS ---
+function setWindow(days) {
+    selectedWindow = days;
+    document.querySelectorAll('.window-btn').forEach(b => {
+        b.classList.remove('bg-primary-500', 'text-black', 'border-primary-500');
+        b.classList.add('bg-gray-100', 'dark:bg-gray-800', 'text-gray-500');
+    });
+    const activeBtn = getEl(`win-${days}`);
+    activeBtn.classList.add('bg-primary-500', 'text-black', 'border-primary-500');
+    loadAllData();
 }
 
 async function login() {
-    const { error } = await db.auth.signInWithPassword({ 
-        email: getEl('auth-email').value, 
-        password: getEl('auth-pass').value 
-    });
+    const { error } = await db.auth.signInWithPassword({ email: getEl('auth-email').value, password: getEl('auth-pass').value });
     if (error) alert(error.message); else location.reload();
 }
 
-async function logout() { 
-    await db.auth.signOut(); 
-    localStorage.clear(); 
-    location.reload(); 
-}
+async function logout() { await db.auth.signOut(); localStorage.clear(); location.reload(); }
 
 function setTheme(m, save = true) {
     const html = document.documentElement;
-    if (m === 'system') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        html.classList.toggle('dark', isDark);
-        if (save) localStorage.removeItem('theme');
-    } else {
-        html.classList.toggle('dark', m === 'dark');
-        if (save) localStorage.theme = m;
-    }
-    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('border-primary-500', 'bg-primary-500/10'));
-    const activeBtn = getEl(`theme-${m}`);
-    if (activeBtn) activeBtn.classList.add('border-primary-500', 'bg-primary-500/10');
+    if (m === 'system') html.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
+    else html.classList.toggle('dark', m === 'dark');
+    if (save) localStorage.theme = m;
 }
 
-function initTheme() { 
-    setTheme(localStorage.theme || 'system', false); 
-}
-
-function toggleSettingsModal() { 
-    getEl('settings-modal').classList.toggle('hidden'); 
-}
-
-function toggleIncomeModal() { 
-    getEl('income-modal').classList.toggle('hidden'); 
-}
-
-function showEndShiftForm() { 
-    getEl('active-shift-view').classList.add('hidden'); 
-    getEl('end-shift-form').classList.remove('hidden'); 
-}
-
-function cancelEndShift() { 
-    getEl('end-shift-form').classList.add('hidden'); 
-    getEl('active-shift-view').classList.remove('hidden'); 
-}
+function initTheme() { setTheme(localStorage.theme || 'system', false); }
+function toggleSettingsModal() { getEl('settings-modal').classList.toggle('hidden'); }
+function toggleIncomeModal() { getEl('income-modal').classList.toggle('hidden'); }
+function showEndShiftForm() { getEl('active-shift-view').classList.add('hidden'); getEl('end-shift-form').classList.remove('hidden'); }
 
 window.addEventListener('DOMContentLoaded', init);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Robert OS v4.7.0</title>
+    <title>Robert OS v4.7.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -23,12 +23,21 @@
     </div>
 
     <div id="app-content" class="hidden pb-10">
-        <header class="p-6 flex justify-between items-center h-20">
-            <span class="font-black text-xl tracking-tighter uppercase">Robert OS</span>
-            <button onclick="logout()" class="text-[10px] font-black uppercase text-red-500 tracking-widest">Logout</button>
+        <header class="fixed top-0 w-full bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl z-40 border-b border-gray-100 dark:border-gray-800">
+            <div class="max-w-md mx-auto px-6 h-20 flex justify-between items-center">
+                <span class="font-black text-xl tracking-tighter uppercase">Robert OS</span>
+                <div class="flex gap-2">
+                    <button onclick="toggleSettingsModal()" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button onclick="logout()" class="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-power-off"></i>
+                    </button>
+                </div>
+            </div>
         </header>
 
-        <main class="max-w-md mx-auto px-6 space-y-8">
+        <main class="max-w-md mx-auto px-6 pt-28 space-y-8">
             <div class="flex justify-center gap-2">
                 <button id="win-30" onclick="setWindow(30)" class="window-btn px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary-500 text-black border border-primary-500">30D</button>
                 <button id="win-90" onclick="setWindow(90)" class="window-btn px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-500">90D</button>
@@ -71,7 +80,7 @@
                     <input type="number" id="end-odometer" placeholder="End Miles" class="input-field text-2xl font-black text-center border-2 border-primary-500">
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="cancelEndShift()" class="bg-gray-100 dark:bg-gray-800 p-4 rounded-xl font-bold">Atgal</button>
-                        <button onclick="completeShift()" class="bg-black text-white p-4 rounded-xl font-bold">Išsaugoti</button>
+                        <button onclick="completeShift()" class="bg-black text-white p-4 rounded-xl font-bold uppercase">Išsaugoti</button>
                     </div>
                 </div>
             </section>
@@ -79,17 +88,38 @@
             <footer class="mt-10 py-8 text-center space-y-1 opacity-70">
                 <p class="text-[11px] text-gray-500">Sukurta su <i class="fa-solid fa-heart text-red-500 mx-0.5 animate-pulse"></i> ir DI Beno pagalba</p>
                 <p class="text-[10px] text-gray-600">&copy; <span id="auto-year"></span> LTV Media PRO. Visos teisės saugomos.</p>
-                <p class="text-[9px] font-mono text-gray-700 pt-1">Versija <span id="app-version">v4.7.0</span></p>
+                <p class="text-[9px] font-mono text-gray-700 pt-1 text-center">Versija <span id="app-version">v4.7.1</span></p>
             </footer>
         </main>
     </div>
 
     <div id="income-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
         <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-[2.5rem] p-8 space-y-6 animate-slide-up shadow-2xl">
-            <h3 class="font-black text-xl text-center uppercase">Income</h3>
+            <h3 class="font-black text-xl text-center uppercase tracking-tighter">Pajamos</h3>
             <input type="number" id="income-amount" placeholder="0.00" class="input-field text-4xl font-black text-center py-6">
-            <button onclick="saveIncome()" class="w-full bg-primary-500 text-black font-black py-5 rounded-2xl uppercase">Confirm</button>
+            <button onclick="saveIncome()" class="w-full bg-primary-500 text-black font-black py-5 rounded-2xl uppercase tracking-widest text-lg">Confirm</button>
             <button onclick="toggleIncomeModal()" class="w-full text-gray-400 text-[10px] font-black uppercase text-center">Cancel</button>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-xl">Nustatymai</h3>
+                <button onclick="toggleSettingsModal()"><i class="fa-solid fa-xmark text-xl text-gray-400"></i></button>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="setTheme('light')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-light">
+                    <i class="fa-solid fa-sun mb-1"></i><span class="text-[10px] font-bold">Šviesi</span>
+                </button>
+                <button onclick="setTheme('dark')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-dark">
+                    <i class="fa-solid fa-moon mb-1"></i><span class="text-[10px] font-bold">Tamsi</span>
+                </button>
+                <button onclick="setTheme('system')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-system">
+                    <i class="fa-solid fa-desktop mb-1"></i><span class="text-[10px] font-bold">Auto</span>
+                </button>
+            </div>
+            <button onclick="toggleSettingsModal()" class="w-full p-4 bg-gray-100 dark:bg-gray-800 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Uždaryti</button>
         </div>
     </div>
 

@@ -1,148 +1,167 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="lt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Robert OS</title>
-    
+    <title>Robert OS v2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        gray: { 900: '#111827', 800: '#1f2937', 700: '#374151' },
-                        green: { 500: '#10b981', 600: '#059669' }
-                    }
-                }
-            }
-        }
-    </script>
-    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <style>
-        body { overscroll-behavior: none; background-color: #000; color: white; }
-        .btn-touch { touch-action: manipulation; }
+        body { background-color: #000; color: #e5e7eb; font-family: ui-monospace, monospace; overscroll-behavior: none; }
+        .glass-card { background: rgba(31, 41, 55, 0.5); border: 1px solid rgba(75, 85, 99, 0.3); backdrop-filter: blur(10px); }
+        .active-glow { box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); border-color: #10b981; }
     </style>
 </head>
-<body class="h-screen flex flex-col font-mono">
+<body class="min-h-screen flex flex-col p-4">
 
-    <div id="login-screen" class="hidden flex-col justify-center items-center h-full p-6 space-y-6">
-        <h1 class="text-3xl font-bold tracking-widest text-green-500">ROBERT OS</h1>
-        <div class="text-xs text-gray-500 uppercase">System v1.4</div>
-        
-        <input type="email" id="email" placeholder="Email" class="w-full bg-gray-900 border border-gray-700 p-4 rounded text-center text-white outline-none focus:border-green-500">
-        <input type="password" id="password" placeholder="Password" class="w-full bg-gray-900 border border-gray-700 p-4 rounded text-center text-white outline-none focus:border-green-500">
-        
-        <button onclick="login()" class="w-full bg-green-600 text-black font-bold py-4 rounded text-xl uppercase btn-touch">
-            Initialize
-        </button>
-        <div id="login-status" class="text-red-500 text-sm h-6"></div>
+    <div id="login-screen" class="hidden flex-1 flex flex-col justify-center space-y-6">
+        <h1 class="text-4xl font-black text-center text-green-500 tracking-tighter">ROBERT OS</h1>
+        <div class="space-y-4">
+            <input type="email" id="email" placeholder="El. paštas" class="w-full bg-gray-900 border border-gray-700 p-4 rounded-xl outline-none focus:border-green-500 text-white">
+            <input type="password" id="password" placeholder="Slaptažodis" class="w-full bg-gray-900 border border-gray-700 p-4 rounded-xl outline-none focus:border-green-500 text-white">
+            <button onclick="login()" class="w-full bg-green-600 text-black font-bold py-4 rounded-xl text-xl uppercase active:scale-95 transition-transform">Initialize System</button>
+        </div>
     </div>
 
-    <div id="cockpit-screen" class="hidden flex-col h-full">
-        <div class="bg-gray-900 p-4 border-b border-gray-800 flex justify-between items-center">
+    <div id="dashboard" class="hidden flex-1 flex flex-col">
+        <div class="flex justify-between items-center mb-6">
             <div>
-                <div class="text-[10px] text-gray-400">SYSTEM</div>
-                <div class="text-green-500 font-bold text-sm">ONLINE</div>
+                <h2 class="text-xs text-gray-500 uppercase tracking-widest font-bold">Operatorius</h2>
+                <div id="user-display" class="text-sm font-bold text-green-400">Kraunama...</div>
             </div>
-            <div class="text-right">
-                <div class="text-[10px] text-gray-400">DATABASE</div>
-                <div id="db-indicator" class="text-yellow-500 font-bold text-sm">Connecting...</div>
+            <button onclick="logout()" class="text-[10px] border border-gray-700 px-2 py-1 rounded text-gray-500">LOGOUT</button>
+        </div>
+
+        <div id="shift-card" class="glass-card rounded-2xl p-6 mb-6 transition-all duration-500">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-lg font-bold italic">Dabartinė Pamaina</h3>
+                <span id="shift-status-tag" class="text-[10px] bg-gray-800 px-2 py-1 rounded border border-gray-600 text-gray-400 uppercase tracking-widest">Inactive</span>
+            </div>
+
+            <div id="pre-shift-form" class="space-y-4">
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase">Transportas</label>
+                    <select id="vehicle-select" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-sm text-white"></select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase">Pradinis Odometras (Miles)</label>
+                    <input type="number" id="start-odometer" placeholder="Įveskite rodmenis" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-lg font-bold text-white">
+                </div>
+                <button onclick="startShift()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl active:bg-blue-700 shadow-lg shadow-blue-900/20">START SHIFT</button>
+            </div>
+
+            <div id="active-shift-view" class="hidden space-y-4 text-center">
+                <div class="text-xs text-gray-500 uppercase">Pamainos Trukmė</div>
+                <div class="text-5xl font-mono text-green-400 my-2" id="shift-timer">00:00:00</div>
+                <div class="text-sm text-gray-300 font-bold" id="active-vehicle-info">KIA Forte (4FCV63)</div>
+                <div class="h-[1px] bg-gray-800 my-4"></div>
+                <button onclick="alert('Pajamų vedimas bus v3.0 versijoje!')" class="w-full bg-green-900/30 border border-green-500/50 text-green-400 py-3 rounded-lg font-bold text-sm mb-2">+ PRIDĖTI PAJAMAS</button>
+                <button onclick="location.reload()" class="w-full bg-red-900/50 border border-red-500 text-red-200 py-4 rounded-xl font-bold uppercase text-xs">Užbaigti Pamainą</button>
             </div>
         </div>
 
-        <div class="flex-1 p-6 flex flex-col justify-center space-y-4">
-            <div class="text-center text-gray-500 mb-4">Awaiting Shift Command</div>
-            
-            <button class="w-full bg-gray-800 border border-gray-600 h-24 rounded-xl flex items-center justify-center space-x-4 btn-touch active:bg-gray-700">
-                <span class="text-4xl">🟢</span>
-                <span class="text-2xl font-bold">START SHIFT</span>
-            </button>
-            
-             <button onclick="logout()" class="mt-8 text-gray-600 text-xs underline">TERMINATE SESSION</button>
+        <div class="flex-1">
+            <h3 class="text-xs text-gray-500 uppercase mb-3 tracking-widest">Sąskaitų likučiai</h3>
+            <div id="assets-list" class="space-y-2">
+                </div>
         </div>
     </div>
 
     <script>
-        // --- ⚠️ ČIA ĮKLIJUOK SAVO RAKTUS ⚠️ ---
+        // --- ĮKLIJUOK SAVO DUOMENIS ČIA ---
         const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
-        // ---------------------------------------
+        // ---------------------------------
 
-        const { createClient } = supabase;
-        const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // UI Elementai
-        const loginScreen = document.getElementById('login-screen');
-        const cockpitScreen = document.getElementById('cockpit-screen');
-        const dbIndicator = document.getElementById('db-indicator');
-
-        // Sesijos patikra
         async function checkSession() {
             const { data: { session } } = await db.auth.getSession();
             if (session) {
-                showCockpit();
+                document.getElementById('user-display').innerText = session.user.email.split('@')[0].toUpperCase();
+                showDashboard();
             } else {
                 showLogin();
             }
         }
 
-        // Login
         async function login() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const status = document.getElementById('login-status');
-            
-            status.innerText = "Authenticating...";
-            
-            const { data, error } = await db.auth.signInWithPassword({ email, password });
-            
-            if (error) {
-                status.innerText = "Access Denied: " + error.message;
-            } else {
-                showCockpit();
-            }
+            const { error } = await db.auth.signInWithPassword({ email, password });
+            if (error) alert("Klaida: " + error.message);
+            else showDashboard();
         }
 
-        // Logout
         async function logout() {
             await db.auth.signOut();
-            showLogin();
+            location.reload();
         }
 
-        // Ekranų valdymas
         function showLogin() {
             loginScreen.classList.remove('hidden');
-            loginScreen.classList.add('flex');
-            cockpitScreen.classList.add('hidden');
+            dashboard.classList.add('hidden');
         }
 
-        async function showCockpit() {
+        async function showDashboard() {
             loginScreen.classList.add('hidden');
-            loginScreen.classList.remove('flex');
-            cockpitScreen.classList.remove('hidden');
-            cockpitScreen.classList.add('flex');
-            
-            // Tikriname ryšį su DB
-            testConnection();
+            dashboard.classList.remove('hidden');
+            loadVehicles();
+            loadAssets();
         }
 
-        // DB Testas (Pabandom gauti kategorijas)
-        async function testConnection() {
-            const { data, error } = await db.from('finance_categories').select('name').limit(1);
-            if (!error) {
-                dbIndicator.innerText = "CONNECTED";
-                dbIndicator.className = "text-green-500 font-bold text-sm";
-            } else {
-                dbIndicator.innerText = "ERROR";
-                dbIndicator.className = "text-red-500 font-bold text-sm";
-                alert("DB Error: " + error.message);
+        async function loadVehicles() {
+            const { data } = await db.from('finance_vehicles').select('*').eq('status', 'active');
+            const select = document.getElementById('vehicle-select');
+            if (data) select.innerHTML = data.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+        }
+
+        async function loadAssets() {
+            const { data } = await db.from('finance_assets').select('*');
+            const list = document.getElementById('assets-list');
+            if (data) {
+                list.innerHTML = data.map(a => `
+                    <div class="glass-card p-4 rounded-xl flex justify-between items-center border-l-4 border-l-green-500">
+                        <span class="text-sm font-medium text-gray-300">${a.name}</span>
+                        <span class="font-bold text-white text-lg">$${a.cached_balance.toFixed(2)}</span>
+                    </div>
+                `).join('');
             }
         }
 
-        // Start
+        async function startShift() {
+            const vehicleId = document.getElementById('vehicle-select').value;
+            const odo = document.getElementById('start-odometer').value;
+            
+            if (!odo) return alert("Įveskite odometro rodmenis!");
+
+            const { error } = await db.from('finance_shifts').insert([
+                { vehicle_id: vehicleId, start_odometer: parseFloat(odo), status: 'active' }
+            ]);
+
+            if (error) alert(error.message);
+            else {
+                document.getElementById('pre-shift-form').classList.add('hidden');
+                document.getElementById('active-shift-view').classList.remove('hidden');
+                document.getElementById('shift-status-tag').innerText = "Active";
+                document.getElementById('shift-status-tag').className = "text-[10px] bg-green-900 text-green-400 px-2 py-1 rounded border border-green-500 uppercase tracking-widest";
+                document.getElementById('shift-card').classList.add('active-glow');
+                startTimer();
+            }
+        }
+
+        let timerInterval;
+        function startTimer() {
+            let seconds = 0;
+            timerInterval = setInterval(() => {
+                seconds++;
+                const hrs = String(Math.floor(seconds / 3600)).padStart(2, '0');
+                const mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+                const secs = String(seconds % 60).padStart(2, '0');
+                document.getElementById('shift-timer').innerText = `${hrs}:${mins}:${secs}`;
+            }, 1000);
+        }
+
         checkSession();
     </script>
 </body>

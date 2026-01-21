@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
-   ROBERT ❤️ OS 8.2 - BENTO LOGIC
+   ROBERT ❤️ OS v8.2.1 - PRODUCTION LOGIC
    ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // PAKEISK
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // PAKEISK
-    VERSION: '8.2.0'
+    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // ĮRAŠYK SAVO URL (pvz. https://xyz.supabase.co)
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // ĮRAŠYK SAVO ANON KEY
+    VERSION: '8.2.1'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
@@ -18,7 +18,7 @@ const state = new Proxy({
     theme: localStorage.getItem('theme') || 'dark',
     activeTab: 'cockpit',
     buyType: 'crypto',
-    txDirection: 'in', // Nauja: seka operacijos tipą
+    txDirection: 'in',
     loading: false
 }, {
     set(target, key, value) {
@@ -86,7 +86,7 @@ async function refreshAll() {
     const { data: nw } = await db.from('total_net_worth_live').select('net_worth').maybeSingle();
     if(nw) state.netWorth = nw.net_worth;
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
-    state.activeShift = shift; // Triggers UI update
+    state.activeShift = shift;
     
     if(state.activeTab === 'vault') refreshVault();
     if(state.activeTab === 'audit') refreshAudit();
@@ -147,7 +147,7 @@ async function finishShift() {
     } catch(e) { alert(e.message); } finally { state.loading = false; }
 }
 
-// --- TRANSACTIONS (NAUJA: MODALAS VIETOJ PROMPT) ---
+// --- TRANSACTIONS (NAUJAS MODALAS) ---
 function openTransactionModal(dir) {
     state.txDirection = dir;
     document.getElementById('tx-title').textContent = dir === 'in' ? 'Pridėti Pajamas' : 'Pridėti Išlaidas';
@@ -210,18 +210,16 @@ function updateUI(key) {
     }
     if(key === 'netWorth' && $('net-worth-val')) $('net-worth-val').textContent = `$${Math.round(state.netWorth).toLocaleString()}`;
 
-    // SHIFT BUTTON (RAUDONAS/ŽALIAS)
+    // SHIFT BUTTON
     if(key === 'activeShift' && $('shift-btn')) {
         const btn = $('shift-btn');
         if(state.activeShift) {
-            // STOP MODE
             btn.innerHTML = '<i class="fa-solid fa-stop mr-2"></i> END SHIFT';
             btn.classList.remove('btn-action-start');
-            btn.classList.add('btn-action-stop'); // Čia CSS padarys jį raudoną
+            btn.classList.add('btn-action-stop');
             btn.onclick = openEndModal;
             startTimer();
         } else {
-            // START MODE
             btn.innerHTML = '<i class="fa-solid fa-play mr-2"></i> START SHIFT';
             btn.classList.remove('btn-action-stop');
             btn.classList.add('btn-action-start');
@@ -233,12 +231,19 @@ function updateUI(key) {
 
 // --- UTILS ---
 function closeModals() { document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden')); }
+
+// TAB SWITCHING (FIXED)
 function switchTab(id) {
     state.activeTab = id;
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${id}`));
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.id === `btn-${id}`));
+    document.querySelectorAll('.tab-content').forEach(el => {
+        el.classList.toggle('active', el.id === `tab-${id}`);
+    });
+    document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.toggle('active', el.id === `btn-${id}`);
+    });
     refreshAll();
 }
+
 function setupRealtime() { db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe(); }
 function showAuthScreen(show) { document.getElementById('auth-screen').classList.toggle('hidden', !show); document.getElementById('app-content').classList.toggle('hidden', show); }
 let timerInt;

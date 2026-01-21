@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#14b8a6">
-    <title>Robert OS v2.5</title>
-    
+    <title>Robert OS v2.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -14,141 +14,85 @@
                 extend: {
                     colors: {
                         gray: { 850: '#1f2937', 900: '#111827', 950: '#0b0f19' },
-                        primary: { 400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488' }
+                        primary: { 500: '#14b8a6', 600: '#0d9488' }
                     }
                 }
             }
         }
     </script>
-    
-    <script>
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    </script>
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-50 text-gray-800 dark:bg-gray-950 dark:text-gray-200 font-sans transition-colors duration-300">
+<body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-500 font-sans">
 
-    <div id="auth-screen" class="fixed inset-0 z-50 bg-white dark:bg-gray-950 flex flex-col items-center justify-center p-6 fade-in hidden">
-        <div class="w-full max-w-sm space-y-8">
-            <div class="text-center space-y-2">
-                <i class="fa-solid fa-shield-halved text-primary-500 text-5xl mb-2"></i>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-white tracking-tight text-primary-500">Robert OS</h1>
-                <p class="text-gray-500 text-xs uppercase tracking-widest font-bold">Terminal Access Required</p>
+    <nav class="fixed top-0 w-full z-50 bg-white/70 dark:bg-gray-950/70 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800/50">
+        <div class="max-w-md mx-auto px-6 h-20 flex justify-between items-center">
+            <div class="flex flex-col">
+                <span class="text-[10px] font-black text-primary-500 uppercase tracking-[0.2em] leading-none">Robert OS</span>
+                <span class="text-lg font-black tracking-tighter dark:text-white">COMMAND CENTER</span>
             </div>
-            
-            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-2xl shadow-xl space-y-4">
-                <input type="email" id="email" placeholder="El. paštas" class="input-field">
-                <input type="password" id="password" placeholder="Slaptažodis" class="input-field">
-                <button onclick="login()" class="btn-primary w-full py-4 text-lg">Initialize System</button>
+            <div class="flex gap-2">
+                <button onclick="toggleSettingsModal()" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-500"><i class="fa-solid fa-gear"></i></button>
+                <button onclick="logout()" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 text-red-500"><i class="fa-solid fa-power-off"></i></button>
             </div>
         </div>
-    </div>
+    </nav>
 
-    <div id="app-content" class="hidden">
-        <header class="fixed top-0 w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg z-40 border-b border-gray-200 dark:border-gray-800">
-            <div class="max-w-md mx-auto px-6 py-4 flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center text-black">
-                        <i class="fa-solid fa-bolt"></i>
+    <div id="app-content" class="max-w-md mx-auto px-6 pt-28 pb-32 space-y-8 fade-in">
+        
+        <section class="text-center space-y-1 py-4">
+            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Net Worth Assets</p>
+            <h1 id="total-balance-display" class="text-6xl font-black tracking-tight text-gray-900 dark:text-white">$0.00</h1>
+        </section>
+
+        <section class="space-y-4">
+            <div class="flex justify-between items-end px-1">
+                <h3 class="text-[11px] font-black text-gray-400 uppercase tracking-widest">Mission Control</h3>
+                <span id="shift-status-badge" class="text-[9px] font-black px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 uppercase tracking-tighter border border-gray-200 dark:border-gray-700">Ready</span>
+            </div>
+
+            <div id="shift-card" class="relative overflow-hidden bg-gray-50 dark:bg-gray-900/50 rounded-[2.5rem] border border-gray-100 dark:border-gray-800/50 p-8 transition-all duration-500">
+                
+                <div id="pre-shift-form" class="space-y-6">
+                    <div class="space-y-4">
+                        <div class="relative group">
+                            <label class="absolute -top-2 left-5 px-2 bg-gray-50 dark:bg-gray-900 text-[10px] font-black text-primary-500 uppercase tracking-widest z-10">Vehicle</label>
+                            <div class="relative">
+                                <select id="vehicle-select" class="w-full h-16 bg-transparent border-2 border-gray-200 dark:border-gray-800 rounded-2xl px-5 font-bold text-gray-900 dark:text-white appearance-none outline-none focus:border-primary-500 transition-colors">
+                                    <option value="">Kraunama...</option>
+                                </select>
+                                <i class="fa-solid fa-chevron-down absolute right-5 top-6 text-gray-400 pointer-events-none"></i>
+                            </div>
+                        </div>
+
+                        <div class="relative">
+                            <label class="absolute -top-2 left-5 px-2 bg-gray-50 dark:bg-gray-900 text-[10px] font-black text-gray-400 uppercase tracking-widest z-10">Start Odometer</label>
+                            <input type="number" id="start-odometer" placeholder="000,000" class="w-full h-16 bg-transparent border-2 border-gray-200 dark:border-gray-800 rounded-2xl px-5 font-black text-xl text-gray-900 dark:text-white outline-none focus:border-primary-500 transition-colors">
+                        </div>
                     </div>
-                    <span class="font-black tracking-tighter text-xl text-gray-900 dark:text-white">ROBERT OS</span>
-                </div>
-                <div class="flex items-center gap-3 text-gray-500">
-                    <button onclick="toggleSettingsModal()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:text-primary-500">
-                        <i class="fa-solid fa-sliders"></i>
-                    </button>
-                    <button onclick="logout()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:text-red-500">
-                        <i class="fa-solid fa-power-off"></i>
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <main class="max-w-md mx-auto px-6 pt-24 pb-12 space-y-6">
-            
-            <div class="text-center py-6">
-                <p class="text-[10px] text-gray-500 uppercase font-black tracking-[0.2em] mb-1">Bendras Kapitalas</p>
-                <h1 id="total-balance-display" class="text-5xl font-bold tracking-tight text-gray-900 dark:text-white">$0.00</h1>
-            </div>
-
-            <section id="shift-section" class="pop-in">
-                <h3 class="section-title">Pamainos valdymas</h3>
-                <div id="shift-card" class="glass-card rounded-3xl p-6 border border-gray-200 dark:border-gray-800 relative overflow-hidden">
                     
-                    <div id="pre-shift-form" class="space-y-4">
-                        <div class="grid grid-cols-1 gap-4">
-                            <div class="space-y-1">
-                                <label class="label-tiny">Aktyvus transportas</label>
-                                <select id="vehicle-select" class="input-field font-bold"></select>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="label-tiny">Pradinis Odometras (Miles)</label>
-                                <input type="number" id="start-odometer" placeholder="000000" class="input-field text-xl font-black">
-                            </div>
-                        </div>
-                        <button onclick="startShift()" class="btn-primary w-full py-4 shadow-lg shadow-primary-500/20 mt-2">
-                            <i class="fa-solid fa-play mr-2"></i> Pradėti pamainą
-                        </button>
-                    </div>
-
-                    <div id="active-shift-view" class="hidden space-y-6 text-center">
-                        <div class="flex justify-center">
-                            <div class="bg-primary-500/10 text-primary-500 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-primary-500/20">
-                                Pamaina aktyvi
-                            </div>
-                        </div>
-                        <div class="text-6xl font-black tracking-tighter text-gray-900 dark:text-white font-mono" id="shift-timer">00:00:00</div>
-                        <p id="active-vehicle-info" class="text-sm text-gray-500 font-bold uppercase tracking-widest">---</p>
-                        
-                        <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                            <button onclick="alert('Pajamų vedimas v3.0')" class="bg-gray-100 dark:bg-gray-800 py-3 rounded-xl font-bold text-sm">
-                                <i class="fa-solid fa-plus mr-1"></i> Pajamos
-                            </button>
-                            <button onclick="location.reload()" class="bg-red-500/10 text-red-500 border border-red-500/20 py-3 rounded-xl font-bold text-sm">
-                                <i class="fa-solid fa-stop mr-1"></i> Baigti
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="fade-in" style="animation-delay: 0.2s">
-                <h3 class="section-title">Sąskaitos</h3>
-                <div id="assets-list" class="space-y-3">
-                    </div>
-            </section>
-
-        </main>
-    </div>
-
-    <div id="settings-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-3xl p-6 space-y-6 animate-slide-up">
-            <div class="flex justify-between items-center">
-                <h3 class="font-bold text-xl">Nustatymai</h3>
-                <button onclick="toggleSettingsModal()" class="text-gray-400 text-2xl"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            
-            <div class="space-y-4">
-                <p class="label-tiny">Sistemos išvaizda</p>
-                <div class="grid grid-cols-3 gap-2">
-                    <button onclick="setTheme('light')" class="theme-btn" id="theme-light">
-                        <i class="fa-solid fa-sun mb-1"></i><span class="text-[10px]">Šviesi</span>
-                    </button>
-                    <button onclick="setTheme('dark')" class="theme-btn" id="theme-dark">
-                        <i class="fa-solid fa-moon mb-1"></i><span class="text-[10px]">Tamsi</span>
-                    </button>
-                    <button onclick="setTheme('system')" class="theme-btn" id="theme-system">
-                        <i class="fa-solid fa-desktop mb-1"></i><span class="text-[10px]">Auto</span>
+                    <button onclick="startShift()" class="w-full h-16 bg-primary-500 hover:bg-primary-600 text-black font-black rounded-2xl shadow-xl shadow-primary-500/20 active:scale-95 transition-all text-sm uppercase tracking-widest">
+                        Engage Shift <i class="fa-solid fa-arrow-right ml-2"></i>
                     </button>
                 </div>
+
+                <div id="active-shift-view" class="hidden space-y-6">
+                    <div class="text-center">
+                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-2">Duration</div>
+                        <div id="shift-timer" class="text-6xl font-black text-primary-500 tracking-tighter font-mono">00:00:00</div>
+                        <div id="active-vehicle-info" class="mt-2 text-sm font-bold text-gray-500 italic">...</div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button class="h-14 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 font-bold text-sm shadow-sm">+ Income</button>
+                        <button onclick="location.reload()" class="h-14 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-bold text-sm">Stop</button>
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
+
+        <section class="space-y-4">
+            <h3 class="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Liquidity & Assets</h3>
+            <div id="assets-list" class="space-y-3">
+                </div>
+        </section>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

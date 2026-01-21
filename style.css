@@ -1,121 +1,190 @@
-/* ROBERT ❤️ OS v5.2.0 - REFINED AESTHETIC */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+/* ROBERT ❤️ OS v5.3.0 - CRYPTO TRACKER AESTHETIC */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-:root { 
-    --p: #14b8a6; --d: #ef4444; --w: #f59e0b; --s: #22c55e;
-    --bg: #f9fafb; --card: #ffffff;
+:root {
+    --p: #14b8a6; /* Teal */
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text-main: #0f172a;
+    --text-sub: #64748b;
+    --border: #f1f5f9;
 }
 
 .dark {
-    --bg: #020617; --card: rgba(30, 41, 59, 0.6);
+    --bg: #0b0f1a;
+    --card: #151c2c;
+    --text-main: #f8fafc;
+    --text-sub: #94a3b8;
+    --border: #1e293b;
 }
 
 body {
     background-color: var(--bg);
-    color: inherit;
+    color: var(--text-main);
     font-family: 'Inter', sans-serif;
+    margin: 0;
     -webkit-tap-highlight-color: transparent;
-    overscroll-behavior: none;
-    transition: background-color 0.3s ease;
 }
 
-/* Tab & Layout Fixes */
-.tab-content { display: none; padding-top: 90px; padding-bottom: 120px; }
-.tab-content.active { display: block; animation: fIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes fIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-
-/* Header - Match 1000085176.png */
+/* Headeris pagal 1000085176.png */
 .global-header {
-    position: fixed; top: 0; width: 100%; height: 75px;
-    background: rgba(var(--bg), 0.8); backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    z-index: 100; display: flex; justify-content: space-between; align-items: center;
-    padding: 0 24px; box-sizing: border-box;
-}
-
-.header-btn {
-    width: 44px; height: 44px; border-radius: 14px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-}
-.btn-settings { background: #f1f5f9; color: #1e293b; }
-.btn-logout { background: #fef2f2; color: #ef4444; }
-.dark .btn-settings { background: rgba(255,255,255,0.05); color: #94a3b8; }
-
-/* Main Cards - Match 1000085188.png */
-.glass-card {
     background: var(--card);
-    border: 1px solid rgba(0,0,0,0.04);
-    border-radius: 2rem;
-    box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05);
-}
-.dark .glass-card { border: 1px solid rgba(255,255,255,0.05); box-shadow: none; }
-
-/* Typography & Centering */
-.display-value {
-    text-align: center;
-    font-weight: 900;
-    letter-spacing: -0.04em;
-    font-size: 3.5rem;
-    margin: 8px 0;
+    height: 70px;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
 }
 
-.label-tiny {
-    font-size: 0.65rem;
+.logo-text {
     font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-main);
+    border: 1px solid var(--border);
+}
+
+/* Pagrindinė vertė pagal 1000085188.png */
+.main-value-section {
+    text-align: center;
+    padding: 30px 20px;
+}
+
+.main-value-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-sub);
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #94a3b8;
-    text-align: center;
-    display: block;
 }
 
-/* Stats Row */
-.stats-grid {
+.main-value-amount {
+    font-size: 2.8rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 5px 0;
+}
+
+/* Mažos statistikų dėžutės */
+.stats-row {
     display: grid;
     grid-template-cols: repeat(3, 1fr);
-    gap: 8px;
-    padding: 0 16px;
+    gap: 10px;
+    margin: 0 20px 25px 20px;
 }
-.stat-pill {
+
+.stat-card {
     background: var(--card);
-    border: 1px solid rgba(0,0,0,0.03);
-    padding: 12px 8px;
-    border-radius: 1rem;
+    padding: 15px 10px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
     text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
-.stat-pill p { font-size: 0.6rem; font-weight: 800; color: #94a3b8; margin-bottom: 2px; }
-.stat-pill span { font-size: 0.85rem; font-weight: 900; }
 
-/* Bottom Nav */
-.bottom-nav {
-    position: fixed; bottom: 0; width: 100%; height: 75px;
-    background: rgba(var(--card), 0.95); backdrop-filter: blur(20px);
-    display: flex; justify-content: space-around; align-items: center;
-    border-top: 1px solid rgba(0,0,0,0.05); z-index: 110;
+.stat-card p {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--text-sub);
+    margin: 0 0 4px 0;
 }
-.nav-item { color: #94a3b8; text-align: center; flex: 1; transition: 0.2s; }
-.nav-item.active { color: var(--p); }
-.nav-item i { font-size: 1.2rem; display: block; margin-bottom: 4px; }
-.nav-item span { font-size: 0.55rem; font-weight: 900; text-transform: uppercase; }
 
-/* Buttons */
-.btn-primary {
+.stat-card span {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+/* Cockpit Mygtukai pagal 1000085189.png bet subtilesni */
+.cockpit-card {
+    background: var(--card);
+    margin: 0 20px;
+    padding: 30px;
+    border-radius: 28px;
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+}
+
+#shift-timer {
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: var(--p);
+    margin-bottom: 25px;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-cols: 1fr 1fr;
+    gap: 12px;
+}
+
+.btn-secondary {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 18px;
+    border-radius: 18px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.btn-primary-os {
     background: var(--p);
     color: white;
-    font-weight: 900;
-    border-radius: 1.5rem;
-    padding: 1.2rem;
+    width: 100%;
+    padding: 20px;
+    border-radius: 22px;
+    font-weight: 800;
+    font-size: 1rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    box-shadow: 0 10px 20px -5px rgba(20, 184, 166, 0.4);
+    margin-top: 20px;
+    box-shadow: 0 8px 16px -4px rgba(20, 184, 166, 0.4);
 }
 
-.input-field {
-    width: 100%; padding: 1.2rem; border-radius: 1.2rem;
-    background: rgba(0,0,0,0.03); border: 2px solid transparent;
-    font-weight: 700; text-align: center; font-size: 1rem;
+/* Navigacija pagal 1000085189.png */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: 75px;
+    background: var(--card);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid var(--border);
 }
-.dark .input-field { background: rgba(255,255,255,0.05); color: white; }
 
-.hidden { display: none !important; }
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-sub);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.nav-item.active {
+    color: var(--p);
+}
+
+.nav-item i {
+    font-size: 1.2rem;
+    margin-bottom: 4px;
+}

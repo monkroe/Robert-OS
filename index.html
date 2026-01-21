@@ -17,15 +17,9 @@
             </div>
             <h1 class="text-4xl font-black tracking-tighter uppercase text-white">Robert <span class="text-teal-500">OS</span></h1>
             
-            <div class="bg-slate-900/60 backdrop-blur-xl p-8 rounded-[2.5rem] border border-teal-500/20 shadow-2xl space-y-5">
-                <div class="relative group">
-                    <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                    <input type="email" id="auth-email" placeholder="El. paštas" class="input-field pl-12">
-                </div>
-                <div class="relative group">
-                    <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                    <input type="password" id="auth-pass" placeholder="Slaptažodis" class="input-field pl-12">
-                </div>
+            <div class="bg-slate-900/60 backdrop-blur-xl p-8 rounded-[2.5rem] border border-teal-500/20 shadow-2xl space-y-5 relative overflow-hidden">
+                <input type="email" id="auth-email" placeholder="El. paštas" class="input-field pl-12">
+                <input type="password" id="auth-pass" placeholder="Slaptažodis" class="input-field pl-12">
                 <button onclick="login()" class="btn-primary-os w-full py-4 text-lg">PRISIJUNGTI</button>
             </div>
         </div>
@@ -34,8 +28,8 @@
     <div id="app-content" class="hidden">
         <header class="global-header">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center shadow-lg"><i class="fa-solid fa-bolt text-white text-xs"></i></div>
-                <span class="font-black uppercase tracking-widest text-xs">Robert <span class="text-teal-500">OS</span></span>
+                <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center"><i class="fa-solid fa-bolt text-white text-xs"></i></div>
+                <span class="font-black uppercase tracking-widest text-xs">Robert <span class="text-teal-500 font-black">OS</span></span>
             </div>
             <div class="flex gap-2">
                 <button onclick="toggleTheme()" class="header-btn" id="theme-icon"><i class="fa-solid fa-moon"></i></button>
@@ -47,14 +41,14 @@
             
             <section id="tab-cockpit" class="tab-content active space-y-6">
                 <div class="buffer-track"><div id="buffer-bar" class="buffer-fill"></div></div>
-                <div class="cockpit-card bg-card border border-light rounded-[3rem] p-10 text-center shadow-2xl relative overflow-hidden">
+                <div class="cockpit-card p-10 rounded-[3rem] text-center shadow-2xl">
                     <span class="label-tiny">Shift Timer</span>
                     <h2 id="shift-timer" class="display-value font-mono text-6xl tracking-tighter my-4">00:00:00</h2>
                     <div class="grid grid-cols-2 gap-4 mt-8">
-                        <button onclick="saveTransaction('in')" class="tx-btn text-green-500 bg-green-500/10 border-green-500/20">INCOME</button>
-                        <button onclick="saveTransaction('out')" class="tx-btn text-red-500 bg-red-500/10 border-red-500/20">EXPENSE</button>
+                        <button onclick="saveTransaction('in')" class="tx-btn text-green-500 bg-green-500/10 border-green-500/20 uppercase font-black">Income</button>
+                        <button onclick="saveTransaction('out')" class="tx-btn text-red-500 bg-red-500/10 border-red-500/20 uppercase font-black">Expense</button>
                     </div>
-                    <button id="shift-btn" onclick="openOdoModal()" class="btn-primary-os mt-6 py-5">START SHIFT</button>
+                    <button id="shift-btn" onclick="openOdoModal()" class="btn-primary-os mt-6 py-5 uppercase font-black">Start Shift</button>
                 </div>
             </section>
 
@@ -65,33 +59,43 @@
                     <p class="text-[10px] opacity-50 uppercase tracking-[0.2em]">mėnesiai laisvės</p>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="glass-card p-6 rounded-3xl"><span class="label-tiny">Liquid</span><p id="stat-liquid" class="text-2xl font-black mt-2">$0</p></div>
-                    <div class="glass-card p-6 rounded-3xl"><span class="label-tiny">Burn</span><p id="stat-burn" class="text-2xl font-black mt-2">$0</p></div>
+                    <div class="glass-card p-6 rounded-3xl text-center"><span class="label-tiny">Liquid Cash</span><p id="stat-liquid" class="text-xl font-black mt-1">$0</p></div>
+                    <div class="glass-card p-6 rounded-3xl text-center"><span class="label-tiny">Monthly Burn</span><p id="stat-burn" class="text-xl font-black mt-1">$2,500</p></div>
                 </div>
             </section>
 
-            <section id="tab-future" class="tab-content hidden space-y-6 text-center">
-                <div class="glass-card p-10 rounded-[3rem]">
-                    <span class="label-tiny">Financial Projection</span>
-                    <h1 class="text-5xl font-black text-teal-500 my-4">$0</h1>
-                    <p class="text-xs opacity-50">Tikslas: Laisvė</p>
+            <section id="tab-future" class="tab-content hidden space-y-6">
+                <div class="glass-card p-10 rounded-[3rem] text-center">
+                    <span class="label-tiny">Total Net Worth</span>
+                    <h1 id="net-worth-val" class="text-5xl font-black text-teal-500 my-4">$0</h1>
+                    <p class="text-xs opacity-50">Fiat + Crypto + Assets</p>
+                </div>
+                <div class="glass-card p-6 rounded-[2rem] text-center">
+                     <p class="text-xs text-slate-500 mb-2 uppercase tracking-widest">Target Progress</p>
+                     <div class="h-3 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-teal-500 w-[5%]"></div></div>
                 </div>
             </section>
 
             <section id="tab-vault" class="tab-content hidden space-y-4">
-                <h2 class="text-xl font-black uppercase px-2 tracking-tight">Investments</h2>
-                <div id="asset-list" class="space-y-3"></div>
+                <div class="flex justify-between items-end px-2">
+                    <h2 class="text-xl font-black uppercase tracking-tight">Portfolio</h2>
+                    <button onclick="openBuyModal()" class="bg-teal-500/20 text-teal-400 border border-teal-500/30 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-teal-500/30 transition">+ Invest</button>
+                </div>
+                
+                <div id="asset-list" class="space-y-3 pb-20">
+                    <div class="text-center py-10 opacity-30 uppercase font-black text-xs tracking-widest">Vault Empty</div>
+                </div>
             </section>
 
-            <section id="tab-audit" class="tab-content hidden space-y-3">
-                <h2 class="text-xl font-black uppercase px-2 tracking-tight">Transactions</h2>
-                <div id="audit-list" class="space-y-2"></div>
+            <section id="tab-audit" class="tab-content hidden space-y-4">
+                 <h2 class="text-xl font-black uppercase px-2 tracking-tight">Recent Activity</h2>
+                 <div id="audit-list" class="space-y-2 pb-20"></div>
             </section>
 
             <footer class="mt-10 py-8 text-center space-y-1 opacity-70">
-                <p class="text-[11px] text-gray-500">Sukurta su <i class="fa-solid fa-heart text-red-500 mx-0.5 animate-pulse"></i> ir DI pagalba</p>
+                <p class="text-[11px] text-gray-500 uppercase font-bold tracking-widest">Sukurta su <i class="fa-solid fa-heart text-red-500 animate-pulse"></i> ir DI pagalba</p>
                 <p class="text-[10px] text-gray-600">&copy; <span id="auto-year"></span> ROBERT OS. Visos teisės saugomos.</p>
-                <p class="text-[9px] font-mono text-gray-700 pt-1">Versija <span id="app-version">v8.0.0</span></p>
+                <p class="text-[9px] font-mono text-gray-700 pt-1 uppercase">Versija <span id="app-version">v8.0.0</span></p>
             </footer>
         </main>
 
@@ -105,10 +109,35 @@
     </div>
 
     <div id="odo-modal" class="modal-overlay hidden">
-        <div class="modal-content"><input type="number" id="odo-input" class="input-field text-3xl mb-6" placeholder="000000"><button onclick="confirmShiftAction()" class="btn-primary-os w-full py-4">PATVIRTINTI</button></div>
+        <div class="modal-content animate-slideUp">
+            <h3 class="text-xl font-black uppercase mb-6 tracking-tight">Shift Control</h3>
+            <input type="number" id="odo-input" class="input-field text-3xl font-mono mb-6" placeholder="000000">
+            <div class="flex flex-col gap-3">
+                <button onclick="confirmShiftAction()" class="btn-primary-os py-4">Patvirtinti</button>
+                <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-2">Atšaukti</button>
+            </div>
+        </div>
     </div>
 
-    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center text-teal-500 font-black text-xs tracking-[0.3em]">LOADING...</div>
+    <div id="buy-modal" class="modal-overlay hidden">
+        <div class="modal-content animate-slideUp space-y-4">
+            <h3 class="text-xl font-black uppercase mb-2 tracking-tight">New Investment</h3>
+            
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button onclick="selectAssetType('crypto')" id="btn-type-crypto" class="asset-type-btn active">CRYPTO</button>
+                <button onclick="selectAssetType('stock')" id="btn-type-stock" class="asset-type-btn">STOCK</button>
+            </div>
+
+            <input type="text" id="buy-symbol" class="input-field uppercase" placeholder="SYMBOL (e.g. KAS)">
+            <input type="number" id="buy-amount" class="input-field" placeholder="Quantity (e.g. 1000)">
+            <input type="number" id="buy-price" class="input-field" placeholder="Price per unit ($)">
+            
+            <button onclick="confirmBuyAction()" class="btn-primary-os py-4 mt-2">BUY ASSET</button>
+            <button onclick="closeModals()" class="w-full text-xs font-bold uppercase opacity-50 py-2">Cancel</button>
+        </div>
+    </div>
+
+    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center text-teal-500 font-black text-xs tracking-[0.3em]">SYNCHRONIZING...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/app.js"></script>

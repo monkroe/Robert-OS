@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Robert OS v4.7.2</title>
+    <title>Robert ❤️ OS v4.8.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -11,19 +11,17 @@
         tailwind.config = { darkMode: 'class', theme: { extend: { colors: { primary: { 500: '#14b8a6' } } } } }
     </script>
 </head>
-<body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-500">
 
     <div id="auth-screen" class="fixed inset-0 z-[60] bg-white dark:bg-gray-950 flex flex-col items-center justify-center p-6 hidden">
-        <div class="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm space-y-4 text-center text-center">
+        <div class="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm space-y-4 text-center">
             <i class="fa-solid fa-bolt text-primary-500 text-6xl mb-4"></i>
             <h1 class="text-3xl font-black tracking-tighter uppercase flex items-center justify-center">
                 ROBERT <i class="fa-solid fa-heart text-red-500 mx-1 text-sm animate-pulse"></i> OS
             </h1>
-            <div class="space-y-4 pt-4">
-                <input type="email" id="auth-email" placeholder="Email" class="input-field">
-                <input type="password" id="auth-pass" placeholder="Password" class="input-field">
-                <button onclick="login()" class="w-full bg-primary-500 text-black font-black py-4 rounded-2xl uppercase tracking-widest">Login</button>
-            </div>
+            <input type="email" id="auth-email" placeholder="Email" class="input-field">
+            <input type="password" id="auth-pass" placeholder="Password" class="input-field">
+            <button onclick="login()" class="w-full bg-primary-500 text-black font-black py-4 rounded-2xl uppercase tracking-widest">Login</button>
         </div>
     </div>
 
@@ -34,12 +32,8 @@
                     ROBERT <i class="fa-solid fa-heart text-red-500 mx-1 text-sm animate-pulse"></i> OS
                 </span>
                 <div class="flex gap-2">
-                    <button onclick="toggleSettingsModal()" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm">
-                        <i class="fa-solid fa-gear"></i>
-                    </button>
-                    <button onclick="logout()" class="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-sm">
-                        <i class="fa-solid fa-power-off"></i>
-                    </button>
+                    <button onclick="toggleSettingsModal()" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm"><i class="fa-solid fa-gear"></i></button>
+                    <button onclick="logout()" class="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center text-sm"><i class="fa-solid fa-power-off"></i></button>
                 </div>
             </div>
         </header>
@@ -55,26 +49,23 @@
                 <p class="label-tiny">Net Worth</p>
                 <h1 id="net-worth-display" class="text-6xl font-black tracking-tighter">$0</h1>
                 <div class="flex flex-col items-center gap-2">
-                    <div id="eta-display" class="inline-block px-4 py-1.5 bg-primary-500/10 text-primary-500 rounded-full text-[10px] font-black uppercase tracking-widest">
-                        Kraunama...
-                    </div>
-                    <div id="delta-impact-display" class="hidden text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                        Delta...
-                    </div>
+                    <div id="eta-display" class="inline-block px-4 py-1.5 bg-primary-500/10 text-primary-500 rounded-full text-[10px] font-black uppercase tracking-widest">Kraunama...</div>
+                    <div id="delta-impact-display" class="hidden text-[10px] font-bold text-gray-400 uppercase tracking-widest">Delta...</div>
                 </div>
             </section>
 
             <section class="space-y-4">
-                <h3 class="label-tiny ml-1">Capital Assets</h3>
+                <div class="flex justify-between items-end px-1">
+                    <h3 class="label-tiny">Capital Assets</h3>
+                    <button onclick="toggleAssetManageModal()" class="text-[9px] font-black text-primary-500 uppercase tracking-widest">Manage</button>
+                </div>
                 <div id="portfolio-list"></div>
             </section>
 
             <section id="shift-card" class="glass-card rounded-[2.5rem] p-8 border border-gray-100 dark:border-gray-800 shadow-xl">
-                <div id="pre-shift-form" class="space-y-6">
-                    <div class="space-y-4">
-                        <select id="vehicle-select" class="input-field font-bold appearance-none"></select>
-                        <input type="number" id="start-odometer" placeholder="Start Odometer" class="input-field text-xl font-black text-center">
-                    </div>
+                <div id="pre-shift-form" class="space-y-6 text-center">
+                    <select id="vehicle-select" class="input-field font-bold appearance-none"></select>
+                    <input type="number" id="start-odometer" placeholder="Start Odometer" class="input-field text-xl font-black text-center">
                     <button onclick="startShift()" class="w-full bg-primary-500 text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-lg shadow-primary-500/20">Start Shift</button>
                 </div>
                 <div id="active-shift-view" class="hidden space-y-4 text-center">
@@ -85,19 +76,12 @@
                         <button onclick="showEndShiftForm()" class="bg-red-500 text-white p-4 rounded-2xl font-bold text-sm">Baigti</button>
                     </div>
                 </div>
-                <div id="end-shift-form" class="hidden space-y-4 text-center">
-                    <input type="number" id="end-odometer" placeholder="End Miles" class="input-field text-2xl font-black text-center border-2 border-primary-500">
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="cancelEndShift()" class="bg-gray-100 dark:bg-gray-800 p-4 rounded-xl font-bold">Atgal</button>
-                        <button onclick="completeShift()" class="bg-black text-white p-4 rounded-xl font-bold uppercase tracking-widest">Išsaugoti</button>
-                    </div>
-                </div>
             </section>
 
             <footer class="mt-10 py-8 text-center space-y-1 opacity-70">
                 <p class="text-[11px] text-gray-500">Sukurta su <i class="fa-solid fa-heart text-red-500 mx-0.5 animate-pulse"></i> ir DI Beno pagalba</p>
                 <p class="text-[10px] text-gray-600">&copy; <span id="auto-year"></span> LTV Media PRO. Visos teisės saugomos.</p>
-                <p class="text-[9px] font-mono text-gray-700 pt-1 text-center">Versija <span id="app-version">v4.7.2</span></p>
+                <p class="text-[9px] font-mono text-gray-700 pt-1">Versija <span id="app-version">v4.8.0</span></p>
             </footer>
         </main>
     </div>
@@ -111,24 +95,39 @@
         </div>
     </div>
 
+    <div id="asset-manage-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[80vh]">
+            <h3 class="font-black text-xl uppercase text-center">Koreguoti turtą</h3>
+            
+            <div id="manage-assets-list" class="space-y-6">
+                <div class="space-y-2">
+                    <p class="label-tiny">Liquid Cash ($)</p>
+                    <input type="number" id="edit-fiat-balance" class="input-field font-black">
+                </div>
+                <div class="space-y-2">
+                    <p class="label-tiny">Kaspa Quantity (KAS)</p>
+                    <input type="number" id="edit-kas-qty" class="input-field font-black">
+                    <p class="label-tiny">Kaspa Price ($)</p>
+                    <input type="number" id="edit-kas-price" step="0.0001" class="input-field font-black">
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <button onclick="saveAssetAdjustments()" class="w-full bg-primary-500 text-black font-black py-4 rounded-2xl uppercase tracking-widest">Išsaugoti pakeitimus</button>
+                <button onclick="toggleAssetManageModal()" class="w-full text-gray-400 text-[10px] font-black uppercase">Uždaryti</button>
+            </div>
+        </div>
+    </div>
+
     <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
-            <div class="flex justify-between items-center">
-                <h3 class="font-bold text-xl">Nustatymai</h3>
-                <button onclick="toggleSettingsModal()"><i class="fa-solid fa-xmark text-xl text-gray-400"></i></button>
-            </div>
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl text-center">
+            <h3 class="font-bold text-xl">Nustatymai</h3>
             <div class="grid grid-cols-3 gap-2">
-                <button onclick="setTheme('light')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-light">
-                    <i class="fa-solid fa-sun mb-1"></i><span class="text-[10px] font-bold">Šviesi</span>
-                </button>
-                <button onclick="setTheme('dark')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-dark">
-                    <i class="fa-solid fa-moon mb-1"></i><span class="text-[10px] font-bold">Tamsi</span>
-                </button>
-                <button onclick="setTheme('system')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-system">
-                    <i class="fa-solid fa-desktop mb-1"></i><span class="text-[10px] font-bold">Auto</span>
-                </button>
+                <button onclick="setTheme('light')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-light"><i class="fa-solid fa-sun mb-1"></i><span class="text-[10px] font-bold">Šviesi</span></button>
+                <button onclick="setTheme('dark')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-dark"><i class="fa-solid fa-moon mb-1"></i><span class="text-[10px] font-bold">Tamsi</span></button>
+                <button onclick="setTheme('system')" class="theme-btn p-4 rounded-2xl border dark:border-gray-800 flex flex-col items-center" id="theme-system"><i class="fa-solid fa-desktop mb-1"></i><span class="text-[10px] font-bold">Auto</span></button>
             </div>
-            <button onclick="toggleSettingsModal()" class="w-full p-4 bg-gray-100 dark:bg-gray-800 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Uždaryti</button>
+            <button onclick="toggleSettingsModal()" class="w-full p-4 bg-gray-100 dark:bg-gray-800 rounded-2xl font-bold uppercase text-[10px]">Uždaryti</button>
         </div>
     </div>
 

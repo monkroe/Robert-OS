@@ -1,6 +1,6 @@
 /*
   PROJECT: ROBERT-OS
-  VERSION: 3.0 (Full Shift Control)
+  VERSION: 3.1 (Fix: Silent Logout & UI Stability)
 */
 
 // --- 1. KONFIGŪRACIJA ---
@@ -40,7 +40,12 @@ async function init() {
             switchScreen('auth-screen');
         }
     } catch (err) {
-        alert("Sistemos klaida: " + err.message);
+        // Ignoruojame "aborted" klaidą, kuri atsiranda persikraunant puslapiui
+        if (err.message.includes('aborted') || err.name === 'AbortError') {
+            console.log("Session request aborted (normal during reload)");
+        } else {
+            alert("Sistemos klaida: " + err.message);
+        }
     }
 }
 
@@ -61,18 +66,18 @@ async function loadVehicles() {
     const select = getEl('vehicle-select');
     if (!select) return;
 
-    const { data, error } = await db.from('finance_vehicles').select('*').eq('status', 'active');
-    
-    if (error) {
-        console.error("Vehicles error:", error);
-        return;
-    }
+    try {
+        const { data, error } = await db.from('finance_vehicles').select('*').eq('status', 'active');
+        if (error) throw error;
 
-    if (data && data.length > 0) {
-        select.innerHTML = '<option value="" disabled selected>Pasirinkite mašiną</option>' + 
-            data.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
-    } else {
-        select.innerHTML = `<option value="">Nėra automobilių</option>`;
+        if (data && data.length > 0) {
+            select.innerHTML = '<option value="" disabled selected>Pasirinkite mašiną</option>' + 
+                data.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+        } else {
+            select.innerHTML = `<option value="">Nėra automobilių</option>`;
+        }
+    } catch (err) {
+        console.error("Vehicles error:", err);
     }
 }
 
@@ -81,53 +86,51 @@ async function loadAssets() {
     const totalDisp = getEl('total-balance-display');
     if (!list) return;
 
-    const { data } = await db.from('finance_assets').select('*');
-    let total = 0;
-    
-    if (data) {
-        list.innerHTML = data.map(a => {
-            total += a.cached_balance;
-            return `
-                <div class="glass-card p-5 rounded-[2rem] flex justify-between items-center border border-gray-100 dark:border-gray-800 mb-3">
-                    <div class="flex flex-col">
-                        <span class="label-tiny mb-1">Account</span>
-                        <span class="font-bold text-gray-700 dark:text-gray-300">${a.name}</span>
+    try {
+        const { data, error } = await db.from('finance_assets').select('*');
+        if (error) throw error;
+
+        let total = 0;
+        if (data) {
+            list.innerHTML = data.map(a => {
+                total += parseFloat(a.cached_balance || 0);
+                return `
+                    <div class="glass-card p-5 rounded-[2rem] flex justify-between items-center border border-gray-100 dark:border-gray-800 mb-3">
+                        <div class="flex flex-col">
+                            <span class="label-tiny mb-1 text-[9px] opacity-50 font-black">Account</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-300 text-sm">${a.name}</span>
+                        </div>
+                        <span class="text-lg font-black text-gray-900 dark:text-white">$${a.cached_balance.toFixed(2)}</span>
                     </div>
-                    <span class="text-xl font-black text-gray-900 dark:text-white">$${a.cached_balance.toFixed(2)}</span>
-                </div>
-            `;
-        }).join('');
-        if (totalDisp) totalDisp.innerText = `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                `;
+            }).join('');
+            if (totalDisp) totalDisp.innerText = `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        }
+    } catch (err) {
+        console.error("Assets error:", err);
     }
 }
 
-// --- 6. PAMAINOS VALDYMAS (TAVO IEŠKOMAS KODAS) ---
+// --- 6. PAMAINOS VALDYMAS ---
 let timerInterval;
 
 async function startShift() {
-    console.log("Shift start sequence initiated...");
-    const vehicleSelect = getEl('vehicle-select');
+    const vSelect = getEl('vehicle-select');
     const odoInput = getEl('start-odometer');
-    
-    const vId = vehicleSelect.value;
+    if (!vSelect || !odoInput) return;
+
+    const vId = vSelect.value;
     const odo = odoInput.value;
 
     if (!vId) return alert("Pasirinkite automobilį!");
     if (!odo) return alert("Įveskite odometrą!");
 
     try {
-        // 1. Įrašome į duomenų bazę
-        const { data, error } = await db.from('finance_shifts').insert([
-            { 
-                vehicle_id: vId, 
-                start_odometer: parseFloat(odo), 
-                status: 'active' 
-            }
-        ]).select();
-
+        const { error } = await db.from('finance_shifts').insert([
+            { vehicle_id: vId, start_odometer: parseFloat(odo), status: 'active' }
+        ]);
         if (error) throw error;
 
-        // 2. UI Pakeitimai
         getEl('pre-shift-form').classList.add('hidden');
         getEl('active-shift-view').classList.remove('hidden');
         
@@ -137,14 +140,11 @@ async function startShift() {
             badge.className = "text-[9px] font-black px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 uppercase tracking-tighter border border-green-500/20";
         }
 
-        const vehicle = vehicleSelect.options[vehicleSelect.selectedIndex].text;
-        getEl('active-vehicle-info').innerText = vehicle;
-
-        // 3. Paleidžiame laikmatį
+        getEl('active-vehicle-info').innerText = vSelect.options[vSelect.selectedIndex].text;
         startTimer();
         
     } catch (err) {
-        alert("Nepavyko pradėti pamainos: " + err.message);
+        alert("Klaida: " + err.message);
     }
 }
 
@@ -162,7 +162,8 @@ function startTimer() {
     }, 1000);
 }
 
-// --- 7. PAGALBINIAI ---
+// --- 7. AUTENTIFIKACIJA IR NUSTATYMAI ---
+
 async function login() {
     const email = getEl('auth-email').value;
     const pass = getEl('auth-pass').value;
@@ -171,8 +172,16 @@ async function login() {
     else location.reload();
 }
 
+// FIX: Saugesnis atsijungimas
 async function logout() {
-    await db.auth.signOut();
+    try {
+        // Pirmiausia bandome atsijungti serveryje
+        await db.auth.signOut();
+    } catch (err) {
+        // Jei naršyklė nutraukia ryšį (abort), tiesiog ignoruojame ir einame toliau
+        console.log("Signout connection closed.");
+    }
+    // Bet kokiu atveju perkrauname puslapį
     location.reload();
 }
 
@@ -181,5 +190,4 @@ function toggleSettingsModal() {
     if (modal) modal.classList.toggle('hidden');
 }
 
-// Pasileidžiame
 window.addEventListener('DOMContentLoaded', init);

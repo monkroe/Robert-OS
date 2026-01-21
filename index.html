@@ -11,27 +11,32 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen">
 
-    <div id="auth-screen" class="fixed inset-0 z-[100] bg-white dark:bg-slate-950 flex flex-col items-center justify-center p-6">
+    <div id="auth-screen" class="fixed inset-0 z-[100] bg-white dark:bg-slate-950 flex flex-col items-center justify-center p-6 hidden">
         <div class="w-full max-w-sm space-y-8 text-center">
             <i class="fa-solid fa-bolt text-primary-500 text-6xl mb-4"></i>
-            <h1 class="text-3xl font-black uppercase tracking-tighter">ROBERT <i class="fa-solid fa-heart text-red-500 mx-1 text-sm animate-pulse"></i> OS</h1>
+            <h1 class="text-3xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">
+                ROBERT <i class="fa-solid fa-heart text-red-500 mx-1 text-sm animate-pulse"></i> OS
+            </h1>
             <div class="space-y-4">
-                <input type="email" id="auth-email" placeholder="Email" class="input-field text-center">
-                <input type="password" id="auth-pass" placeholder="Password" class="input-field text-center">
-                <button onclick="login()" class="w-full bg-primary-500 text-black font-black py-5 rounded-3xl uppercase tracking-widest">Prisijungti</button>
+                <input type="email" id="auth-email" placeholder="El. paštas" class="input-field text-center">
+                <input type="password" id="auth-pass" placeholder="Slaptažodis" class="input-field text-center">
+                <button onclick="login()" class="w-full bg-primary-500 text-black font-black py-5 rounded-3xl uppercase tracking-widest shadow-xl shadow-primary-500/20">Prisijungti</button>
             </div>
+            <p class="text-[10px] font-black opacity-30 uppercase tracking-widest">v5.1.2 Hardened</p>
         </div>
     </div>
 
     <div id="app-content" class="hidden">
+        
         <div id="tab-cockpit" class="tab-content active p-6">
-            <header class="flex justify-between items-center mb-8"><span class="font-black uppercase text-xs">Cockpit</span><div class="w-24 space-y-1"><div class="flex justify-between text-[8px] font-black opacity-40"><span>BUFFER</span><span id="buffer-val">0%</span></div><div class="buffer-track"><div id="buffer-bar" class="buffer-fill" style="width: 0%"></div></div></div></header>
-            <section class="glass-card p-10 text-center shadow-2xl space-y-8"><div id="shift-timer" class="text-7xl font-black font-mono tracking-tighter text-primary-500">00:00:00</div><div class="grid grid-cols-2 gap-4"><button onclick="openTx('in')" class="bg-slate-100 dark:bg-slate-800 p-6 rounded-3xl font-black text-[10px] uppercase">Income</button><button onclick="openTx('out')" class="bg-slate-100 dark:bg-slate-800 p-6 rounded-3xl font-black text-[10px] uppercase">Expense</button></div><button id="shift-btn" onclick="openOdoModal()" class="w-full bg-primary-500 text-black font-black py-5 rounded-3xl uppercase tracking-widest">Start Shift</button></section>
+            <header class="flex justify-between items-center mb-8"><span class="font-black uppercase text-xs opacity-40">Cockpit</span><div class="w-24 space-y-1"><div class="flex justify-between text-[8px] font-black opacity-40"><span>BUFFER</span><span id="buffer-val">0%</span></div><div class="buffer-track"><div id="buffer-bar" class="buffer-fill" style="width: 0%"></div></div></div></header>
+            <section class="glass-card p-10 text-center shadow-2xl space-y-8"><div id="shift-timer" class="text-7xl font-black font-mono tracking-tighter text-primary-500">00:00:00</div><div class="grid grid-cols-2 gap-4"><button onclick="openTx('in')" class="bg-slate-100 dark:bg-slate-800 p-6 rounded-3xl font-black text-[10px] uppercase">Income</button><button onclick="openTx('out')" class="bg-slate-100 dark:bg-slate-800 p-6 rounded-3xl font-black text-[10px] uppercase">Expense</button></div><button id="shift-btn" onclick="openOdoModal()" class="w-full bg-primary-500 text-black font-black py-5 rounded-3xl uppercase tracking-widest shadow-xl shadow-primary-500/20">Start Shift</button></section>
         </div>
-        <div id="tab-runway" class="tab-content p-8 text-center"><p class="label-tiny mb-4">Safety</p><div class="glass-card p-12 inline-block"><h1 id="runway-val" class="text-8xl font-black tracking-tighter text-primary-500">0.0</h1><p class="font-black uppercase tracking-widest text-xs mt-4">Mėnesiai</p></div></div>
-        <div id="tab-projection" class="tab-content p-8"><h2 class="label-tiny mb-6 text-center">Projection</h2><div id="eta-container" class="space-y-4"></div></div>
-        <div id="tab-vault" class="tab-content p-8"><h2 class="label-tiny mb-6 text-center">Vault</h2><div id="asset-list" class="space-y-3"></div></div>
-        <div id="tab-audit" class="tab-content p-6"><h2 class="label-tiny mb-6 text-center">Audit</h2><div id="audit-list" class="space-y-2"></div></div>
+
+        <div id="tab-runway" class="tab-content p-8 text-center"><p class="label-tiny mb-4">Survival</p><div class="glass-card p-12 inline-block"><h1 id="runway-val" class="text-8xl font-black tracking-tighter text-primary-500">0.0</h1><p class="font-black uppercase tracking-widest text-xs mt-4">Mėnesiai</p></div></div>
+        <div id="tab-projection" class="tab-content p-8"><h2 class="label-tiny mb-6 text-center">Future</h2><div id="eta-container" class="space-y-4"></div></div>
+        <div id="tab-vault" class="tab-content p-8"><h2 class="label-tiny mb-6 text-center">Structure</h2><div id="asset-list" class="space-y-3"></div></div>
+        <div id="tab-audit" class="tab-content p-6"><h2 class="label-tiny mb-6 text-center">Truth</h2><div id="audit-list" class="space-y-2 text-center opacity-50 text-[10px] uppercase font-black">History will appear here</div></div>
 
         <nav class="bottom-nav">
             <button onclick="switchTab('cockpit')" class="nav-item active" id="btn-cockpit"><i class="fa-solid fa-gauge-high"></i><span>Cockpit</span></button>
@@ -40,12 +45,16 @@
             <button onclick="switchTab('vault')" class="nav-item" id="btn-vault"><i class="fa-solid fa-vault"></i><span>Vault</span></button>
             <button onclick="switchTab('audit')" class="nav-item" id="btn-audit"><i class="fa-solid fa-scale-balanced"></i><span>Audit</span></button>
         </nav>
+
+        <footer class="mt-4 pb-24 text-center space-y-1 opacity-40">
+            <p class="text-[10px] font-black uppercase tracking-widest">Sukurta su <i class="fa-solid fa-heart text-red-500 animate-pulse"></i> ir DI Beno pagalba</p>
+            <p class="text-[9px] font-bold">&copy; <span id="auto-year"></span> LTV Media PRO. All rights reserved.</p>
+        </footer>
     </div>
 
-    <div id="odo-modal" class="hidden fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"><div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 space-y-6 text-center"><h3 id="odo-title" class="font-black text-xl uppercase">Rida</h3><input type="number" id="odo-input" class="input-field text-4xl font-black text-center" placeholder="000"><button onclick="confirmShiftAction()" class="w-full bg-primary-500 text-black font-black py-5 rounded-3xl uppercase">Patvirtinti</button><button onclick="closeOdoModal()" class="w-full text-slate-400 font-bold uppercase text-[10px]">Uždaryti</button></div></div>
-    <div id="tx-modal" class="hidden fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-end justify-center p-4"><div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-8 space-y-6"><input type="number" id="tx-amount" placeholder="0.00" class="input-field text-4xl font-black text-center py-6"><button id="tx-confirm-btn" onclick="saveTx()" class="w-full bg-primary-500 text-black font-black py-5 rounded-3xl uppercase">Patvirtinti</button><button onclick="closeTxModal()" class="w-full text-slate-400 font-black text-[10px] uppercase text-center">Atšaukti</button></div></div>
-
-    <footer class="fixed bottom-24 w-full text-center opacity-30 text-[8px] font-black uppercase tracking-widest z-0">Sukurta su <i class="fa-solid fa-heart text-red-500"></i> ir Beno pagalba &copy; <span id="auto-year"></span> LTV Media PRO</footer>
+    <div id="odo-modal" class="hidden fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"><div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 space-y-6 text-center"><h3 id="odo-title" class="font-black text-xl uppercase">Odometer</h3><input type="number" id="odo-input" class="input-field text-4xl font-black text-center" placeholder="000000"><button onclick="confirmShiftAction()" class="w-full bg-primary-500 text-black font-black py-5 rounded-3xl uppercase tracking-widest shadow-xl shadow-primary-500/20">Confirm</button><button onclick="closeOdoModal()" class="w-full text-slate-400 font-bold uppercase text-[10px] pt-2">Cancel</button></div></div>
+    
+    <div id="tx-modal" class="hidden fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-end justify-center p-4"><div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-8 space-y-6"><input type="number" id="tx-amount" placeholder="0.00" class="input-field text-4xl font-black text-center py-6"><button id="tx-confirm-btn" onclick="saveTx()" class="w-full bg-primary-500 text-black font-black py-5 rounded-3xl uppercase tracking-widest">Confirm Transaction</button><button onclick="closeTxModal()" class="w-full text-slate-400 font-black text-[10px] uppercase text-center pt-2">Cancel</button></div></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/app.js"></script>

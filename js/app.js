@@ -1,4 +1,4 @@
-/* ROBERT ❤️ OS v6.0.3 - LOGIC CORE */
+/* ROBERT ❤️ OS v6.1.1 - HARDENED ENGINE */
 
 const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
@@ -35,6 +35,20 @@ async function switchTab(tabId) {
     if (tabId === 'audit') await refreshAudit();
 }
 
+// FIX: Laikmatis skaičiuojamas nuo realaus laiko skirtumo (No drift)
+function startTimer() {
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    state.timerInterval = setInterval(() => {
+        const diffInMs = new Date() - state.shiftStartTime;
+        const diff = Math.floor(diffInMs / 1000);
+        if (diff < 0) return;
+        const h = String(Math.floor(diff/3600)).padStart(2,'0');
+        const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
+        const s = String(diff%60).padStart(2,'0');
+        $('shift-timer').innerText = `${h}:${m}:${s}`;
+    }, 1000);
+}
+
 async function checkActiveShift() {
     const { data } = await db.from('finance_active_shift_view').select('*').maybeSingle();
     const btn = $('shift-btn');
@@ -44,32 +58,30 @@ async function checkActiveShift() {
         state.activeShiftId = data.id;
         state.shiftStartTime = new Date(data.start_time);
         btn.innerText = "End Shift"; btn.style.background = "#ef4444";
-        if (label) label.innerText = `Vairuojate: ${data.vehicle_name || 'Auto'}`;
+        if (label) label.innerText = `Auto: ${data.vehicle_name || 'Vairuojate'}`;
         startTimer();
     } else {
         state.activeShiftId = null;
         btn.innerText = "Start Shift"; btn.style.background = "var(--p)";
-        if (label) label.innerText = "Avarinė atsarga";
+        if (label) label.innerText = "Safety Buffer";
         if (state.timerInterval) clearInterval(state.timerInterval);
         $('shift-timer').innerText = "00:00:00";
     }
 }
 
 async function openOdoModal() {
-    const modal = $('odo-modal');
     const vGroup = $('vehicle-selection-group');
     const select = $('vehicle-select');
-
     if (state.activeShiftId) {
         vGroup.classList.add('hidden');
         $('odo-title').innerText = "Pabaigos Miles";
     } else {
         vGroup.classList.remove('hidden');
         $('odo-title').innerText = "Starto Miles";
-        const { data: vehicles } = await db.from('vehicles').select('*');
-        if (vehicles) select.innerHTML = vehicles.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+        const { data: v } = await db.from('vehicles').select('*');
+        if (v) select.innerHTML = v.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
     }
-    modal.classList.remove('hidden');
+    $('odo-modal').classList.remove('hidden');
 }
 
 async function confirmShiftAction() {
@@ -82,10 +94,24 @@ async function confirmShiftAction() {
     } else {
         await db.from('finance_shifts').update({end_odometer: odo, status: 'completed', end_time: new Date()}).eq('id', state.activeShiftId);
     }
-    closeModals(); await checkActiveShift(); await refreshCockpit();
+    closeModals(); await checkActiveShift();
 }
 
-// ... Kitos funkcijos ...
+async function saveTx() {
+    const amount = parseFloat($('tx-amount').value); if (!amount) return;
+    try {
+        let { data: asset } = await db.from('finance_assets')
+            .select('id').eq('user_id', state.user.id).eq('is_liquid', true)
+            .order('cached_balance', { ascending: false }).limit(1).single();
+
+        if (!asset) throw new Error("Nėra liquid sąskaitos");
+
+        await db.from('finance_transactions').insert([{amount, direction: state.txMode, asset_id: asset.id, source:'shift', shift_id: state.activeShiftId, user_id: state.user.id}]);
+        await db.rpc('increment_asset_balance', { asset_uuid: asset.id, delta: (state.txMode=='in'?amount:-amount) });
+        closeModals(); await refreshCockpit();
+    } catch(e) { alert(e.message); }
+}
+
 async function refreshCockpit() {
     const { data } = await db.from('emergency_buffer_view').select('buffer_pct').maybeSingle();
     if (data && $('buffer-bar')) $('buffer-bar').style.width = `${data.buffer_pct}%`;
@@ -102,17 +128,28 @@ async function refreshRunway() {
     }
 }
 
-async function saveTx() {
-    const amount = parseFloat($('tx-amount').value); if (!amount) return;
-    const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
-    await db.from('finance_transactions').insert([{amount, direction: state.txMode, asset_id: asset.id, source:'shift', shift_id: state.activeShiftId, user_id: state.user.id}]);
-    await db.rpc('increment_asset_balance', { asset_uuid: asset.id, delta: (state.txMode=='in'?amount:-amount) });
-    closeModals(); await refreshCockpit();
+async function refreshProjection() {
+    const { data: nw } = await db.from('total_net_worth_view').select('total_net_worth').maybeSingle();
+    if (nw) $('eta-container').innerHTML = `<div class="glass-card text-center py-10"><p class="label-tiny">Net Worth</p><p class="text-5xl font-black text-teal-500">$${parseFloat(nw.total_net_worth).toLocaleString()}</p></div>`;
 }
 
-function startTimer() { if (state.timerInterval) clearInterval(state.timerInterval); state.timerInterval = setInterval(() => { const diff = Math.floor((new Date() - state.shiftStartTime) / 1000); const h = String(Math.floor(diff/3600)).padStart(2,'0'), m = String(Math.floor((diff%3600)/60)).padStart(2,'0'), s = String(diff%60).padStart(2,'0'); $('shift-timer').innerText = `${h}:${m}:${s}`; }, 1000); }
-function openTx(m) { state.txMode = m; $('tx-modal').classList.remove('hidden'); }
-function logout() { db.auth.signOut(); location.reload(); }
-function initTheme() { document.documentElement.classList.toggle('dark', localStorage.theme === 'dark'); }
-function closeModals() { ['odo-modal','tx-modal'].forEach(id => $(id).classList.add('hidden')); }
+async function refreshVault() {
+    const { data } = await db.from('investment_portfolio_view').select('*');
+    if (data) $('asset-list').innerHTML = data.map(a => `<div class="glass-card flex justify-between items-center"><div class="text-left"><p class="label-tiny">${a.symbol}</p><p class="font-bold">${parseFloat(a.quantity).toLocaleString()}</p></div><b class="text-teal-500">$${parseFloat(a.market_value).toLocaleString()}</b></div>`).join('');
+}
+
+async function refreshAudit() {
+    const { data } = await db.from('finance_transactions').select('*').order('date',{ascending:false}).limit(10);
+    if (data) $('audit-list').innerHTML = data.map(t => `<div class="glass-card flex justify-between"><span>${new Date(t.date).toLocaleDateString()}</span><b class="${t.direction=='in'?'text-teal-500':'text-red-400'}">$${t.amount}</b></div>`).join('');
+}
+
+async function login() {
+    const email = $('auth-email').value, pass = $('auth-pass').value;
+    const { error } = await db.auth.signInWithPassword({ email, password: pass });
+    if (error) alert(error.message); else location.reload();
+}
+function logout() { db.auth.signOut(); localStorage.clear(); location.reload(); }
+function initTheme() { document.documentElement.classList.toggle('dark', localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)); }
+function toggleSettings() { $('settings-modal').classList.toggle('hidden'); }
+function closeModals() { ['odo-modal','tx-modal','settings-modal'].forEach(id => $(id).classList.add('hidden')); }
 window.addEventListener('DOMContentLoaded', init);

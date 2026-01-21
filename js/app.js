@@ -1,6 +1,6 @@
 /*
   PROJECT: ROBERT-OS
-  VERSION: 2.8 (Self-Healing Edition)
+  VERSION: 3.0 (Full Shift Control)
 */
 
 // --- 1. KONFIGŪRACIJA ---
@@ -8,8 +8,7 @@ const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// --- 2. SAUGUS ELEMENTŲ GAVIMAS ---
-// Ši funkcija neleis sistemai lūžti, jei ko nors trūks
+// --- 2. PAGALBINĖS FUNKCIJOS ---
 const getEl = (id) => document.getElementById(id);
 
 // --- 3. TEMŲ VALDYMAS ---
@@ -25,9 +24,8 @@ function setTheme(mode, save = true) {
     }
 }
 
-// --- 4. PAGRINDINĖ LOGIKA ---
+// --- 4. SISTEMOS STARTAS ---
 async function init() {
-    // Patikriname, ar esame tamsiame režime
     const theme = localStorage.theme || 'system';
     setTheme(theme, false);
 
@@ -36,54 +34,37 @@ async function init() {
         if (error) throw error;
         
         if (session) {
-            updateUserUI(session.user);
-            switchScreen('app-content'); // Rodome pagrindinį turinį
+            switchScreen('app-content');
             loadAllData();
         } else {
-            switchScreen('auth-screen'); // Rodome loginą
+            switchScreen('auth-screen');
         }
     } catch (err) {
-        console.error("Start error:", err);
-        // Jei matai šį alertą, vadinasi problema su Supabase ryšiu
-        alert("Ryšio klaida: " + err.message);
+        alert("Sistemos klaida: " + err.message);
     }
 }
 
-// SAUGUS EKRANŲ PERJUNGIMAS
 function switchScreen(screenId) {
     const auth = getEl('auth-screen');
     const app = getEl('app-content');
-    
-    // Jei randa auth ekraną, jį valdo
-    if (auth) {
-        auth.style.display = (screenId === 'auth-screen') ? 'flex' : 'none';
-        auth.classList.toggle('hidden', screenId !== 'auth-screen');
-    }
-    
-    // Jei randa app turinį, jį valdo
-    if (app) {
-        app.classList.toggle('hidden', screenId !== 'app-content');
-    }
-}
-
-function updateUserUI(user) {
-    const display = getEl('user-display');
-    if (display) display.innerText = user.email.split('@')[0].toUpperCase();
+    if (auth) auth.classList.toggle('hidden', screenId !== 'auth-screen');
+    if (app) app.classList.toggle('hidden', screenId !== 'app-content');
 }
 
 // --- 5. DUOMENŲ KROVIMAS ---
 async function loadAllData() {
-    loadVehicles();
-    loadAssets();
+    await loadVehicles();
+    await loadAssets();
 }
 
 async function loadVehicles() {
     const select = getEl('vehicle-select');
     if (!select) return;
 
-    const { data, error } = await db.from('finance_vehicles').select('*');
+    const { data, error } = await db.from('finance_vehicles').select('*').eq('status', 'active');
+    
     if (error) {
-        select.innerHTML = `<option>DB Klaida</option>`;
+        console.error("Vehicles error:", error);
         return;
     }
 
@@ -100,15 +81,18 @@ async function loadAssets() {
     const totalDisp = getEl('total-balance-display');
     if (!list) return;
 
-    const { data, error } = await db.from('finance_assets').select('*');
+    const { data } = await db.from('finance_assets').select('*');
     let total = 0;
     
     if (data) {
         list.innerHTML = data.map(a => {
             total += a.cached_balance;
             return `
-                <div class="glass-card p-5 rounded-3xl flex justify-between items-center border border-gray-100 dark:border-gray-800 mb-3">
-                    <span class="font-bold text-gray-700 dark:text-gray-300">${a.name}</span>
+                <div class="glass-card p-5 rounded-[2rem] flex justify-between items-center border border-gray-100 dark:border-gray-800 mb-3">
+                    <div class="flex flex-col">
+                        <span class="label-tiny mb-1">Account</span>
+                        <span class="font-bold text-gray-700 dark:text-gray-300">${a.name}</span>
+                    </div>
                     <span class="text-xl font-black text-gray-900 dark:text-white">$${a.cached_balance.toFixed(2)}</span>
                 </div>
             `;
@@ -117,19 +101,72 @@ async function loadAssets() {
     }
 }
 
-// --- 6. AUTENTIFIKACIJA ---
-async function login() {
-    // Svarbu: tavo HTML faile ID turi būti 'email' ir 'password'
-    const emailEl = getEl('email') || getEl('auth-email');
-    const passEl = getEl('password') || getEl('auth-pass');
+// --- 6. PAMAINOS VALDYMAS (TAVO IEŠKOMAS KODAS) ---
+let timerInterval;
+
+async function startShift() {
+    console.log("Shift start sequence initiated...");
+    const vehicleSelect = getEl('vehicle-select');
+    const odoInput = getEl('start-odometer');
     
-    if (!emailEl || !passEl) return alert("Klaida: nerasti įvesties laukai HTML!");
+    const vId = vehicleSelect.value;
+    const odo = odoInput.value;
 
-    const { error } = await db.auth.signInWithPassword({ 
-        email: emailEl.value, 
-        password: passEl.value 
-    });
+    if (!vId) return alert("Pasirinkite automobilį!");
+    if (!odo) return alert("Įveskite odometrą!");
 
+    try {
+        // 1. Įrašome į duomenų bazę
+        const { data, error } = await db.from('finance_shifts').insert([
+            { 
+                vehicle_id: vId, 
+                start_odometer: parseFloat(odo), 
+                status: 'active' 
+            }
+        ]).select();
+
+        if (error) throw error;
+
+        // 2. UI Pakeitimai
+        getEl('pre-shift-form').classList.add('hidden');
+        getEl('active-shift-view').classList.remove('hidden');
+        
+        const badge = getEl('shift-status-badge');
+        if (badge) {
+            badge.innerText = "Active";
+            badge.className = "text-[9px] font-black px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 uppercase tracking-tighter border border-green-500/20";
+        }
+
+        const vehicle = vehicleSelect.options[vehicleSelect.selectedIndex].text;
+        getEl('active-vehicle-info').innerText = vehicle;
+
+        // 3. Paleidžiame laikmatį
+        startTimer();
+        
+    } catch (err) {
+        alert("Nepavyko pradėti pamainos: " + err.message);
+    }
+}
+
+function startTimer() {
+    let seconds = 0;
+    const display = getEl('shift-timer');
+    if (timerInterval) clearInterval(timerInterval);
+    
+    timerInterval = setInterval(() => {
+        seconds++;
+        const hrs = String(Math.floor(seconds / 3600)).padStart(2, '0');
+        const mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+        const secs = String(seconds % 60).padStart(2, '0');
+        if (display) display.innerText = `${hrs}:${mins}:${secs}`;
+    }, 1000);
+}
+
+// --- 7. PAGALBINIAI ---
+async function login() {
+    const email = getEl('auth-email').value;
+    const pass = getEl('auth-pass').value;
+    const { error } = await db.auth.signInWithPassword({ email, password: pass });
     if (error) alert("Klaida: " + error.message);
     else location.reload();
 }
@@ -139,5 +176,10 @@ async function logout() {
     location.reload();
 }
 
-// Užtikriname, kad init pasileis tik tada, kai visas HTML bus užkrautas
+function toggleSettingsModal() {
+    const modal = getEl('settings-modal');
+    if (modal) modal.classList.toggle('hidden');
+}
+
+// Pasileidžiame
 window.addEventListener('DOMContentLoaded', init);

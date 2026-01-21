@@ -1,7 +1,7 @@
 /* js/app.js - v8.0.0 */
 const CONFIG = {
-    SUPABASE_URL: 'https://monkroe.github.io/Robert-OS/',
-    SUPABASE_KEY: 'tavo_anon_key',
+    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co',
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy',
     VERSION: '8.0.0'
 };
 

@@ -1,4 +1,4 @@
-/* ROBERT ❤️ OS v5.1.2 - ENGINE */
+/* ROBERT ❤️ OS v5.1.3 - ENGINE */
 
 const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
@@ -11,41 +11,35 @@ async function init() {
     getEl('auto-year').innerText = new Date().getFullYear();
     initTheme();
 
-    try {
-        const { data: { session } } = await db.auth.getSession();
-        
-        if (session) {
-            getEl('auth-screen').classList.add('hidden');
-            getEl('app-content').classList.remove('hidden');
-            await checkActiveShift();
-            await switchTab('cockpit');
-        } else {
-            getEl('auth-screen').classList.remove('hidden');
-            getEl('app-content').classList.add('hidden');
-        }
-    } catch (e) {
-        console.error("Inicijavimo klaida:", e);
+    const { data: { session } } = await db.auth.getSession();
+    if (session) {
+        getEl('auth-screen').classList.add('hidden');
+        getEl('app-content').classList.remove('hidden');
+        await checkActiveShift();
+        await switchTab('cockpit');
+    } else {
+        getEl('auth-screen').classList.remove('hidden');
+        getEl('app-content').classList.add('hidden');
     }
 }
 
 async function login() {
-    const email = getEl('auth-email').value, password = getEl('auth-pass').value;
-    const { error } = await db.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message); else location.reload();
+    const { error } = await db.auth.signInWithPassword({ 
+        email: getEl('auth-email').value, 
+        password: getEl('auth-pass').value 
+    });
+    if (error) alert("Klaida: " + error.message); else location.reload();
 }
 
-async function logout() {
-    await db.auth.signOut();
-    localStorage.clear();
-    location.reload();
-}
+async function logout() { await db.auth.signOut(); localStorage.clear(); location.reload(); }
 
 async function switchTab(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     getEl(`tab-${id}`).classList.add('active');
     getEl(`btn-${id}`).classList.add('active');
-
+    
+    // Kontekstinis krovimas
     if (id === 'cockpit') await refreshCockpit();
     if (id === 'runway') await refreshRunway();
     if (id === 'projection') await refreshProjection();
@@ -53,7 +47,6 @@ async function switchTab(id) {
     if (id === 'audit') await refreshAudit();
 }
 
-// --- Refresh Functions ---
 async function refreshCockpit() {
     const { data } = await db.from('emergency_buffer_view').select('buffer_pct').maybeSingle();
     if (data) {
@@ -73,16 +66,14 @@ async function refreshRunway() {
 async function refreshProjection() {
     const { data: nw } = await db.from('total_net_worth_view').select('total_net_worth').maybeSingle();
     const { data: goals } = await db.from('goal_projection_view').select('*');
-    if (nw) {
-        const container = getEl('eta-container');
-        container.innerHTML = `<div class="glass-card p-8 text-center mb-8"><p class="label-tiny">Total Net Worth</p><p class="text-4xl font-black">$${parseFloat(nw.total_net_worth).toLocaleString()}</p></div>`;
-        if (goals) container.innerHTML += goals.map(g => `<div class="glass-card p-6 flex justify-between items-center mb-3 border border-primary-500/5"><div><p class="label-tiny">Target</p><p class="font-black">$${(g.target_net_worth/1000).toFixed(0)}K Goal</p></div><div class="text-right"><p class="text-2xl font-black text-primary-500">${g.months_to_goal ? (g.months_to_goal/12).toFixed(1)+' m.' : 'STALL'}</p></div></div>`).join('');
-    }
+    const container = getEl('eta-container');
+    container.innerHTML = `<div class="glass-card p-10 text-center mb-6"><p class="label-tiny">Total Wealth</p><p class="text-4xl font-black">$${parseFloat(nw?.total_net_worth || 0).toLocaleString()}</p></div>`;
+    if (goals) container.innerHTML += goals.map(g => `<div class="glass-card p-6 flex justify-between items-center mb-3"><div><p class="label-tiny">Goal</p><p class="font-bold">$${(g.target_net_worth/1000).toFixed(0)}K</p></div><div class="text-right"><p class="text-2xl font-black text-primary-500">${g.months_to_goal ? (g.months_to_goal/12).toFixed(1)+' m.' : 'STALL'}</p></div></div>`).join('');
 }
 
 async function refreshVault() {
     const { data } = await db.from('investment_portfolio_view').select('*');
-    if (data) getEl('asset-list').innerHTML = data.map(a => `<div class="glass-card p-5 flex justify-between items-center mb-2"><span class="font-bold uppercase text-xs tracking-widest">${a.symbol}</span><span class="font-black text-primary-500 text-lg">$${parseFloat(a.market_value).toLocaleString()}</span></div>`).join('');
+    if (data) getEl('asset-list').innerHTML = data.map(a => `<div class="glass-card p-5 flex justify-between items-center mb-3"><span class="font-bold uppercase text-xs tracking-widest">${a.symbol}</span><span class="font-black text-primary-500 text-lg">$${parseFloat(a.market_value).toLocaleString()}</span></div>`).join('');
 }
 
 async function refreshAudit() {
@@ -90,15 +81,16 @@ async function refreshAudit() {
     if (data) getEl('audit-list').innerHTML = data.map(t => `<div class="glass-card p-4 flex justify-between text-[10px] font-bold mb-2"><span class="opacity-40 uppercase">${new Date(t.date).toLocaleDateString()}</span><span class="${t.direction==='in'?'text-primary-500':'text-red-400'} uppercase">$${t.amount.toLocaleString()}</span></div>`).join('');
 }
 
-// --- Actions ---
-function openOdoModal() { getEl('odo-title').innerText = activeShiftId ? "End Shift Miles" : "Start Shift Miles"; getEl('odo-input').value = ""; getEl('odo-modal').classList.remove('hidden'); }
-function closeOdoModal() { getEl('odo-modal').classList.add('hidden'); }
+// Modals & Actions
+function toggleSettings() { getEl('settings-modal').classList.toggle('hidden'); }
+function openOdoModal() { getEl('odo-title').innerText = activeShiftId ? "End Miles" : "Start Miles"; getEl('odo-modal').classList.remove('hidden'); }
+function closeModals() { document.querySelectorAll('.fixed.inset-0').forEach(m => { if(m.id !== 'auth-screen') m.classList.add('hidden'); }); }
 
 async function confirmShiftAction() {
-    const odo = getEl('odo-input').value; if (!odo) return alert("Privaloma įvesti ridą");
+    const odo = getEl('odo-input').value; if (!odo) return;
     if (!activeShiftId) await db.from('finance_shifts').insert([{start_odometer: odo, status:'active'}]);
     else await db.from('finance_shifts').update({end_odometer: odo, status:'completed', end_time: new Date()}).eq('id', activeShiftId);
-    closeOdoModal(); await checkActiveShift(); await refreshCockpit();
+    closeModals(); await checkActiveShift(); await refreshCockpit();
 }
 
 async function checkActiveShift() {
@@ -124,20 +116,17 @@ function startTimer() {
 }
 
 function openTx(m) { txMode = m; getEl('tx-modal').classList.remove('hidden'); }
-function closeTxModal() { getEl('tx-modal').classList.add('hidden'); }
 async function saveTx() {
     const amount = getEl('tx-amount').value; if (!amount) return;
     const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
     await db.from('finance_transactions').insert([{amount, direction: txMode, asset_id: asset.id, source:'shift', shift_id: activeShiftId}]);
-    closeTxModal(); await refreshCockpit();
+    closeModals(); await refreshCockpit();
 }
 
-function initTheme() {
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
+function setTheme(m) {
+    document.documentElement.classList.toggle('dark', m === 'dark' || (m === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+    localStorage.theme = m;
 }
+function initTheme() { setTheme(localStorage.theme || 'system'); }
 
 window.addEventListener('DOMContentLoaded', init);

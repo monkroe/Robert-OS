@@ -1,4 +1,4 @@
-/* ROBERT OS v4.7.0 - STRATEGIC WEALTH OS */
+/* ROBERT OS v4.7.1 - STRATEGIC WEALTH OS */
 
 const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
@@ -12,7 +12,7 @@ let selectedWindow = 30;
 // --- INITIALIZE ---
 async function init() {
     initTheme();
-    updateFooter(); // Atnaujiname metus ir versiją
+    updateFooter();
     const { data: { session } } = await db.auth.getSession();
     if (session) {
         getEl('auth-screen').classList.add('hidden');
@@ -21,6 +21,7 @@ async function init() {
         await checkActiveShift();
     } else {
         getEl('auth-screen').classList.remove('hidden');
+        getEl('app-content').classList.add('hidden');
     }
 }
 
@@ -92,7 +93,8 @@ async function checkActiveShift() {
 }
 
 function startTimerLogic() {
-    setInterval(() => {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
         const diff = Math.floor((new Date() - shiftStartTime) / 1000);
         const h = String(Math.floor(diff/3600)).padStart(2,'0');
         const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
@@ -124,10 +126,57 @@ async function completeShift() {
     location.reload();
 }
 
-async function logout() { await db.auth.signOut(); localStorage.clear(); location.reload(); }
-function initTheme() { document.documentElement.classList.toggle('dark', localStorage.theme === 'dark'); }
-function toggleIncomeModal() { getEl('income-modal').classList.toggle('hidden'); }
-function showEndShiftForm() { getEl('active-shift-view').classList.add('hidden'); getEl('end-shift-form').classList.remove('hidden'); }
-function cancelEndShift() { getEl('end-shift-form').classList.add('hidden'); getEl('active-shift-view').classList.remove('hidden'); }
+async function login() {
+    const { error } = await db.auth.signInWithPassword({ 
+        email: getEl('auth-email').value, 
+        password: getEl('auth-pass').value 
+    });
+    if (error) alert(error.message); else location.reload();
+}
+
+async function logout() { 
+    await db.auth.signOut(); 
+    localStorage.clear(); 
+    location.reload(); 
+}
+
+function setTheme(m, save = true) {
+    const html = document.documentElement;
+    if (m === 'system') {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        html.classList.toggle('dark', isDark);
+        if (save) localStorage.removeItem('theme');
+    } else {
+        html.classList.toggle('dark', m === 'dark');
+        if (save) localStorage.theme = m;
+    }
+    
+    // Vizualus mygtukų atnaujinimas modale
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('border-primary-500', 'bg-primary-500/10'));
+    const activeBtn = getEl(`theme-${m}`);
+    if (activeBtn) activeBtn.classList.add('border-primary-500', 'bg-primary-500/10');
+}
+
+function initTheme() { 
+    setTheme(localStorage.theme || 'system', false); 
+}
+
+function toggleSettingsModal() { 
+    getEl('settings-modal').classList.toggle('hidden'); 
+}
+
+function toggleIncomeModal() { 
+    getEl('income-modal').classList.toggle('hidden'); 
+}
+
+function showEndShiftForm() { 
+    getEl('active-shift-view').classList.add('hidden'); 
+    getEl('end-shift-form').classList.remove('hidden'); 
+}
+
+function cancelEndShift() { 
+    getEl('end-shift-form').classList.add('hidden'); 
+    getEl('active-shift-view').classList.remove('hidden'); 
+}
 
 window.addEventListener('DOMContentLoaded', init);

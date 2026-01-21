@@ -1,190 +1,83 @@
-/* ROBERT ❤️ OS v5.3.0 - CRYPTO TRACKER AESTHETIC */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* ROBERT ❤️ OS v5.3.1 - PREMIUM FIXED */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-    --p: #14b8a6; /* Teal */
-    --bg: #f8fafc;
-    --card: #ffffff;
-    --text-main: #0f172a;
-    --text-sub: #64748b;
-    --border: #f1f5f9;
+    --p: #14b8a6; --bg: #f8fafc; --card: #ffffff;
+    --text-main: #0f172a; --text-sub: #64748b; --border: #f1f5f9;
 }
 
 .dark {
-    --bg: #0b0f1a;
-    --card: #151c2c;
-    --text-main: #f8fafc;
-    --text-sub: #94a3b8;
-    --border: #1e293b;
+    --bg: #0b0f1a; --card: #151c2c; --text-main: #f8fafc;
+    --text-sub: #94a3b8; --border: #1e293b;
 }
 
 body {
     background-color: var(--bg);
     color: var(--text-main);
     font-family: 'Inter', sans-serif;
-    margin: 0;
+    margin: 0; padding: 0;
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
 }
 
-/* Headeris pagal 1000085176.png */
+/* --- TABŲ VALDYMAS (Griežtas) --- */
+.tab-content { 
+    display: none !important; 
+    padding-top: 100px; 
+    padding-bottom: 120px; 
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.tab-content.active { 
+    display: block !important; 
+    animation: fIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+}
+
+@keyframes fIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- HEADERIS (Fix) --- */
 .global-header {
-    background: var(--card);
-    height: 70px;
-    padding: 0 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border);
-}
-
-.logo-text {
-    font-weight: 800;
-    font-size: 1.1rem;
-    letter-spacing: -0.02em;
-    text-transform: uppercase;
-}
-
-.header-actions {
-    display: flex;
-    gap: 12px;
+    position: fixed; top: 0; width: 100%; height: 75px;
+    background: rgba(var(--bg), 0.85); backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 200; display: flex; justify-content: space-between; align-items: center;
+    padding: 0 20px; box-sizing: border-box; border-bottom: 1px solid var(--border);
 }
 
 .btn-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: var(--bg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-main);
-    border: 1px solid var(--border);
+    width: 42px; height: 42px; border-radius: 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: 0.2s;
 }
 
-/* Pagrindinė vertė pagal 1000085188.png */
-.main-value-section {
-    text-align: center;
-    padding: 30px 20px;
-}
+/* --- TURINYS IR TYPOGRAPHY --- */
+.display-value { text-align: center; font-weight: 900; letter-spacing: -0.04em; font-size: 3rem; margin: 10px 0; }
+.label-tiny { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-sub); text-align: center; display: block; }
 
-.main-value-label {
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: var(--text-sub);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-}
+.stats-row { display: grid; grid-template-cols: repeat(3, 1fr); gap: 10px; margin: 20px; }
+.stat-card { background: var(--card); padding: 15px 5px; border-radius: 20px; border: 1px solid var(--border); text-align: center; }
+.stat-card p { font-size: 0.6rem; font-weight: 800; color: var(--text-sub); margin: 0 0 4px 0; }
+.stat-card span { font-size: 0.9rem; font-weight: 800; }
 
-.main-value-amount {
-    font-size: 2.8rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    margin: 5px 0;
-}
+.cockpit-card { background: var(--card); margin: 0 20px; padding: 35px 25px; border-radius: 32px; border: 1px solid var(--border); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }
 
-/* Mažos statistikų dėžutės */
-.stats-row {
-    display: grid;
-    grid-template-cols: repeat(3, 1fr);
-    gap: 10px;
-    margin: 0 20px 25px 20px;
-}
-
-.stat-card {
-    background: var(--card);
-    padding: 15px 10px;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-
-.stat-card p {
-    font-size: 0.6rem;
-    font-weight: 700;
-    color: var(--text-sub);
-    margin: 0 0 4px 0;
-}
-
-.stat-card span {
-    font-size: 0.85rem;
-    font-weight: 700;
-}
-
-/* Cockpit Mygtukai pagal 1000085189.png bet subtilesni */
-.cockpit-card {
-    background: var(--card);
-    margin: 0 20px;
-    padding: 30px;
-    border-radius: 28px;
-    border: 1px solid var(--border);
-    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
-}
-
-#shift-timer {
-    font-size: 3.5rem;
-    font-weight: 700;
-    color: var(--p);
-    margin-bottom: 25px;
-}
-
-.grid-2 {
-    display: grid;
-    grid-template-cols: 1fr 1fr;
-    gap: 12px;
-}
-
-.btn-secondary {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    padding: 18px;
-    border-radius: 18px;
-    font-weight: 700;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-}
-
-.btn-primary-os {
-    background: var(--p);
-    color: white;
-    width: 100%;
-    padding: 20px;
-    border-radius: 22px;
-    font-weight: 800;
-    font-size: 1rem;
-    text-transform: uppercase;
-    margin-top: 20px;
-    box-shadow: 0 8px 16px -4px rgba(20, 184, 166, 0.4);
-}
-
-/* Navigacija pagal 1000085189.png */
+/* --- NAVIGACIJA --- */
 .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    height: 75px;
-    background: var(--card);
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    border-top: 1px solid var(--border);
+    position: fixed; bottom: 0; width: 100%; height: 80px;
+    background: var(--card); display: flex; justify-content: space-around;
+    align-items: center; border-top: 1px solid var(--border); z-index: 200;
 }
 
-.nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: var(--text-sub);
-    font-size: 0.6rem;
-    font-weight: 700;
-    text-transform: uppercase;
-}
+.nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-sub); font-size: 0.55rem; font-weight: 800; text-transform: uppercase; cursor: pointer; flex: 1; }
+.nav-item.active { color: var(--p); }
+.nav-item i { font-size: 1.3rem; margin-bottom: 5px; }
 
-.nav-item.active {
-    color: var(--p);
-}
+/* --- MODALS & INPUTS --- */
+.input-field { width: 100%; padding: 1.2rem; border-radius: 1.2rem; background: var(--bg); border: 2px solid transparent; font-weight: 800; text-align: center; font-size: 1.2rem; color: inherit; }
+.btn-primary { background: var(--p); color: white; width: 100%; padding: 1.2rem; border-radius: 1.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; border: none; }
 
-.nav-item i {
-    font-size: 1.2rem;
-    margin-bottom: 4px;
-}
+.hidden { display: none !important; }
+.buffer-track { width: 80px; height: 4px; background: rgba(0,0,0,0.05); border-radius: 10px; overflow: hidden; margin: 5px auto; }
+.buffer-fill { height: 100%; transition: width 1s ease; }

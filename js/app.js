@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
-   ROBERT ❤️ OS v8.1 - BENTO ENGINE
+   ROBERT ❤️ OS 8.2 - BENTO LOGIC
    ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://https://sopcisskptiqlllehhgb.supabase.co', // PAKEISK Į SAVO!
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // PAKEISK Į SAVO!
-    VERSION: '8.1.0'
+    SUPABASE_URL: 'https://TAVO_PROJEKTAS.supabase.co', // PAKEISK
+    SUPABASE_KEY: 'TAVO_KEY', // PAKEISK
+    VERSION: '8.2.0'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
@@ -18,6 +18,7 @@ const state = new Proxy({
     theme: localStorage.getItem('theme') || 'dark',
     activeTab: 'cockpit',
     buyType: 'crypto',
+    txDirection: 'in', // Nauja: seka operacijos tipą
     loading: false
 }, {
     set(target, key, value) {
@@ -30,7 +31,6 @@ const state = new Proxy({
 // --- INIT ---
 async function init() {
     initTheme();
-    
     const { data: { session } } = await db.auth.getSession();
     if (session) {
         state.user = session.user;
@@ -50,12 +50,10 @@ async function checkSystemHealth() {
         document.getElementById('setup-modal').classList.remove('hidden');
     }
 }
-
 async function finishSetup() {
     const cash = parseFloat(document.getElementById('setup-cash').value) || 0;
     const burn = parseFloat(document.getElementById('setup-burn').value) || 2500;
     const car = document.getElementById('setup-car').value || 'My Car';
-
     state.loading = true;
     try {
         await db.from('finance_settings').insert({ user_id: state.user.id, monthly_burn: burn, emergency_buffer_target: burn * 6 });
@@ -63,7 +61,7 @@ async function finishSetup() {
         await db.from('vehicles').insert({ user_id: state.user.id, name: car, plate: 'DEFAULT', is_active: true });
         document.getElementById('setup-modal').classList.add('hidden');
         refreshAll();
-    } catch (e) { alert('Setup Error: ' + e.message); } finally { state.loading = false; }
+    } catch (e) { alert(e.message); } finally { state.loading = false; }
 }
 
 // --- AUTH ---
@@ -74,7 +72,6 @@ async function login() {
     const { error } = await db.auth.signInWithPassword({ email, password });
     if(error) { alert(error.message); state.loading = false; } else location.reload();
 }
-
 async function logout() {
     state.loading = true;
     await db.auth.signOut();
@@ -86,13 +83,11 @@ async function logout() {
 async function refreshAll() {
     const { data: summary } = await db.from('user_financial_summary').select('*').maybeSingle();
     if(summary) state.summary = summary;
-
     const { data: nw } = await db.from('total_net_worth_live').select('net_worth').maybeSingle();
     if(nw) state.netWorth = nw.net_worth;
-
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
-    state.activeShift = shift; // Tai iššaukia updateUI
-
+    state.activeShift = shift; // Triggers UI update
+    
     if(state.activeTab === 'vault') refreshVault();
     if(state.activeTab === 'audit') refreshAudit();
 }
@@ -122,11 +117,10 @@ async function refreshAudit() {
         </div>`).join('') : '';
 }
 
-// --- SHIFT LOGIC (SVARBU: BENTO VERSIJA) ---
+// --- SHIFT LOGIC ---
 function openOdoModal() { document.getElementById('odo-modal').classList.remove('hidden'); }
 function openEndModal() { document.getElementById('end-shift-modal').classList.remove('hidden'); }
 
-// START SHIFT
 async function confirmShiftAction() {
     const odo = document.getElementById('odo-input').value;
     if(!odo) return;
@@ -134,59 +128,63 @@ async function confirmShiftAction() {
     try {
         const { data: v } = await db.from('vehicles').select('id').eq('is_active', true).limit(1).single();
         await db.from('finance_shifts').insert({ user_id: state.user.id, vehicle_id: v?.id, start_odo: odo, status: 'active' });
-        closeModals();
-        refreshAll();
+        closeModals(); refreshAll();
     } catch(e) { alert(e.message); } finally { state.loading = false; }
 }
 
-// END SHIFT (Nauja funkcija)
 async function finishShift() {
     const endOdo = parseFloat(document.getElementById('end-odo').value);
     const income = parseFloat(document.getElementById('end-income').value) || 0;
     const fuel = parseFloat(document.getElementById('end-fuel').value) || 0;
-
     if(!endOdo) return alert('Įveskite ODO');
     state.loading = true;
-
     try {
         const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
-        // Pajamos
         if(income > 0) await db.from('finance_transactions').insert({ user_id: state.user.id, asset_id: asset.id, amount: income, direction: 'in', shift_id: state.activeShift.id });
-        // Kuras
         if(fuel > 0) await db.from('finance_transactions').insert({ user_id: state.user.id, asset_id: asset.id, amount: fuel, direction: 'out', shift_id: state.activeShift.id });
-        // Uždarymas
         await db.from('finance_shifts').update({ end_odo: endOdo, status: 'completed', end_time: new Date().toISOString() }).eq('id', state.activeShift.id);
-        
-        closeModals();
-        refreshAll();
-        alert('Pamaina uždaryta!');
+        closeModals(); refreshAll(); alert('Pamaina uždaryta!');
     } catch(e) { alert(e.message); } finally { state.loading = false; }
 }
 
-// --- TRANSACTIONS & INVEST ---
-async function saveTransaction(dir) {
-    const amt = parseFloat(prompt(`Suma (${dir}):`));
-    if(!amt) return;
-    state.loading = true;
-    const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
-    await db.from('finance_transactions').insert({ user_id: state.user.id, asset_id: asset.id, amount: amt, direction: dir, shift_id: state.activeShift?.id });
-    state.loading = false;
-    refreshAll();
+// --- TRANSACTIONS (NAUJA: MODALAS VIETOJ PROMPT) ---
+function openTransactionModal(dir) {
+    state.txDirection = dir;
+    document.getElementById('tx-title').textContent = dir === 'in' ? 'Pridėti Pajamas' : 'Pridėti Išlaidas';
+    document.getElementById('tx-amount').value = '';
+    document.getElementById('transaction-modal').classList.remove('hidden');
+    document.getElementById('tx-amount').focus();
 }
 
+async function confirmTransaction() {
+    const amt = parseFloat(document.getElementById('tx-amount').value);
+    if(!amt) return;
+    state.loading = true;
+    try {
+        const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
+        await db.from('finance_transactions').insert({ 
+            user_id: state.user.id, 
+            asset_id: asset.id, 
+            amount: amt, 
+            direction: state.txDirection, 
+            shift_id: state.activeShift?.id 
+        });
+        closeModals(); refreshAll();
+    } catch(e) { alert(e.message); } finally { state.loading = false; }
+}
+
+// --- INVEST ---
 function openBuyModal() { document.getElementById('buy-modal').classList.remove('hidden'); }
 function selectAssetType(type) {
     state.buyType = type;
     document.getElementById('btn-type-crypto').className = `asset-type-btn ${type === 'crypto' ? 'active' : ''}`;
     document.getElementById('btn-type-stock').className = `asset-type-btn ${type === 'stock' ? 'active' : ''}`;
 }
-
 async function confirmBuyAction() {
     const symbol = document.getElementById('buy-symbol').value.toUpperCase();
     const qty = parseFloat(document.getElementById('buy-amount').value);
     const price = parseFloat(document.getElementById('buy-price').value);
     if(!symbol || !qty || !price) return;
-    
     state.loading = true;
     try {
         let { data: asset } = await db.from('investment_assets').select('id').eq('symbol', symbol).maybeSingle();
@@ -212,22 +210,22 @@ function updateUI(key) {
     }
     if(key === 'netWorth' && $('net-worth-val')) $('net-worth-val').textContent = `$${Math.round(state.netWorth).toLocaleString()}`;
 
-    // SHIFT BUTTON STATE (Svarbu!)
+    // SHIFT BUTTON (RAUDONAS/ŽALIAS)
     if(key === 'activeShift' && $('shift-btn')) {
         const btn = $('shift-btn');
         if(state.activeShift) {
-            // END SHIFT MODE
+            // STOP MODE
             btn.innerHTML = '<i class="fa-solid fa-stop mr-2"></i> END SHIFT';
             btn.classList.remove('btn-action-start');
-            btn.classList.add('btn-action-stop');
-            btn.onclick = openEndModal; // Atidaro uždarymo langą
+            btn.classList.add('btn-action-stop'); // Čia CSS padarys jį raudoną
+            btn.onclick = openEndModal;
             startTimer();
         } else {
-            // START SHIFT MODE
+            // START MODE
             btn.innerHTML = '<i class="fa-solid fa-play mr-2"></i> START SHIFT';
             btn.classList.remove('btn-action-stop');
             btn.classList.add('btn-action-start');
-            btn.onclick = openOdoModal; // Atidaro starto langą
+            btn.onclick = openOdoModal;
             stopTimer();
         }
     }
@@ -243,7 +241,6 @@ function switchTab(id) {
 }
 function setupRealtime() { db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe(); }
 function showAuthScreen(show) { document.getElementById('auth-screen').classList.toggle('hidden', !show); document.getElementById('app-content').classList.toggle('hidden', show); }
-
 let timerInt;
 function startTimer() { stopTimer(); const start = new Date(state.activeShift.start_time); timerInt = setInterval(() => { 
     const diff = Math.floor((new Date() - start)/1000); 
@@ -251,7 +248,6 @@ function startTimer() { stopTimer(); const start = new Date(state.activeShift.st
     if(document.getElementById('shift-timer')) document.getElementById('shift-timer').textContent = `${h}:${m}:${s}`; 
 }, 1000); }
 function stopTimer() { clearInterval(timerInt); if(document.getElementById('shift-timer')) document.getElementById('shift-timer').textContent = '00:00:00'; }
-
 function initTheme() { document.documentElement.classList.toggle('light', state.theme === 'light'); }
 function toggleTheme() { state.theme = state.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', state.theme); initTheme(); }
 

@@ -1,7 +1,7 @@
 /* ROBERT OS v4.7.0 - STRATEGIC WEALTH OS */
 
-const SUPABASE_URL = 'TAVO_URL';
-const SUPABASE_KEY = 'TAVO_RAKTAS';
+const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const getEl = (id) => document.getElementById(id);

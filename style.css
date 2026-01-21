@@ -1,3 +1,4 @@
+/* style.css - 8.0.0 */
 :root {
     --bg-main: #0b0f1a;
     --bg-card: rgba(15, 23, 42, 0.6);
@@ -13,7 +14,7 @@ html.light {
     --border: rgba(0, 0, 0, 0.05);
 }
 
-body { background: var(--bg-main); color: var(--text-main); font-family: 'Inter', sans-serif; transition: 0.3s ease; }
+body { background: var(--bg-main); color: var(--text-main); font-family: 'Inter', sans-serif; transition: 0.3s; }
 
 .global-header {
     position: fixed; top: 0; width: 100%; height: 75px;
@@ -21,14 +22,6 @@ body { background: var(--bg-main); color: var(--text-main); font-family: 'Inter'
     display: flex; justify-content: space-between; align-items: center;
     padding: 0 20px; border-bottom: 1px solid var(--border); z-index: 100;
 }
-
-.input-field {
-    width: 100%; padding: 1.25rem; border-radius: 1.5rem;
-    background: rgba(30, 41, 59, 0.5); border: 1px solid var(--border);
-    color: white; text-align: center; outline: none; transition: 0.3s;
-}
-
-.input-field:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(20, 184, 166, 0.2); }
 
 .bottom-nav {
     position: fixed; bottom: 0; width: 100%; height: 85px;
@@ -40,25 +33,43 @@ body { background: var(--bg-main); color: var(--text-main); font-family: 'Inter'
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
     color: #64748b; font-size: 9px; font-weight: 800; text-transform: uppercase; border: none; background: none;
 }
-
 .nav-item.active { color: var(--primary); }
 .nav-item i { font-size: 1.3rem; margin-bottom: 4px; }
 
-.btn-primary-os { background: var(--primary); color: white; border-radius: 1.5rem; font-weight: 900; text-transform: uppercase; border: none; }
+/* Kortelės */
+.cockpit-card, .glass-card { background: var(--bg-card); border: 1px solid var(--border); backdrop-filter: blur(20px); }
+
+/* Formos elementai */
+.input-field {
+    width: 100%; padding: 1.25rem; border-radius: 1.5rem;
+    background: rgba(30, 41, 59, 0.5); border: 1px solid var(--border);
+    color: white; text-align: center; outline: none; transition: 0.3s;
+}
+.input-field:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary); }
+
+.btn-primary-os { background: var(--primary); color: white; border-radius: 1.5rem; font-weight: 900; text-transform: uppercase; border: none; width: 100%; }
 .btn-primary-os:active { transform: scale(0.96); }
 
+/* Tabs */
 .tab-content { display: none; }
 .tab-content.active { display: block; animation: tabFade 0.4s ease-out; }
 @keyframes tabFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-.cockpit-card, .glass-card { background: var(--bg-card); border: 1px solid var(--border); backdrop-filter: blur(20px); }
-.label-tiny { font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: #64748b; font-weight: 900; }
-.display-value { color: var(--primary); text-shadow: 0 0 20px rgba(20, 184, 166, 0.3); }
-.header-btn { width: 44px; height: 44px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border); }
-.tx-btn { border-radius: 1.25rem; font-weight: 900; font-size: 10px; padding: 1.2rem; border: 1px solid; }
+/* Investicijų mygtukai */
+.asset-type-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: #64748b; font-weight: 800; padding: 1rem; border-radius: 1rem;
+}
+.asset-type-btn.active {
+    background: var(--primary); color: white; border-color: var(--primary);
+}
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal-content { background: #151c2c; border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 3rem; padding: 3rem 2rem; }
 
+.label-tiny { font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: #64748b; font-weight: 900; }
+.display-value { color: var(--primary); text-shadow: 0 0 20px var(--primary); }
+.header-btn { width: 44px; height: 44px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border); }
+.tx-btn { border-radius: 1.25rem; font-weight: 900; font-size: 10px; padding: 1.2rem; border: 1px solid; }
 .buffer-track { width: 100%; height: 8px; background: var(--border); border-radius: 10px; overflow: hidden; }
-.buffer-fill { width: 45%; height: 100%; background: var(--primary); border-radius: 10px; }
+.buffer-fill { width: 0%; height: 100%; background: var(--primary); border-radius: 10px; transition: 1s ease-out; }

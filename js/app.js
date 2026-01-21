@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
-   ROBERT ❤️ OS v8.2.1 - PRODUCTION LOGIC
+   ROBERT ❤️ OS v8.3 - NO ALERTS EDITION
    ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // ĮRAŠYK SAVO URL (pvz. https://xyz.supabase.co)
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // ĮRAŠYK SAVO ANON KEY
-    VERSION: '8.2.1'
+    SUPABASE_URL: 'https://https://sopcisskptiqlllehhgb.supabase.co', // PAKEISK
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // PAKEISK
+    VERSION: '8.3.0'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
@@ -27,6 +27,32 @@ const state = new Proxy({
         return true;
     }
 });
+
+// --- TOAST SYSTEM (NEW) ---
+function showToast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let icon = 'fa-info-circle';
+    if(type === 'success') icon = 'fa-check-circle text-green-500';
+    if(type === 'error') icon = 'fa-exclamation-triangle text-red-500';
+
+    toast.innerHTML = `
+        <i class="fa-solid ${icon} text-xl"></i>
+        <div>
+            <p class="font-bold text-sm">${type === 'error' ? 'Error' : 'Success'}</p>
+            <p class="text-xs opacity-80">${msg}</p>
+        </div>
+    `;
+    
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
 
 // --- INIT ---
 async function init() {
@@ -61,7 +87,8 @@ async function finishSetup() {
         await db.from('vehicles').insert({ user_id: state.user.id, name: car, plate: 'DEFAULT', is_active: true });
         document.getElementById('setup-modal').classList.add('hidden');
         refreshAll();
-    } catch (e) { alert(e.message); } finally { state.loading = false; }
+        showToast('System Initialized!', 'success');
+    } catch (e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 // --- AUTH ---
@@ -70,7 +97,7 @@ async function login() {
     const password = document.getElementById('auth-pass').value;
     state.loading = true;
     const { error } = await db.auth.signInWithPassword({ email, password });
-    if(error) { alert(error.message); state.loading = false; } else location.reload();
+    if(error) { showToast(error.message, 'error'); state.loading = false; } else location.reload();
 }
 async function logout() {
     state.loading = true;
@@ -123,31 +150,35 @@ function openEndModal() { document.getElementById('end-shift-modal').classList.r
 
 async function confirmShiftAction() {
     const odo = document.getElementById('odo-input').value;
-    if(!odo) return;
+    if(!odo) return showToast('Įveskite ODO', 'error');
     state.loading = true;
     try {
         const { data: v } = await db.from('vehicles').select('id').eq('is_active', true).limit(1).single();
         await db.from('finance_shifts').insert({ user_id: state.user.id, vehicle_id: v?.id, start_odo: odo, status: 'active' });
         closeModals(); refreshAll();
-    } catch(e) { alert(e.message); } finally { state.loading = false; }
+        showToast('Pamaina pradėta', 'success');
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 async function finishShift() {
     const endOdo = parseFloat(document.getElementById('end-odo').value);
     const income = parseFloat(document.getElementById('end-income').value) || 0;
     const fuel = parseFloat(document.getElementById('end-fuel').value) || 0;
-    if(!endOdo) return alert('Įveskite ODO');
+    if(!endOdo) return showToast('Įveskite galutinį ODO', 'error');
+    
     state.loading = true;
     try {
         const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
         if(income > 0) await db.from('finance_transactions').insert({ user_id: state.user.id, asset_id: asset.id, amount: income, direction: 'in', shift_id: state.activeShift.id });
         if(fuel > 0) await db.from('finance_transactions').insert({ user_id: state.user.id, asset_id: asset.id, amount: fuel, direction: 'out', shift_id: state.activeShift.id });
         await db.from('finance_shifts').update({ end_odo: endOdo, status: 'completed', end_time: new Date().toISOString() }).eq('id', state.activeShift.id);
-        closeModals(); refreshAll(); alert('Pamaina uždaryta!');
-    } catch(e) { alert(e.message); } finally { state.loading = false; }
+        
+        closeModals(); refreshAll(); 
+        showToast('Pamaina sėkmingai uždaryta!', 'success');
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- TRANSACTIONS (NAUJAS MODALAS) ---
+// --- TRANSACTIONS ---
 function openTransactionModal(dir) {
     state.txDirection = dir;
     document.getElementById('tx-title').textContent = dir === 'in' ? 'Pridėti Pajamas' : 'Pridėti Išlaidas';
@@ -158,7 +189,7 @@ function openTransactionModal(dir) {
 
 async function confirmTransaction() {
     const amt = parseFloat(document.getElementById('tx-amount').value);
-    if(!amt) return;
+    if(!amt) return showToast('Įveskite sumą', 'error');
     state.loading = true;
     try {
         const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
@@ -170,7 +201,8 @@ async function confirmTransaction() {
             shift_id: state.activeShift?.id 
         });
         closeModals(); refreshAll();
-    } catch(e) { alert(e.message); } finally { state.loading = false; }
+        showToast('Operacija įrašyta', 'success');
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 // --- INVEST ---
@@ -184,7 +216,7 @@ async function confirmBuyAction() {
     const symbol = document.getElementById('buy-symbol').value.toUpperCase();
     const qty = parseFloat(document.getElementById('buy-amount').value);
     const price = parseFloat(document.getElementById('buy-price').value);
-    if(!symbol || !qty || !price) return;
+    if(!symbol || !qty || !price) return showToast('Užpildykite visus laukus', 'error');
     state.loading = true;
     try {
         let { data: asset } = await db.from('investment_assets').select('id').eq('symbol', symbol).maybeSingle();
@@ -195,7 +227,8 @@ async function confirmBuyAction() {
         const { data: fiat } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
         await db.from('investment_transactions').insert({ user_id: state.user.id, investment_id: asset.id, fiat_asset_id: fiat.id, type: 'buy', quantity: qty, price_per_unit: price, total_fiat: qty * price });
         closeModals(); refreshAll();
-    } catch(e) { alert(e.message); } finally { state.loading = false; }
+        showToast(`Nupirkta ${qty} ${symbol}`, 'success');
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 // --- UI UPDATER ---
@@ -231,19 +264,12 @@ function updateUI(key) {
 
 // --- UTILS ---
 function closeModals() { document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden')); }
-
-// TAB SWITCHING (FIXED)
 function switchTab(id) {
     state.activeTab = id;
-    document.querySelectorAll('.tab-content').forEach(el => {
-        el.classList.toggle('active', el.id === `tab-${id}`);
-    });
-    document.querySelectorAll('.nav-item').forEach(el => {
-        el.classList.toggle('active', el.id === `btn-${id}`);
-    });
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${id}`));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.id === `btn-${id}`));
     refreshAll();
 }
-
 function setupRealtime() { db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe(); }
 function showAuthScreen(show) { document.getElementById('auth-screen').classList.toggle('hidden', !show); document.getElementById('app-content').classList.toggle('hidden', show); }
 let timerInt;

@@ -3,8 +3,8 @@
    ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://TAVO_PROJEKTAS.supabase.co', // PAKEISK
-    SUPABASE_KEY: 'TAVO_KEY', // PAKEISK
+    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // PAKEISK
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // PAKEISK
     VERSION: '8.2.0'
 };
 

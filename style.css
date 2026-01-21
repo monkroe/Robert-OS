@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   ROBERT ❤️ OS v8.2 - BENTO STYLE
+   ROBERT ❤️ OS v8.3 - BENTO & TOASTS
    ═══════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
@@ -65,13 +65,12 @@ body {
     color: var(--text-main); display: flex; align-items: center; justify-content: center;
 }
 
-/* TEXT */
+/* TEXT & INPUTS */
 .label-xs { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 4px; }
 .val-xl { font-family: var(--font-num); font-size: 28px; font-weight: 700; letter-spacing: -1px; }
 .val-lg { font-family: var(--font-num); font-size: 20px; font-weight: 700; }
 .val-timer { font-family: var(--font-num); font-size: 42px; font-weight: 700; letter-spacing: -2px; line-height: 1; }
 
-/* INPUTS */
 .input-field {
     width: 100%; padding: 1.25rem; border-radius: 16px;
     background: var(--bg-card); border: 1px solid var(--border);
@@ -92,8 +91,6 @@ body {
     color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 12px;
     display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-
-/* STATE COLORS (IMPORTANT) */
 .btn-action-start { background: var(--primary) !important; color: #000 !important; }
 .btn-action-stop { background: var(--danger) !important; color: #fff !important; box-shadow: 0 4px 20px rgba(255, 78, 78, 0.4) !important; }
 
@@ -101,9 +98,24 @@ body {
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal-content { background: var(--bg-modal); border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 32px; padding: 32px; color: var(--text-main); }
 
-/* TAB SYSTEM (FIXED) */
-.tab-content { display: none; }
-.tab-content.active { display: block; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+/* TOAST NOTIFICATIONS */
+.toast {
+    background: var(--bg-modal);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    border-radius: 16px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    animation: toastSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+}
+.toast.success { border-left: 4px solid var(--success); }
+.toast.error { border-left: 4px solid var(--danger); }
+
+@keyframes toastSlide { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
 /* NAV */
 .bottom-nav {

@@ -1,4 +1,4 @@
-/* ROBERT OS v4.7.1 - STRATEGIC WEALTH OS */
+/* ROBERT OS v4.7.2 - STRATEGIC WEALTH OS */
 
 const SUPABASE_URL = 'https://sopcisskptiqlllehhgb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy';
@@ -69,7 +69,7 @@ async function loadAllData() {
     if (port) {
         getEl('portfolio-list').innerHTML = port.map(i => `
             <div class="glass-card p-4 rounded-3xl flex justify-between items-center border border-primary-500/10 mb-2">
-                <div><p class="label-tiny">${i.symbol}</p><p class="font-black">${i.quantity.toLocaleString()}</p></div>
+                <div><p class="label-tiny">${i.symbol}</p><p class="font-black text-sm">${i.quantity.toLocaleString()}</p></div>
                 <div class="text-right"><p class="font-bold text-primary-500">$${(i.market_value).toLocaleString()}</p></div>
             </div>
         `).join('');
@@ -150,8 +150,6 @@ function setTheme(m, save = true) {
         html.classList.toggle('dark', m === 'dark');
         if (save) localStorage.theme = m;
     }
-    
-    // Vizualus mygtukų atnaujinimas modale
     document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('border-primary-500', 'bg-primary-500/10'));
     const activeBtn = getEl(`theme-${m}`);
     if (activeBtn) activeBtn.classList.add('border-primary-500', 'bg-primary-500/10');

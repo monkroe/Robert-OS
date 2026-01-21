@@ -1,90 +1,107 @@
-body { 
-    background-color: #000; 
-    color: #e5e7eb; 
-    font-family: ui-monospace, monospace; 
-    overscroll-behavior: none; 
+/* Pagrindiniai nustatymai */
+body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
 }
 
-.glass-card { 
-    background: rgba(31, 41, 55, 0.4); 
-    border: 1px solid rgba(75, 85, 99, 0.3); 
-    backdrop-filter: blur(12px); 
+/* Glassmorphism */
+.glass-card {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(10px);
 }
 
+.dark .glass-card {
+    background: rgba(31, 41, 55, 0.4);
+    backdrop-filter: blur(10px);
+}
+
+/* Įvesties laukai */
 .input-field {
     width: 100%;
-    background-color: #111827;
-    border: 1px solid #374151;
+    background-color: #f3f4f6;
+    border: 1px solid #e5e7eb;
     padding: 1rem;
-    border-radius: 0.75rem;
-    color: white;
+    border-radius: 1.25rem;
+    color: #111827;
     outline: none;
+    transition: all 0.2s ease;
 }
 
-.input-field:focus { border-color: #10b981; }
-
-.btn-primary {
-    width: 100%;
-    background-color: #059669;
-    color: black;
-    font-weight: bold;
-    padding: 1rem;
-    border-radius: 0.75rem;
-    text-transform: uppercase;
-}
-
-.btn-start {
-    width: 100%;
-    background-color: #2563eb;
-    color: white;
-    font-weight: bold;
-    padding: 1rem;
-    border-radius: 0.75rem;
-}
-
-.btn-stop {
-    width: 100%;
-    background-color: rgba(153, 27, 27, 0.5);
-    border: 1px solid #ef4444;
-    color: #fecaca;
-    font-weight: bold;
-    padding: 1rem;
-    border-radius: 0.75rem;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-}
-
-.btn-action {
-    width: 100%;
-    background-color: rgba(20, 184, 166, 0.1);
-    border: 1px solid rgba(20, 184, 166, 0.4);
-    color: #2dd4bf;
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    font-weight: bold;
-    font-size: 0.875rem;
-}
-
-.label-tiny {
-    font-size: 0.625rem;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-weight: bold;
-}
-
-.status-tag-inactive {
-    font-size: 10px;
+.dark .input-field {
     background-color: #1f2937;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    border: 1px solid #4b5563;
-    color: #9ca3af;
+    border-color: #374151;
+    color: white;
+}
+
+.input-field:focus {
+    border-color: #14b8a6;
+    background-color: white;
+}
+
+.dark .input-field:focus {
+    background-color: #111827;
+}
+
+/* Mygtukai */
+.btn-primary {
+    background-color: #14b8a6;
+    color: #000;
+    font-weight: 800;
+    border-radius: 1.25rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-.active-glow { 
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); 
-    border-color: #10b981; 
+.btn-primary:active {
+    transform: scale(0.96);
+    filter: brightness(1.1);
 }
 
+.theme-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    background: #f3f4f6;
+    border-radius: 1rem;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.dark .theme-btn { background: #1f2937; color: #9ca3af; }
+
+.theme-btn.active {
+    border-color: #14b8a6;
+    background: rgba(20, 184, 166, 0.1);
+    color: #14b8a6;
+}
+
+/* Tipografija */
+.label-tiny {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: #9ca3af;
+}
+
+.section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    color: #9ca3af;
+    margin-left: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+/* Animacijos */
+.fade-in { animation: fadeIn 0.5s ease-out forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.pop-in { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+@keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }

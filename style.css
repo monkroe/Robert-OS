@@ -1,107 +1,74 @@
-/* Pagrindiniai nustatymai */
+/* ROBERT OS v4.7.0 - REFINED STYLES */
+:root { --primary: #14b8a6; }
+
 body {
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+    transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-/* Glassmorphism */
 .glass-card {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
 }
 
 .dark .glass-card {
-    background: rgba(31, 41, 55, 0.4);
-    backdrop-filter: blur(10px);
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-/* Įvesties laukai */
 .input-field {
     width: 100%;
-    background-color: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    padding: 1rem;
-    border-radius: 1.25rem;
-    color: #111827;
-    outline: none;
-    transition: all 0.2s ease;
+    padding: 1.1rem 1.4rem;
+    border-radius: 1.4rem;
+    background: rgba(0, 0, 0, 0.04);
+    border: 2px solid transparent;
+    font-weight: 600;
+    transition: all 0.25s ease;
 }
 
 .dark .input-field {
-    background-color: #1f2937;
-    border-color: #374151;
+    background: rgba(255, 255, 255, 0.04);
     color: white;
 }
 
 .input-field:focus {
-    border-color: #14b8a6;
-    background-color: white;
+    border-color: var(--primary);
+    background: transparent;
+    outline: none;
 }
 
-.dark .input-field:focus {
-    background-color: #111827;
-}
-
-/* Mygtukai */
-.btn-primary {
-    background-color: #14b8a6;
-    color: #000;
-    font-weight: 800;
-    border-radius: 1.25rem;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+.platform-btn {
+    padding: 0.8rem;
+    border-radius: 1.1rem;
+    background: rgba(0, 0, 0, 0.05);
+    font-weight: 900;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.btn-primary:active {
-    transform: scale(0.96);
-    filter: brightness(1.1);
+.dark .platform-btn { background: rgba(255, 255, 255, 0.05); }
+
+.platform-btn.active {
+    background: var(--primary);
+    color: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.2);
 }
 
-.theme-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1rem;
-    background: #f3f4f6;
-    border-radius: 1rem;
-    border: 2px solid transparent;
-    transition: all 0.2s;
-}
-
-.dark .theme-btn { background: #1f2937; color: #9ca3af; }
-
-.theme-btn.active {
-    border-color: #14b8a6;
-    background: rgba(20, 184, 166, 0.1);
-    color: #14b8a6;
-}
-
-/* Tipografija */
 .label-tiny {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    color: #9ca3af;
-}
-
-.section-title {
-    font-size: 0.75rem;
-    text-transform: uppercase;
+    font-size: 0.6rem;
     font-weight: 900;
-    letter-spacing: 0.15em;
-    color: #9ca3af;
-    margin-left: 0.5rem;
-    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: #94a3b8;
 }
 
-/* Animacijos */
-.fade-in { animation: fadeIn 0.5s ease-out forwards; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-.pop-in { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-@keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-
-.animate-slide-up { animation: slideUp 0.3s ease-out; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.animate-slide-up { animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1); }

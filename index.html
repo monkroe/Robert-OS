@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Robert OS v4.7.1</title>
+    <title>Robert OS v4.7.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -14,18 +14,25 @@
 <body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
 
     <div id="auth-screen" class="fixed inset-0 z-[60] bg-white dark:bg-gray-950 flex flex-col items-center justify-center p-6 hidden">
-        <div class="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm space-y-4 text-center">
+        <div class="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm space-y-4 text-center text-center">
             <i class="fa-solid fa-bolt text-primary-500 text-6xl mb-4"></i>
-            <input type="email" id="auth-email" placeholder="Email" class="input-field">
-            <input type="password" id="auth-pass" placeholder="Password" class="input-field">
-            <button onclick="login()" class="w-full bg-primary-500 text-black font-black py-4 rounded-2xl uppercase tracking-widest">Login</button>
+            <h1 class="text-3xl font-black tracking-tighter uppercase flex items-center justify-center">
+                ROBERT <i class="fa-solid fa-heart text-red-500 mx-1 text-sm animate-pulse"></i> OS
+            </h1>
+            <div class="space-y-4 pt-4">
+                <input type="email" id="auth-email" placeholder="Email" class="input-field">
+                <input type="password" id="auth-pass" placeholder="Password" class="input-field">
+                <button onclick="login()" class="w-full bg-primary-500 text-black font-black py-4 rounded-2xl uppercase tracking-widest">Login</button>
+            </div>
         </div>
     </div>
 
     <div id="app-content" class="hidden pb-10">
         <header class="fixed top-0 w-full bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl z-40 border-b border-gray-100 dark:border-gray-800">
             <div class="max-w-md mx-auto px-6 h-20 flex justify-between items-center">
-                <span class="font-black text-xl tracking-tighter uppercase">Robert OS</span>
+                <span class="font-black text-xl tracking-tighter uppercase flex items-center">
+                    ROBERT <i class="fa-solid fa-heart text-red-500 mx-1 text-sm animate-pulse"></i> OS
+                </span>
                 <div class="flex gap-2">
                     <button onclick="toggleSettingsModal()" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm">
                         <i class="fa-solid fa-gear"></i>
@@ -64,9 +71,11 @@
 
             <section id="shift-card" class="glass-card rounded-[2.5rem] p-8 border border-gray-100 dark:border-gray-800 shadow-xl">
                 <div id="pre-shift-form" class="space-y-6">
-                    <select id="vehicle-select" class="input-field font-bold appearance-none"></select>
-                    <input type="number" id="start-odometer" placeholder="Start Miles" class="input-field text-xl font-black">
-                    <button onclick="startShift()" class="w-full bg-primary-500 text-black font-black py-4 rounded-2xl uppercase tracking-widest">Start Shift</button>
+                    <div class="space-y-4">
+                        <select id="vehicle-select" class="input-field font-bold appearance-none"></select>
+                        <input type="number" id="start-odometer" placeholder="Start Odometer" class="input-field text-xl font-black text-center">
+                    </div>
+                    <button onclick="startShift()" class="w-full bg-primary-500 text-black font-black py-4 rounded-2xl uppercase tracking-widest shadow-lg shadow-primary-500/20">Start Shift</button>
                 </div>
                 <div id="active-shift-view" class="hidden space-y-4 text-center">
                     <div id="shift-timer" class="text-6xl font-black font-mono tracking-tighter text-primary-500">00:00:00</div>
@@ -80,7 +89,7 @@
                     <input type="number" id="end-odometer" placeholder="End Miles" class="input-field text-2xl font-black text-center border-2 border-primary-500">
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="cancelEndShift()" class="bg-gray-100 dark:bg-gray-800 p-4 rounded-xl font-bold">Atgal</button>
-                        <button onclick="completeShift()" class="bg-black text-white p-4 rounded-xl font-bold uppercase">Išsaugoti</button>
+                        <button onclick="completeShift()" class="bg-black text-white p-4 rounded-xl font-bold uppercase tracking-widest">Išsaugoti</button>
                     </div>
                 </div>
             </section>
@@ -88,7 +97,7 @@
             <footer class="mt-10 py-8 text-center space-y-1 opacity-70">
                 <p class="text-[11px] text-gray-500">Sukurta su <i class="fa-solid fa-heart text-red-500 mx-0.5 animate-pulse"></i> ir DI Beno pagalba</p>
                 <p class="text-[10px] text-gray-600">&copy; <span id="auto-year"></span> LTV Media PRO. Visos teisės saugomos.</p>
-                <p class="text-[9px] font-mono text-gray-700 pt-1 text-center">Versija <span id="app-version">v4.7.1</span></p>
+                <p class="text-[9px] font-mono text-gray-700 pt-1 text-center">Versija <span id="app-version">v4.7.2</span></p>
             </footer>
         </main>
     </div>

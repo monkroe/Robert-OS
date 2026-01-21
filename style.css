@@ -1,1 +1,90 @@
+body { 
+    background-color: #000; 
+    color: #e5e7eb; 
+    font-family: ui-monospace, monospace; 
+    overscroll-behavior: none; 
+}
+
+.glass-card { 
+    background: rgba(31, 41, 55, 0.4); 
+    border: 1px solid rgba(75, 85, 99, 0.3); 
+    backdrop-filter: blur(12px); 
+}
+
+.input-field {
+    width: 100%;
+    background-color: #111827;
+    border: 1px solid #374151;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    color: white;
+    outline: none;
+}
+
+.input-field:focus { border-color: #10b981; }
+
+.btn-primary {
+    width: 100%;
+    background-color: #059669;
+    color: black;
+    font-weight: bold;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    text-transform: uppercase;
+}
+
+.btn-start {
+    width: 100%;
+    background-color: #2563eb;
+    color: white;
+    font-weight: bold;
+    padding: 1rem;
+    border-radius: 0.75rem;
+}
+
+.btn-stop {
+    width: 100%;
+    background-color: rgba(153, 27, 27, 0.5);
+    border: 1px solid #ef4444;
+    color: #fecaca;
+    font-weight: bold;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+}
+
+.btn-action {
+    width: 100%;
+    background-color: rgba(20, 184, 166, 0.1);
+    border: 1px solid rgba(20, 184, 166, 0.4);
+    color: #2dd4bf;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+.label-tiny {
+    font-size: 0.625rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: bold;
+}
+
+.status-tag-inactive {
+    font-size: 10px;
+    background-color: #1f2937;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid #4b5563;
+    color: #9ca3af;
+    text-transform: uppercase;
+}
+
+.active-glow { 
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); 
+    border-color: #10b981; 
+}
 

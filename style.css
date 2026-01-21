@@ -1,75 +1,150 @@
-/* style.css - 8.0.0 */
+/* ═══════════════════════════════════════════════════════════
+   ROBERT ❤️ OS 8.0.3 - VISUAL CORE (High-End UI)
+   ═══════════════════════════════════════════════════════════ */
+
+/* 1. TYPOGRAPHY IMPORT (Priverstinis) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 :root {
+    /* DARK MODE (Default) */
     --bg-main: #0b0f1a;
-    --bg-card: rgba(15, 23, 42, 0.6);
+    --bg-card: rgba(30, 41, 59, 0.7); /* Daugiau kontrasto */
+    --bg-modal: #111827;
     --text-main: #f8fafc;
-    --border: rgba(255, 255, 255, 0.08);
-    --primary: #14b8a6;
+    --text-muted: #94a3b8;
+    --border: rgba(255, 255, 255, 0.1);
+    
+    --primary: #14b8a6;       /* Teal */
+    --primary-glow: rgba(20, 184, 166, 0.4);
+    --danger: #ef4444;        /* Red */
+    --danger-glow: rgba(239, 68, 68, 0.4);
+    
+    --font-ui: 'Inter', -apple-system, sans-serif;
+    --font-num: 'JetBrains Mono', monospace; /* Finansiniai skaičiai */
 }
 
 html.light {
-    --bg-main: #f8fafc;
+    /* LIGHT MODE */
+    --bg-main: #f0f4f8;
     --bg-card: #ffffff;
+    --bg-modal: #ffffff;
     --text-main: #0f172a;
-    --border: rgba(0, 0, 0, 0.05);
+    --text-muted: #64748b;
+    --border: rgba(0, 0, 0, 0.08);
+    --primary-glow: rgba(20, 184, 166, 0.2);
 }
 
-body { background: var(--bg-main); color: var(--text-main); font-family: 'Inter', sans-serif; transition: 0.3s; }
+/* 2. BASE RESET */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { 
+    background: var(--bg-main); 
+    color: var(--text-main); 
+    font-family: var(--font-ui); 
+    transition: background 0.3s ease, color 0.3s ease;
+    overflow-x: hidden;
+}
 
+/* 3. COMPONENTS */
+
+/* Header */
 .global-header {
-    position: fixed; top: 0; width: 100%; height: 75px;
-    background: var(--bg-main); backdrop-filter: blur(20px);
+    position: fixed; top: 0; width: 100%; height: 70px;
+    background: var(--bg-main); /* Kad nesimatytų turinio po apačia */
+    border-bottom: 1px solid var(--border);
     display: flex; justify-content: space-between; align-items: center;
-    padding: 0 20px; border-bottom: 1px solid var(--border); z-index: 100;
+    padding: 0 24px; z-index: 100;
+}
+.header-btn {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    color: var(--text-main); display: flex; align-items: center; justify-content: center;
+    transition: 0.2s;
 }
 
+/* Cards */
+.cockpit-card, .glass-card { 
+    background: var(--bg-card); 
+    border: 1px solid var(--border); 
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
+/* Typography Helpers */
+.label-tiny { 
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; 
+    color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;
+}
+.display-value { 
+    font-family: var(--font-num); color: var(--text-main); /* Pakeista į main, ne primary, geresniam skaitomumui */
+    letter-spacing: -0.05em; font-weight: 700;
+}
+.money-value {
+    font-family: var(--font-num); font-weight: 700; color: var(--text-main);
+}
+
+/* Inputs */
+.input-field {
+    width: 100%; padding: 1.25rem; border-radius: 1rem;
+    background: var(--bg-card); border: 1px solid var(--border);
+    color: var(--text-main); font-family: var(--font-num); text-align: center;
+    outline: none; transition: 0.3s; font-size: 1.2rem;
+}
+.input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+
+/* Buttons */
+.btn-primary-os { 
+    background: var(--primary); color: #fff; border: none; 
+    border-radius: 1rem; font-weight: 700; text-transform: uppercase; 
+    letter-spacing: 0.05em; width: 100%; cursor: pointer;
+    box-shadow: 0 8px 16px var(--primary-glow); transition: 0.2s;
+}
+.btn-primary-os:active { transform: scale(0.97); }
+
+/* State Buttons (Start/Stop) */
+.btn-action-start {
+    background: var(--primary) !important;
+    box-shadow: 0 8px 16px var(--primary-glow) !important;
+}
+.btn-action-stop {
+    background: var(--danger) !important;
+    box-shadow: 0 8px 16px var(--danger-glow) !important;
+}
+
+/* Modals */
+.modal-overlay { 
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); 
+    backdrop-filter: blur(8px); z-index: 500; 
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-content { 
+    background: var(--bg-modal); /* Svarbu: reaguoja į temą */
+    border: 1px solid var(--border); 
+    width: 100%; max-width: 420px; border-radius: 2rem; padding: 2.5rem;
+    color: var(--text-main);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+}
+
+/* Navigation */
 .bottom-nav {
-    position: fixed; bottom: 0; width: 100%; height: 85px;
-    background: var(--bg-card); backdrop-filter: blur(30px);
-    display: flex; border-top: 1px solid var(--border); z-index: 100;
+    position: fixed; bottom: 0; width: 100%; height: 80px;
+    background: var(--bg-card); backdrop-filter: blur(20px);
+    display: flex; border-top: 1px solid var(--border); z-index: 90;
+    padding-bottom: env(safe-area-inset-bottom);
 }
-
 .nav-item {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    color: #64748b; font-size: 9px; font-weight: 800; text-transform: uppercase; border: none; background: none;
+    color: var(--text-muted); font-size: 10px; font-weight: 700; 
+    text-transform: uppercase; border: none; background: none;
 }
 .nav-item.active { color: var(--primary); }
-.nav-item i { font-size: 1.3rem; margin-bottom: 4px; }
+.nav-item i { font-size: 1.4rem; margin-bottom: 5px; }
 
-/* Kortelės */
-.cockpit-card, .glass-card { background: var(--bg-card); border: 1px solid var(--border); backdrop-filter: blur(20px); }
+/* Utilities */
+.hidden { display: none !important; }
+.animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Formos elementai */
-.input-field {
-    width: 100%; padding: 1.25rem; border-radius: 1.5rem;
-    background: rgba(30, 41, 59, 0.5); border: 1px solid var(--border);
-    color: white; text-align: center; outline: none; transition: 0.3s;
-}
-.input-field:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary); }
-
-.btn-primary-os { background: var(--primary); color: white; border-radius: 1.5rem; font-weight: 900; text-transform: uppercase; border: none; width: 100%; }
-.btn-primary-os:active { transform: scale(0.96); }
-
-/* Tabs */
-.tab-content { display: none; }
-.tab-content.active { display: block; animation: tabFade 0.4s ease-out; }
-@keyframes tabFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-/* Investicijų mygtukai */
-.asset-type-btn {
-    background: transparent; border: 1px solid var(--border);
-    color: #64748b; font-weight: 800; padding: 1rem; border-radius: 1rem;
-}
-.asset-type-btn.active {
-    background: var(--primary); color: white; border-color: var(--primary);
-}
-
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.modal-content { background: #151c2c; border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 3rem; padding: 3rem 2rem; }
-
-.label-tiny { font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: #64748b; font-weight: 900; }
-.display-value { color: var(--primary); text-shadow: 0 0 20px var(--primary); }
-.header-btn { width: 44px; height: 44px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border); }
-.tx-btn { border-radius: 1.25rem; font-weight: 900; font-size: 10px; padding: 1.2rem; border: 1px solid; }
-.buffer-track { width: 100%; height: 8px; background: var(--border); border-radius: 10px; overflow: hidden; }
-.buffer-fill { width: 0%; height: 100%; background: var(--primary); border-radius: 10px; transition: 1s ease-out; }
+/* Buffer Bar */
+.buffer-track { width: 100%; height: 6px; background: var(--border); border-radius: 10px; overflow: hidden; margin-top: 10px; }
+.buffer-fill { height: 100%; background: var(--primary); transition: width 0.5s ease; }

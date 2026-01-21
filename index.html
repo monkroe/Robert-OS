@@ -3,81 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ROBERT OS v8.0</title>
+    <title>ROBERT OS v8.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-[#0b0f1a] text-white antialiased">
+<body class="bg-main text-main antialiased selection:bg-teal-500/30">
 
     <div id="auth-screen" class="fixed inset-0 z-[500] bg-slate-950 flex items-center justify-center p-6 hidden">
-        <div class="w-full max-w-sm text-center space-y-8">
-            <div class="w-24 h-24 mx-auto bg-teal-500 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-teal-500/20 rotate-3">
+        <div class="w-full max-w-sm text-center space-y-8 animate-fadeIn">
+            <div class="w-24 h-24 mx-auto bg-teal-500 rounded-[2rem] flex items-center justify-center shadow-2xl rotate-3">
                 <i class="fa-solid fa-bolt-lightning text-white text-4xl"></i>
             </div>
-            <h1 class="text-4xl font-black tracking-tighter uppercase">Robert <span class="text-teal-500">OS</span></h1>
+            <h1 class="text-4xl font-black tracking-tighter uppercase text-white">Robert <span class="text-teal-500">OS</span></h1>
             
             <div class="bg-slate-900/60 backdrop-blur-xl p-8 rounded-[2.5rem] border border-teal-500/20 shadow-2xl space-y-5">
-                <div class="relative group">
-                    <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                    <input type="email" id="auth-email" placeholder="El. paštas" class="w-full bg-slate-800/50 border border-slate-700 text-white pl-12 pr-4 py-4 rounded-2xl outline-none focus:border-teal-500 transition-all">
-                </div>
-                <div class="relative group">
-                    <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                    <input type="password" id="auth-pass" placeholder="Slaptažodis" class="w-full bg-slate-800/50 border border-slate-700 text-white pl-12 pr-4 py-4 rounded-2xl outline-none focus:border-teal-500 transition-all">
-                </div>
-                <button onclick="login()" class="w-full bg-teal-500 hover:bg-teal-400 py-4 rounded-2xl font-black tracking-widest transition-all shadow-lg shadow-teal-500/20">PRISIJUNGTI</button>
+                <input type="email" id="auth-email" placeholder="El. paštas" class="input-field">
+                <input type="password" id="auth-pass" placeholder="Slaptažodis" class="input-field">
+                <button onclick="login()" class="btn-primary-os w-full py-4 text-lg">PRISIJUNGTI</button>
             </div>
         </div>
     </div>
 
     <div id="app-content" class="hidden">
         <header class="global-header">
-            <span class="font-black uppercase tracking-widest text-sm">Robert <span class="text-teal-500">OS</span></span>
-            <button onclick="logout()" class="text-red-400 p-2"><i class="fa-solid fa-power-off"></i></button>
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center shadow-lg"><i class="fa-solid fa-bolt text-white text-xs"></i></div>
+                <span class="font-black uppercase tracking-widest text-sm">Robert <span class="text-teal-500">OS</span></span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="toggleTheme()" class="header-btn" id="theme-icon"><i class="fa-solid fa-moon"></i></button>
+                <button onclick="logout()" class="header-btn text-red-500"><i class="fa-solid fa-power-off"></i></button>
+            </div>
         </header>
 
         <main class="container max-w-lg mx-auto px-5 pb-32 pt-24">
+            
             <section id="tab-cockpit" class="tab-content active space-y-6">
-                <div class="buffer-track h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div id="buffer-bar" class="buffer-fill h-full transition-all duration-1000"></div>
-                </div>
-
-                <div class="cockpit-card bg-slate-900 border border-white/10 rounded-[3rem] p-10 text-center shadow-2xl">
+                <div class="buffer-track"><div id="buffer-bar" class="buffer-fill w-0"></div></div>
+                <div class="cockpit-card bg-card border border-light rounded-[3rem] p-10 text-center shadow-2xl relative overflow-hidden">
                     <span class="label-tiny">Session Time</span>
                     <h2 id="shift-timer" class="display-value font-mono text-6xl tracking-tighter my-4">00:00:00</h2>
                     <div class="grid grid-cols-2 gap-4 mt-8">
-                        <button onclick="saveTransaction('in')" class="bg-green-500/10 text-green-400 py-4 rounded-2xl font-bold border border-green-500/20">PAJAMOS</button>
-                        <button onclick="saveTransaction('out')" class="bg-red-500/10 text-red-400 py-4 rounded-2xl font-bold border border-red-500/20">IŠLAIDOS</button>
+                        <button onclick="saveTransaction('in')" class="tx-btn text-green-500 bg-green-500/10 border-green-500/20">PAJAMOS</button>
+                        <button onclick="saveTransaction('out')" class="tx-btn text-red-500 bg-red-500/10 border-red-500/20">IŠLAIDOS</button>
                     </div>
-                    <button id="shift-btn" onclick="openOdoModal()" class="w-full bg-teal-500 py-5 rounded-[2rem] font-black mt-6">START SHIFT</button>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="glass-card p-5 rounded-3xl"><span class="label-tiny">Liquid</span><p id="stat-liquid" class="text-2xl font-black">$0</p></div>
-                    <div class="glass-card p-5 rounded-3xl"><span class="label-tiny">Runway</span><p id="runway-val" class="text-2xl font-black">0.0</p></div>
+                    <button id="shift-btn" onclick="openOdoModal()" class="btn-primary-os mt-6 py-5">START SHIFT</button>
                 </div>
             </section>
 
+            <section id="tab-runway" class="tab-content hidden">
+                <div class="glass-card p-10 rounded-[3rem] text-center mb-6">
+                    <span class="label-tiny">Survival Runway</span>
+                    <h1 id="runway-val" class="text-7xl font-black text-teal-500 my-4">0.0</h1>
+                    <p class="text-xs opacity-50 uppercase tracking-widest">Laisvės mėnesiai</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="glass-card p-6 rounded-3xl"><span class="label-tiny">Liquid</span><p id="stat-liquid" class="text-2xl font-black mt-2">$0</p></div>
+                    <div class="glass-card p-6 rounded-3xl"><span class="label-tiny">Burn</span><p id="stat-burn" class="text-2xl font-black mt-2">$0</p></div>
+                </div>
+            </section>
+
+            <section id="tab-future" class="tab-content hidden text-center space-y-6">
+                <div class="glass-card p-10 rounded-[3rem]">
+                    <span class="label-tiny">Estimated Net Worth</span>
+                    <h1 class="text-5xl font-black text-teal-500 my-4">$142,500</h1>
+                    <p class="text-xs opacity-50">Projection based on current growth</p>
+                </div>
+            </section>
+
+            <section id="tab-vault" class="tab-content hidden space-y-4">
+                <h2 class="text-xl font-black uppercase tracking-tight px-2">Investment Vault</h2>
+                <div id="asset-list" class="space-y-3"></div>
+            </section>
+
+            <section id="tab-audit" class="tab-content hidden space-y-3">
+                <h2 class="text-xl font-black uppercase tracking-tight px-2">Audit Log</h2>
+                <div id="audit-list" class="space-y-2"></div>
+            </section>
+
             <footer class="mt-10 py-8 text-center space-y-1 opacity-70">
-                <p class="text-[11px] text-gray-500">Sukurta su <i class="fa-solid fa-heart text-red-500 mx-0.5 animate-pulse"></i> ir DI pagalba</p>
+                <p class="text-[11px] text-gray-500 uppercase tracking-widest">Sukurta su <i class="fa-solid fa-heart text-red-500 animate-pulse"></i> ir DI pagalba</p>
                 <p class="text-[10px] text-gray-600">&copy; <span id="auto-year"></span> ROBERT OS. Visos teisės saugomos.</p>
-                <p class="text-[9px] font-mono text-gray-700 pt-1">Versija <span id="app-version">v8.0.1</span></p>
+                <p class="text-[9px] font-mono text-gray-700 pt-1 uppercase">Versija <span id="app-version">v8.1.0-PRO</span></p>
             </footer>
         </main>
 
         <nav class="bottom-nav">
-            <button onclick="switchTab('cockpit')" id="btn-cockpit" class="nav-item active"><i class="fa-solid fa-gauge"></i><span>Cockpit</span></button>
+            <button onclick="switchTab('cockpit')" id="btn-cockpit" class="nav-item active"><i class="fa-solid fa-gauge-high"></i><span>Cockpit</span></button>
+            <button onclick="switchTab('runway')" id="btn-runway" class="nav-item"><i class="fa-solid fa-plane"></i><span>Runway</span></button>
+            <button onclick="switchTab('future')" id="btn-future" class="nav-item"><i class="fa-solid fa-chart-line"></i><span>Future</span></button>
             <button onclick="switchTab('vault')" id="btn-vault" class="nav-item"><i class="fa-solid fa-vault"></i><span>Vault</span></button>
-            <button onclick="switchTab('audit')" id="btn-audit" class="nav-item"><i class="fa-solid fa-list"></i><span>Audit</span></button>
+            <button onclick="switchTab('audit')" id="btn-audit" class="nav-item"><i class="fa-solid fa-list-ul"></i><span>Audit</span></button>
         </nav>
     </div>
 
     <div id="odo-modal" class="modal-overlay hidden">
-        <div class="modal-content"><input type="number" id="odo-input" class="input-field text-3xl mb-6" placeholder="000000"><button onclick="confirmShiftAction()" class="w-full bg-teal-500 py-4 rounded-2xl font-black">PATVIRTINTI</button></div>
+        <div class="modal-content animate-slideUp">
+            <h3 class="text-xl font-black uppercase mb-6">Shift Control</h3>
+            <input type="number" id="odo-input" class="input-field text-3xl mb-6" placeholder="000000">
+            <button onclick="confirmShiftAction()" class="btn-primary-os w-full">PATVIRTINTI</button>
+            <button onclick="closeModals()" class="w-full text-xs opacity-50 mt-4 uppercase font-bold">Atšaukti</button>
+        </div>
     </div>
 
-    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center text-teal-500 font-black tracking-widest">LOADING...</div>
+    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center text-teal-500 font-black tracking-[0.3em] text-xs">SYNCHRONIZING...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/app.js"></script>

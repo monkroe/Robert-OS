@@ -1,14 +1,24 @@
-/* ROBERT ❤️ OS v6.0.3 - STYLE CORE */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+/* ROBERT ❤️ OS v6.1.1 - MASTER STYLE */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
 
 :root {
-    --p: #14b8a6; --p-dark: #0d9488; --bg: #f8fafc;
-    --card: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0;
+    --p: #14b8a6;
+    --p-rgb: 20, 184, 166;
+    --bg-rgb: 248, 250, 252;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text-main: #0f172a;
+    --text-sub: #64748b;
+    --border: #e2e8f0;
 }
 
 .dark {
-    --bg: #020617; --card: rgba(30, 41, 59, 0.7);
-    --text-main: #f1f5f9; --text-sub: #94a3b8; --border: rgba(255, 255, 255, 0.05);
+    --bg-rgb: 2, 6, 23;
+    --bg: #020617;
+    --card: rgba(30, 41, 59, 0.7);
+    --text-main: #f1f5f9;
+    --text-sub: #94a3b8;
+    --border: rgba(255, 255, 255, 0.05);
 }
 
 body {
@@ -19,30 +29,34 @@ body {
 }
 
 .tab-content { display: none !important; padding: 100px 20px 120px; min-height: 100vh; box-sizing: border-box; }
-.tab-content.active { display: block !important; animation: fadeIn 0.3s ease; }
-
+.tab-content.active { display: block !important; animation: fadeIn 0.4s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 .global-header {
     position: fixed; top: 0; width: 100%; height: 75px;
-    background: rgba(var(--bg), 0.85); backdrop-filter: blur(20px);
+    background: rgba(var(--bg-rgb), 0.85); backdrop-filter: blur(20px);
     z-index: 100; display: flex; justify-content: space-between;
     align-items: center; padding: 0 24px; border-bottom: 1px solid var(--border);
 }
 
 .cockpit-card {
-    background: linear-gradient(135deg, var(--p) 0%, var(--p-dark) 100%);
+    background: linear-gradient(135deg, var(--p) 0%, #0d9488 100%);
     color: white; padding: 40px 24px; border-radius: 2.5rem;
     position: relative; overflow: hidden;
-    box-shadow: 0 20px 40px -10px rgba(20, 184, 166, 0.3);
+    box-shadow: 0 20px 40px -10px rgba(var(--p-rgb), 0.3);
 }
 
 .display-value { text-align: center; font-weight: 900; letter-spacing: -0.05em; font-size: 3.5rem; margin: 10px 0; }
 .label-tiny { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-sub); text-align: center; letter-spacing: 0.1em; display: block; }
 
-.stats-row { display: grid; grid-template-cols: repeat(3, 1fr); gap: 12px; margin: 24px 0; }
-.stat-card { background: var(--card); padding: 18px 10px; border-radius: 1.5rem; border: 1px solid var(--border); text-align: center; }
+.stats-row { 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 12px; 
+    margin: 24px 0; 
+}
 
+.stat-card { background: var(--card); padding: 18px 10px; border-radius: 1.5rem; border: 1px solid var(--border); text-align: center; }
 .glass-card { background: var(--card); padding: 24px; border-radius: 2rem; border: 1px solid var(--border); margin-bottom: 12px; }
 
 .bottom-nav {
@@ -53,11 +67,10 @@ body {
 
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-sub); font-size: 0.55rem; font-weight: 800; text-transform: uppercase; }
 .nav-item.active { color: var(--p); }
-.nav-item i { font-size: 1.3rem; margin-bottom: 5px; }
+.nav-item i { font-size: 1.25rem; margin-bottom: 5px; }
 
-.input-field { width: 100%; padding: 1.2rem; border-radius: 1.2rem; background: var(--bg); border: 2px solid transparent; font-weight: 700; text-align: center; font-size: 1.2rem; color: inherit; box-sizing: border-box; }
+.btn-primary-os { background: white; color: #0d9488; width: 100%; padding: 1.2rem; border-radius: 1.5rem; font-weight: 900; text-transform: uppercase; border: none; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
 .btn-primary { background: var(--p); color: white; width: 100%; padding: 1.2rem; border-radius: 1.5rem; font-weight: 900; text-transform: uppercase; border: none; cursor: pointer; }
-.btn-primary-os { background: white; color: var(--p-dark); width: 100%; padding: 1.2rem; border-radius: 1.5rem; font-weight: 900; text-transform: uppercase; border: none; cursor: pointer; font-size: 1rem; }
 .btn-secondary { background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); color: white; padding: 15px; border-radius: 1rem; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; border: none; }
 
 .hidden { display: none !important; }

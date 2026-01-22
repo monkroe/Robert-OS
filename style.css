@@ -178,3 +178,48 @@ body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ════════ LIGHT MODE OVERRIDES ════════ */
+/* Aktyvuojasi tik tada, kai <html> neturi .dark klasės */
+
+:root:not(.dark) {
+    --bg-color: #f3f4f6; /* Šviesiai pilkas */
+    --card-bg: #ffffff;  /* Balta */
+}
+
+:root:not(.dark) body {
+    color: #111827; /* Juodas tekstas */
+}
+
+:root:not(.dark) .global-header,
+:root:not(.dark) .bottom-nav {
+    background-color: rgba(255,255,255,0.9);
+    border-color: rgba(0,0,0,0.1);
+}
+
+:root:not(.dark) .bento-card,
+:root:not(.dark) .modal-content {
+    background-color: var(--card-bg);
+    border-color: rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+:root:not(.dark) .input-field {
+    background-color: #f9fafb;
+    border-color: #d1d5db;
+    color: #000000;
+}
+
+:root:not(.dark) .label-xs {
+    color: #6b7280;
+}
+
+:root:not(.dark) .val-timer,
+:root:not(.dark) .val-lg {
+    color: #000000;
+}
+
+:root:not(.dark) .btn-bento {
+    color: #374151;
+    border-color: rgba(0,0,0,0.2);
+}

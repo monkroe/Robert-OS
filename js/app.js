@@ -11,6 +11,7 @@ async function init() {
     UI.applyTheme();
     
     const { data: { session } } = await db.auth.getSession();
+    
     if (session) {
         state.user = session.user;
         document.getElementById('auth-screen').classList.add('hidden');
@@ -23,22 +24,34 @@ async function init() {
         document.getElementById('auth-screen').classList.remove('hidden');
     }
     
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
-    });
+    // LISTENERS (SVARBU: Čia sujungiami moduliai)
     
+    // 1. Klausome, kada reikia atnaujinti visus duomenis
+    window.addEventListener('refresh-data', () => {
+        refreshAll();
+    });
+
+    // 2. Klausome, kada pasikeičia pamainos būsena (Start/Stop Timer)
     window.addEventListener('shiftStateChanged', (e) => {
         if(e.detail) Shifts.startTimer(); else Shifts.stopTimer();
+    });
+
+    // 3. Temos keitimas
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
     });
 }
 
 // --- GLOBAL REFRESH ---
 export async function refreshAll() {
+    // 1. Gauname aktyvią pamainą
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
-    state.activeShift = shift;
+    state.activeShift = shift; // <--- Tai automatiškai paleis UI atnaujinimą per state.js
 
     const monthlyFixed = 2500; 
     let vehicleCost = 0;
+    
+    // Skaičiuojame kaštus
     if (shift) {
         const v = state.fleet.find(f => f.id === shift.vehicle_id);
         if (v) vehicleCost = v.operating_cost_weekly / 7;
@@ -57,17 +70,16 @@ function setupRealtime() {
     db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe();
 }
 
-// --- EXPOSE TO WINDOW (BŪTINA KAD VEIKTŲ MYGTUKAI) ---
+// --- EXPOSE TO WINDOW ---
 window.login = Auth.login;
 window.logout = Auth.logout;
 
-// Garažas
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
-window.deleteVehicle = Garage.deleteVehicle; // <--- SVARBU: Čia "įjungiamas" trynimas
+window.deleteVehicle = Garage.deleteVehicle;
 window.setVehType = Garage.setVehType;
+window.toggleTestMode = Garage.toggleTestMode; // Nepamiršk šito!
 
-// Kiti
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;

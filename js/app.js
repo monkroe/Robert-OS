@@ -24,19 +24,24 @@ async function init() {
         document.getElementById('auth-screen').classList.remove('hidden');
     }
     
-    // LISTENERS (SVARBU: Čia sujungiami moduliai)
+    // --- LISTENERS (Čia magija) ---
     
-    // 1. Klausome, kada reikia atnaujinti visus duomenis
+    // 1. Klausome STATE pasikeitimų (Sujungia State su UI)
+    window.addEventListener('state-updated', (e) => {
+        UI.updateUI(e.detail);
+    });
+
+    // 2. Klausome duomenų atnaujinimo prašymų (iš shifts.js, finance.js)
     window.addEventListener('refresh-data', () => {
         refreshAll();
     });
 
-    // 2. Klausome, kada pasikeičia pamainos būsena (Start/Stop Timer)
+    // 3. Klausome pamainos būsenos (Laikmačiui)
     window.addEventListener('shiftStateChanged', (e) => {
         if(e.detail) Shifts.startTimer(); else Shifts.stopTimer();
     });
 
-    // 3. Temos keitimas
+    // 4. Temos keitimas
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
     });
@@ -46,12 +51,13 @@ async function init() {
 export async function refreshAll() {
     // 1. Gauname aktyvią pamainą
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
-    state.activeShift = shift; // <--- Tai automatiškai paleis UI atnaujinimą per state.js
+    
+    // Tai automatiškai paleis 'state-updated' -> UI.updateUI('activeShift')
+    state.activeShift = shift; 
 
     const monthlyFixed = 2500; 
     let vehicleCost = 0;
     
-    // Skaičiuojame kaštus
     if (shift) {
         const v = state.fleet.find(f => f.id === shift.vehicle_id);
         if (v) vehicleCost = v.operating_cost_weekly / 7;
@@ -73,12 +79,13 @@ function setupRealtime() {
 // --- EXPOSE TO WINDOW ---
 window.login = Auth.login;
 window.logout = Auth.logout;
+window.register = Auth.register;
 
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
 window.setVehType = Garage.setVehType;
-window.toggleTestMode = Garage.toggleTestMode; // Nepamiršk šito!
+window.toggleTestMode = Garage.toggleTestMode; // Svarbu Test Mode mygtukui!
 
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;

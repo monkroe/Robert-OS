@@ -2,7 +2,7 @@ import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
 import { closeModals } from './ui.js';
-// SVARBU: IŠTRINTAS 'refreshAll' importas, kad nebūtų klaidų
+// SVARBU: Čia NĖRA importo iš '../app.js' - tai išsprendžia strigimą!
 
 let timerInt;
 
@@ -11,21 +11,20 @@ export function startTimer() {
     const el = document.getElementById('shift-timer');
     if(!el) return;
 
-    // Iškart atnaujinam, nelaukdami 1 sek.
+    // Paleidžiam laikmatį iškart
     updateTimerDisplay();
-
     timerInt = setInterval(updateTimerDisplay, 1000);
 }
 
 function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
+    // Jei nėra activeShift, nerodom nieko
     if(!state.activeShift || !el) return;
     
     const start = new Date(state.activeShift.start_time).getTime();
     const now = new Date().getTime();
     let diff = Math.floor((now - start) / 1000);
     
-    // Apsauga nuo neigiamo laiko (jei laikrodis nesinchronizuotas)
     if (diff < 0) diff = 0;
     
     const h = String(Math.floor(diff/3600)).padStart(2,'0');
@@ -47,6 +46,7 @@ export function openStartModal() {
     if(state.fleet.length === 0) {
         sel.innerHTML = '<option value="">Garažas tuščias!</option>';
     } else {
+        // Rodo ir TEST, ir REAL mašinas
         sel.innerHTML = state.fleet.map(v => `<option value="${v.id}">${v.name}${v.is_test ? ' (TEST)' : ''}</option>`).join('');
     }
     document.getElementById('start-modal').classList.remove('hidden');
@@ -67,11 +67,13 @@ export async function confirmStart() {
             vehicle_id: vid,
             start_odo: parseInt(odo), 
             status: 'active',
-            start_time: new Date().toISOString() // Užtikrinam, kad laikas tikslus
+            start_time: new Date().toISOString()
         });
         closeModals();
         
-        // SVARBU: Siunčiame signalą į app.js
+        // --- ČIA YRA PATAISYMAS ---
+        // Vietoj to, kad kviestume refreshAll() tiesiogiai (kas užlaužia programą),
+        // mes siunčiame signalą. Tavo app.js jį pagaus.
         window.dispatchEvent(new Event('refresh-data'));
         
         showToast('Pamaina pradėta', 'success');
@@ -103,7 +105,7 @@ export async function confirmEnd() {
         
         closeModals();
         
-        // SVARBU: Siunčiame signalą
+        // Siunčiame signalą atnaujinti duomenis
         window.dispatchEvent(new Event('refresh-data'));
         
         showToast('Pamaina baigta', 'success');

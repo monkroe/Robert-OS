@@ -1,6 +1,5 @@
-import { updateUI } from './modules/ui.js';
+// --- STATE.JS (BE CIKLŲ) ---
 
-// Būsena (State) su automatiniu UI atnaujinimu
 export const state = new Proxy({
     user: null,
     fleet: [],
@@ -12,8 +11,10 @@ export const state = new Proxy({
 }, {
     set(target, key, value) {
         target[key] = value;
-        updateUI(key); // Kai pasikeičia duomenys, atnaujinam ekraną
+        
+        // Vietoj tiesioginio kvietimo, siunčiame signalą į eterį
+        window.dispatchEvent(new CustomEvent('state-updated', { detail: key }));
+        
         return true;
     }
 });
-

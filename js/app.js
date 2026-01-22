@@ -18,43 +18,45 @@ async function init() {
         document.getElementById('app-content').classList.remove('hidden');
         
         await Garage.fetchFleet(); 
-        await refreshAll(); 
+        await refreshAll(); // <--- Čia automatiškai pasileis laikmatis
         setupRealtime();
     } else {
         document.getElementById('auth-screen').classList.remove('hidden');
     }
     
-    // --- LISTENERS (Čia magija) ---
+    // --- KLAUSYTOJAI ---
     
-    // 1. Klausome STATE pasikeitimų (Sujungia State su UI)
-    window.addEventListener('state-updated', (e) => {
-        UI.updateUI(e.detail);
-    });
-
-    // 2. Klausome duomenų atnaujinimo prašymų (iš shifts.js, finance.js)
+    // Klausome tik vieno dalyko: ar kas nors paprašė atnaujinti duomenis?
     window.addEventListener('refresh-data', () => {
         refreshAll();
     });
 
-    // 3. Klausome pamainos būsenos (Laikmačiui)
-    window.addEventListener('shiftStateChanged', (e) => {
-        if(e.detail) Shifts.startTimer(); else Shifts.stopTimer();
-    });
-
-    // 4. Temos keitimas
+    // Temos keitimas
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
     });
 }
 
-// --- GLOBAL REFRESH ---
+// --- PAGRINDINĖ FUNKCIJA (KOMANDAVIMO CENTRAS) ---
 export async function refreshAll() {
-    // 1. Gauname aktyvią pamainą
+    // 1. Gauname pamainą iš DB
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
     
-    // Tai automatiškai paleis 'state-updated' -> UI.updateUI('activeShift')
+    // 2. Įrašome į State
     state.activeShift = shift; 
 
+    // 3. TIESIOGINIS VALDYMAS (Jokių signalų laukimo)
+    // Atnaujiname mygtukus (Start/End)
+    UI.updateUI('activeShift');
+
+    // Valdome laikmatį TIESIOGIAI
+    if (shift) {
+        Shifts.startTimer(); // <--- PRIŽADINAME LAIKMATĮ
+    } else {
+        Shifts.stopTimer();
+    }
+
+    // 4. Skaičiuojame finansus
     const monthlyFixed = 2500; 
     let vehicleCost = 0;
     
@@ -76,7 +78,7 @@ function setupRealtime() {
     db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe();
 }
 
-// --- EXPOSE TO WINDOW ---
+// --- EXPOSE TO WINDOW (Sujungiame HTML mygtukus su JS) ---
 window.login = Auth.login;
 window.logout = Auth.logout;
 window.register = Auth.register;
@@ -85,7 +87,7 @@ window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
 window.setVehType = Garage.setVehType;
-window.toggleTestMode = Garage.toggleTestMode; // Svarbu Test Mode mygtukui!
+window.toggleTestMode = Garage.toggleTestMode;
 
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;

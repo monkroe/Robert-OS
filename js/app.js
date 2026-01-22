@@ -1,12 +1,19 @@
-/* ROBERT OS v1.1 - LOGIC ENGINE */
+/* ═══════════════════════════════════════════════════════════
+   ROBERT OS v1.1 - LOGIC ENGINE (BEN'S PATCH)
+   ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- PAKEISK
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- PAKEISK
+    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- ĮRAŠYK SAVO URL ČIA
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- ĮRAŠYK SAVO KEY ČIA
     VERSION: '1.1'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+
+// Haptic Feedback Helper (Fizinis pojūtis)
+const vibrate = (pattern = [10]) => {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+};
 
 const state = new Proxy({
     user: null, fleet: [], activeShift: null, dailyCost: 0, 
@@ -44,40 +51,44 @@ async function refreshAll() {
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
     state.activeShift = shift;
 
-    const { data: fixed } = await db.from('fixed_expenses').select('amount').eq('is_active', true);
-    let monthlyFixed = fixed ? fixed.reduce((acc, item) => acc + item.amount, 0) : 0; 
+    const monthlyFixed = 2500; // Galima keisti ateityje
     
     let vehicleCost = 0;
     if (shift) {
         const v = state.fleet.find(f => f.id === shift.vehicle_id);
-        if (v) vehicleCost = v.operating_cost_weekly / 7;
+        if (v && v.operating_cost_weekly) vehicleCost = v.operating_cost_weekly / 7;
     } else if (state.fleet.length > 0) {
-        vehicleCost = state.fleet[0].operating_cost_weekly / 7;
+        if (state.fleet[0].operating_cost_weekly) vehicleCost = state.fleet[0].operating_cost_weekly / 7;
     }
 
     state.dailyCost = (monthlyFixed / 30) + vehicleCost;
-    state.shiftEarnings = 0; 
+    state.shiftEarnings = shift?.gross_earnings || 0; 
     
     updateGrindBar();
     refreshAudit();
 }
 
 async function refreshAudit() {
-    const { data } = await db.from('finance_shifts').select('start_time, gross_earnings, vehicle_id').order('start_time', {ascending: false}).limit(5);
+    const { data } = await db.from('finance_transactions')
+        .select('*')
+        .order('date', {ascending: false})
+        .limit(5);
+
     const el = document.getElementById('audit-list');
     if(!el) return;
     
     if(data && data.length) {
-        el.innerHTML = data.map(s => {
-            const v = state.fleet.find(f => f.id === s.vehicle_id);
-            const earn = s.gross_earnings || 0;
+        el.innerHTML = data.map(t => {
+            const isInc = t.direction === 'in';
             return `
-            <div class="bento-card flex-row justify-between items-center p-3 mb-2">
+            <div class="bento-card flex-row justify-between items-center p-3 mb-2 animate-slideUp">
                 <div>
-                    <p class="text-[9px] text-gray-500 font-bold uppercase">${new Date(s.start_time).toLocaleDateString()}</p>
-                    <p class="font-bold text-xs text-white">${v ? v.name : 'Unknown'}</p>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase">${new Date(t.date).toLocaleDateString()}</p>
+                    <p class="font-bold text-xs text-white uppercase">${t.source || 'Manual'}</p>
                 </div>
-                <p class="font-mono font-bold ${earn > 0 ? 'text-green-500' : 'text-gray-500'}">$${earn}</p>
+                <p class="font-mono font-bold ${isInc ? 'text-green-500' : 'text-red-500'}">
+                    ${isInc ? '+' : '-'}$${t.amount}
+                </p>
             </div>`;
         }).join('');
     } else {
@@ -85,8 +96,9 @@ async function refreshAudit() {
     }
 }
 
-// --- GARAGE (Add Vehicle) ---
+// --- GARAGE ---
 function openGarage() {
+    vibrate();
     document.getElementById('veh-name').value = '';
     document.getElementById('veh-cost').value = '';
     setVehType('rental'); 
@@ -94,6 +106,7 @@ function openGarage() {
 }
 
 function setVehType(type) {
+    vibrate();
     document.getElementById('veh-type').value = type;
     document.querySelectorAll('.veh-type-btn').forEach(b => {
         b.classList.remove('bg-teal-500', 'text-black', 'border-teal-500', 'opacity-100');
@@ -105,20 +118,21 @@ function setVehType(type) {
 }
 
 async function saveVehicle() {
+    vibrate([20]);
     const name = document.getElementById('veh-name').value;
     const cost = document.getElementById('veh-cost').value;
-    const type = document.getElementById('veh-type').value;
+    // const type = document.getElementById('veh-type').value;
 
-    if (!name || !cost) return showToast('Name & Cost required', 'error');
+    if (!name) return showToast('Name required', 'error');
 
     state.loading = true;
     try {
         const { error } = await db.from('vehicles').insert({
             user_id: state.user.id,
             name: name,
-            type: type,
-            operating_cost_weekly: parseFloat(cost),
-            is_active: true
+            plate: 'NEW',
+            is_active: true,
+            operating_cost_weekly: parseFloat(cost || 0)
         });
         if (error) throw error;
         showToast('Vehicle Added!', 'success');
@@ -129,6 +143,7 @@ async function saveVehicle() {
 
 // --- SHIFT ---
 function openStartModal() {
+    vibrate();
     const sel = document.getElementById('start-vehicle');
     if(state.fleet.length === 0) {
         sel.innerHTML = '<option value="">No vehicles! Add in Garage.</option>';
@@ -139,9 +154,9 @@ function openStartModal() {
 }
 
 async function confirmStart() {
+    vibrate([20]);
     const vid = document.getElementById('start-vehicle').value;
     const odo = document.getElementById('start-odo').value;
-    const goal = document.getElementById('start-goal').value;
     
     if(!vid) return showToast('Select Vehicle', 'error');
     if(!odo) return showToast('Start Odometer Required', 'error');
@@ -151,8 +166,7 @@ async function confirmStart() {
         await db.from('finance_shifts').insert({
             user_id: state.user.id,
             vehicle_id: vid,
-            start_odo: odo,
-            goal_amount: goal || null,
+            start_odometer: parseInt(odo), // FIX: start_odometer pagal DB
             status: 'active'
         });
         closeModals();
@@ -162,43 +176,53 @@ async function confirmStart() {
 }
 
 async function togglePause() {
+    vibrate();
     if(!state.activeShift) return;
-    const isPaused = !!state.activeShift.pause_start;
-    state.loading = true;
-    try {
-        if(isPaused) {
-            const diffSec = Math.floor((new Date() - new Date(state.activeShift.pause_start)) / 1000);
-            await db.from('finance_shifts').update({
-                pause_start: null,
-                total_paused_seconds: (state.activeShift.total_paused_seconds || 0) + diffSec
-            }).eq('id', state.activeShift.id);
-            showToast('Resumed', 'success');
-        } else {
-            await db.from('finance_shifts').update({ pause_start: new Date().toISOString() }).eq('id', state.activeShift.id);
-            showToast('Paused', 'success');
-        }
-        await refreshAll();
-    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+    showToast('Pause feature pending SQL update', 'info'); 
 }
 
-function openEndModal() { document.getElementById('end-modal').classList.remove('hidden'); }
+function openEndModal() { 
+    vibrate();
+    document.getElementById('end-modal').classList.remove('hidden'); 
+}
 
 async function confirmEnd() {
+    vibrate([20]);
     const odo = document.getElementById('end-odo').value;
     const earn = document.getElementById('end-earn').value;
-    if(!odo || !earn) return showToast('Enter ODO & Earnings', 'error');
+    
+    if(!odo) return showToast('Enter ODO & Earnings', 'error');
+    
     state.loading = true;
     try {
+        // 1. Close Shift
         const { error } = await db.from('finance_shifts').update({
-            end_odo: odo, gross_earnings: earn, end_time: new Date().toISOString(), status: 'completed'
+            end_odometer: parseInt(odo), // FIX: end_odometer pagal DB
+            gross_earnings: parseFloat(earn || 0),
+            end_time: new Date().toISOString(), 
+            status: 'completed'
         }).eq('id', state.activeShift.id);
+        
         if(error) throw error;
+
+        // 2. Add Earnings Transaction
+        if (earn > 0) {
+            await db.from('finance_transactions').insert({
+                user_id: state.user.id,
+                amount: parseFloat(earn),
+                direction: 'in',
+                source: 'shift_earnings',
+                date: new Date().toISOString()
+            });
+        }
+
         closeModals(); await refreshAll(); showToast('Shift Ended', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- TRANSACTIONS ---
+// --- TRANSACTIONS (BEN'S FIX) ---
 function openTxModal(dir) {
+    vibrate();
     state.txDirection = dir;
     document.getElementById('tx-title').textContent = dir === 'in' ? 'Income' : 'Expense';
     document.getElementById('tx-amount').value = '';
@@ -209,6 +233,7 @@ function openTxModal(dir) {
 }
 
 function setExpType(type) {
+    vibrate();
     document.getElementById('tx-type').value = type;
     document.getElementById('fuel-fields').classList.toggle('hidden', type !== 'fuel');
     document.querySelectorAll('.exp-btn').forEach(b => b.classList.remove('bg-teal-500', 'text-black'));
@@ -216,33 +241,42 @@ function setExpType(type) {
 }
 
 async function confirmTx() {
+    vibrate([20]);
     const amt = parseFloat(document.getElementById('tx-amount').value);
     if(!amt) return;
+    
     state.loading = true;
     try {
-        if(state.txDirection === 'out') {
-            const type = document.getElementById('tx-type').value;
-            const gal = document.getElementById('tx-gal').value;
-            const odo = document.getElementById('tx-odo').value;
-            if(type === 'fuel' && (!gal || !odo)) throw new Error('Fuel needs Gallons & ODO');
-            
-            await db.from('expenses').insert({
-                user_id: state.user.id, shift_id: state.activeShift?.id, vehicle_id: state.activeShift?.vehicle_id,
-                type: type, amount: amt, gallons: gal || null, odometer: odo || null
-            });
-        } else { showToast('Use End Shift for Earnings', 'info'); }
-        closeModals(); await refreshAll(); showToast('Saved', 'success');
+        const type = state.txDirection === 'out' ? document.getElementById('tx-type').value : 'manual_income';
+        
+        // FIX: Rašome į finance_transactions
+        await db.from('finance_transactions').insert({
+            user_id: state.user.id, 
+            shift_id: state.activeShift?.id || null, 
+            amount: amt,
+            direction: state.txDirection,
+            source: type,
+            notes: type === 'fuel' ? `Gal: ${document.getElementById('tx-gal').value}` : null
+        });
+
+        closeModals(); 
+        await refreshAll(); 
+        showToast('Saved', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 // --- EXPORT ---
 async function exportAI() {
+    vibrate();
     state.loading = true;
     try {
-        const { data, error } = await db.rpc('get_empire_report', { target_user_id: state.user.id });
-        if(error) throw error;
-        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-        showToast('Copied to Clipboard!', 'success');
+        const { data: shifts } = await db.from('finance_shifts').select('*').limit(20);
+        const { data: txs } = await db.from('finance_transactions').select('*').limit(20);
+        
+        const report = JSON.stringify({ shifts, transactions: txs }, null, 2);
+        await navigator.clipboard.writeText(report);
+        
+        showToast('Data Copied!', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
@@ -257,21 +291,29 @@ function updateUI(key) {
     }
 }
 function updateGrindBar() {
-    const target = Math.round(state.dailyCost);
-    document.getElementById('grind-val').textContent = `$0 / $${target}`;
+    const target = Math.round(state.dailyCost) || 1; 
+    const current = state.shiftEarnings || 0; 
+    document.getElementById('grind-val').textContent = `$${current} / $${target}`;
+    const pct = Math.min((current / target) * 100, 100);
+    document.getElementById('grind-bar').style.width = `${pct}%`;
+    if(pct >= 100) document.getElementById('grind-glow').classList.remove('hidden');
 }
-function closeModals() { document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden')); }
+function closeModals() { 
+    vibrate();
+    document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden')); 
+}
 function showToast(msg, type='info') {
     const c = document.getElementById('toast-container');
     const t = document.createElement('div');
-    t.className = `toast ${type}`;
-    const icon = type === 'error' ? 'triangle-exclamation' : 'check-circle';
-    const color = type === 'error' ? 'text-red-500' : 'text-teal-500';
-    t.innerHTML = `<i class="fa-solid fa-${icon} ${color}"></i> <span>${msg}</span>`;
+    const color = type === 'error' ? 'bg-red-500' : 'bg-teal-500';
+    t.className = `${color} text-black px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-bold animate-slideUp`;
+    t.innerHTML = `<i class="fa-solid fa-${type==='error'?'triangle-exclamation':'check'}"></i> <span>${msg}</span>`;
     c.appendChild(t);
+    vibrate(type === 'error' ? [50, 50, 50] : [20]);
     setTimeout(() => t.remove(), 3000);
 }
 function switchTab(id) {
+    vibrate();
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById(`tab-${id}`).classList.remove('hidden');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -285,15 +327,7 @@ function startTimer() {
         const start = new Date(state.activeShift.start_time).getTime();
         const now = new Date().getTime();
         let diff = Math.floor((now - start) / 1000);
-        if(state.activeShift.total_paused_seconds) diff -= state.activeShift.total_paused_seconds;
-        if(state.activeShift.pause_start) {
-            diff -= Math.floor((now - new Date(state.activeShift.pause_start).getTime()) / 1000);
-            document.getElementById('shift-timer').classList.add('text-yellow-500');
-            document.getElementById('shift-timer').classList.remove('text-white');
-        } else {
-            document.getElementById('shift-timer').classList.remove('text-yellow-500');
-            document.getElementById('shift-timer').classList.add('text-white');
-        }
+        
         const h = String(Math.floor(diff/3600)).padStart(2,'0');
         const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
         const s = String(diff%60).padStart(2,'0');
@@ -303,11 +337,12 @@ function startTimer() {
 function stopTimer() { clearInterval(timerInt); document.getElementById('shift-timer').textContent = "00:00:00"; }
 function setupRealtime() { db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe(); }
 async function login() {
+    vibrate();
     const email = document.getElementById('auth-email').value;
     const password = document.getElementById('auth-pass').value;
     const { error } = await db.auth.signInWithPassword({email, password});
     if(error) showToast(error.message, 'error'); else location.reload();
 }
-async function logout() { await db.auth.signOut(); location.reload(); }
-function toggleTheme() { document.documentElement.classList.toggle('light'); }
+async function logout() { vibrate(); await db.auth.signOut(); location.reload(); }
+function toggleTheme() { vibrate(); document.documentElement.classList.toggle('light'); }
 document.addEventListener('DOMContentLoaded', init);

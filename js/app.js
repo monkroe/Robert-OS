@@ -1,23 +1,25 @@
 /* ═══════════════════════════════════════════════════════════
-   ROBERT ❤️ OS v8.3.1 - STABLE ENGINE
+   ROBERT OS v1.0 - CONSTITUTIONAL ENGINE
    ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // TIKSLIAI KAIP PRAŠEI
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // ĮRAŠYK SAVO RAKTĄ
-    VERSION: '8.3.1'
+    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', 
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy',
+    VERSION: '1.0'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
 const state = new Proxy({
     user: null,
-    summary: { total_liquid: 0, runway_months: 0, buffer_pct: 0, monthly_burn: 0 },
-    netWorth: 0,
+    fleet: [], // Čia saugosime mašinas
     activeShift: null,
-    theme: localStorage.getItem('theme') || 'dark',
-    activeTab: 'cockpit',
-    buyType: 'crypto',
+    
+    // Grind Metrics
+    dailyCost: 0, // Rental/7 + Fixed/30
+    shiftEarnings: 0, // Ką uždirbai šioje pamainoje
+    
+    // UI State
     txDirection: 'in',
     loading: false
 }, {
@@ -28,237 +30,328 @@ const state = new Proxy({
     }
 });
 
-// --- TOAST SYSTEM ---
-function showToast(msg, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if(!container) return;
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    let icon = type === 'success' ? 'fa-check-circle text-green-500' : (type === 'error' ? 'fa-exclamation-triangle text-red-500' : 'fa-info-circle');
-    toast.innerHTML = `<i class="fa-solid ${icon} text-xl"></i><div><p class="font-bold text-sm uppercase">${type}</p><p class="text-xs opacity-80">${msg}</p></div>`;
-    container.appendChild(toast);
-    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
-}
-
 // --- INIT ---
 async function init() {
-    initTheme();
     const { data: { session } } = await db.auth.getSession();
     if (session) {
         state.user = session.user;
-        showAuthScreen(false);
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-content').classList.remove('hidden');
+        
+        await fetchFleet(); // Užkraunam mašinas
+        await refreshAll(); // Užkraunam duomenis
+        
         setupRealtime();
-        await checkSystemHealth();
-        refreshAll();
     } else {
-        showAuthScreen(true);
+        document.getElementById('auth-screen').classList.remove('hidden');
     }
 }
 
-// --- TABS LOGIC (FIXED) ---
-function switchTab(id) {
-    state.activeTab = id;
-    // 1. Slepiame visus tabus naudodami 'hidden' klasę (garantuotas veikimas)
-    document.querySelectorAll('.tab-content').forEach(el => {
-        el.classList.add('hidden');
-        el.classList.remove('active');
-    });
-    // 2. Rodome tik pasirinktą
-    const activeEl = document.getElementById(`tab-${id}`);
-    if(activeEl) {
-        activeEl.classList.remove('hidden');
-        setTimeout(() => activeEl.classList.add('active'), 10); // Animacijai
-    }
-    // 3. Atnaujiname mygtukus
-    document.querySelectorAll('.nav-item').forEach(el => {
-        el.classList.toggle('active', el.id === `btn-${id}`);
-    });
-    refreshAll();
+// --- CORE DATA FETCHING ---
+async function fetchFleet() {
+    const { data } = await db.from('vehicles').select('*').eq('is_active', true);
+    state.fleet = data || [];
 }
 
-// --- SETUP ---
-async function checkSystemHealth() {
-    const { data: settings } = await db.from('finance_settings').select('user_id').maybeSingle();
-    if (!settings) document.getElementById('setup-modal').classList.remove('hidden');
-}
-async function finishSetup() {
-    const cash = parseFloat(document.getElementById('setup-cash').value) || 0;
-    const burn = parseFloat(document.getElementById('setup-burn').value) || 2500;
-    const car = document.getElementById('setup-car').value || 'My Car';
-    state.loading = true;
-    try {
-        await db.from('finance_settings').insert({ user_id: state.user.id, monthly_burn: burn, emergency_buffer_target: burn * 6 });
-        await db.from('finance_assets').insert({ user_id: state.user.id, name: 'Main Cash', category: 'cash', cached_balance: cash, is_liquid: true, include_in_net_worth: true });
-        await db.from('vehicles').insert({ user_id: state.user.id, name: car, plate: 'DEFAULT', is_active: true });
-        document.getElementById('setup-modal').classList.add('hidden');
-        refreshAll();
-        showToast('System Ready', 'success');
-    } catch (e) { showToast(e.message, 'error'); } finally { state.loading = false; }
-}
-
-// --- AUTH ---
-async function login() {
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-pass').value;
-    state.loading = true;
-    const { error } = await db.auth.signInWithPassword({ email, password });
-    if(error) { showToast(error.message, 'error'); state.loading = false; } else location.reload();
-}
-async function logout() {
-    state.loading = true;
-    await db.auth.signOut();
-    localStorage.clear();
-    location.reload();
-}
-
-// --- DATA ---
 async function refreshAll() {
-    const { data: summary } = await db.from('user_financial_summary').select('*').maybeSingle();
-    if(summary) state.summary = summary;
-    const { data: nw } = await db.from('total_net_worth_live').select('net_worth').maybeSingle();
-    if(nw) state.netWorth = nw.net_worth;
+    // 1. Active Shift
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
     state.activeShift = shift;
-    
-    if(state.activeTab === 'vault') refreshVault();
-    if(state.activeTab === 'audit') refreshAudit();
-}
 
-async function refreshVault() {
-    const { data } = await db.from('investment_assets').select('*').order('quantity', {ascending: false});
-    const el = document.getElementById('asset-list');
-    if(!el) return;
-    el.innerHTML = data && data.length ? data.map(a => `
-        <div class="bento-card flex-row justify-between items-center p-4 mb-2">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center font-bold text-teal-500 text-xs">${a.symbol.substring(0,3)}</div>
-                <div><p class="font-bold text-sm">${a.name}</p><p class="text-[10px] text-gray-500 font-mono">${parseFloat(a.quantity).toFixed(4)} ${a.symbol}</p></div>
-            </div>
-            <div class="text-right"><p class="font-bold text-teal-400 font-mono">$${(a.quantity * a.current_price).toLocaleString()}</p></div>
-        </div>`).join('') : '<div class="text-center py-4 opacity-50 text-xs">VAULT EMPTY</div>';
+    // 2. Grind Metrics (Konstitucinis Skaičiavimas)
+    // Paimam fiksuotas išlaidas
+    const { data: fixed } = await db.from('fixed_expenses').select('amount, frequency').eq('is_active', true);
+    let monthlyFixed = fixed ? fixed.reduce((acc, item) => acc + item.amount, 0) : 0; // Supaprastinta (laikome viską monthly v1.0)
+    
+    let vehicleCost = 0;
+    if (shift) {
+        // Jei dirbam, imam to automobilio kaštus
+        const v = state.fleet.find(f => f.id === shift.vehicle_id);
+        if (v) vehicleCost = v.operating_cost_weekly / 7;
+    } else if (state.fleet.length > 0) {
+        // Jei nedirbam, imam "pagrindinės" (pirmos) mašinos kaštus prognozei
+        vehicleCost = state.fleet[0].operating_cost_weekly / 7;
+    }
+
+    state.dailyCost = (monthlyFixed / 30) + vehicleCost;
+    
+    // 3. Earnings (Shift)
+    if(shift) {
+        // Čia galima pridėti logiką, jei vedame pajamas eigoje. 
+        // Kol kas v1.0 earnings vedami END SHIFT metu, todėl "Shift Earnings" rodo 0 arba tai, kas įvesta "IN" transakcijose.
+        // Pagal konstituciją: Expenses rašomos į 'expenses' lentelę, o 'gross_earnings' įrašomas tik gale.
+        // Tačiau, kad "Grind Bar" judėtų, mums reikia "Realizuotų Pajamų".
+        // v1.0 sprendimas: Grind Bar rodo kiek liko padengti kaštus.
+        state.shiftEarnings = 0; // Kol kas 0, kol nepradėsim vesti tarpinių pajamų.
+    }
+    
+    updateGrindBar();
+    refreshAudit();
 }
 
 async function refreshAudit() {
-    const { data } = await db.from('finance_transactions').select('*').order('date', {ascending: false}).limit(15);
+    // Paimam paskutines 5 pamainas
+    const { data } = await db.from('finance_shifts').select('start_time, end_time, gross_earnings, vehicle_id').order('start_time', {ascending: false}).limit(5);
     const el = document.getElementById('audit-list');
     if(!el) return;
-    el.innerHTML = data && data.length ? data.map(t => `
-        <div class="bento-card flex-row justify-between items-center p-3 mb-2">
-            <div><p class="text-[9px] text-gray-500 font-bold uppercase">${new Date(t.date).toLocaleDateString()}</p><p class="font-bold text-xs">${t.direction === 'in' ? 'INCOME' : 'EXPENSE'}</p></div>
-            <p class="font-mono font-bold ${t.direction === 'in' ? 'text-green-500' : 'text-red-500'}">${t.direction === 'in' ? '+' : '-'}$${parseFloat(t.amount).toLocaleString()}</p>
-        </div>`).join('') : '';
+    
+    if(data && data.length) {
+        el.innerHTML = data.map(s => {
+            const v = state.fleet.find(f => f.id === s.vehicle_id);
+            const earn = s.gross_earnings || 0;
+            return `
+            <div class="bento-card flex-row justify-between items-center p-3 mb-2">
+                <div>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase">${new Date(s.start_time).toLocaleDateString()}</p>
+                    <p class="font-bold text-xs text-white">${v ? v.name : 'Unknown Vehicle'}</p>
+                </div>
+                <p class="font-mono font-bold ${earn > 0 ? 'text-green-500' : 'text-gray-500'}">$${earn}</p>
+            </div>`;
+        }).join('');
+    } else {
+        el.innerHTML = '<div class="text-center py-4 opacity-50 text-xs">NO HISTORY</div>';
+    }
 }
 
-// --- SHIFT & TRANS ---
-function openOdoModal() { document.getElementById('odo-modal').classList.remove('hidden'); }
-function openEndModal() { document.getElementById('end-shift-modal').classList.remove('hidden'); }
-function openTransactionModal(dir) {
-    state.txDirection = dir;
-    document.getElementById('tx-title').textContent = dir === 'in' ? 'Pajamos' : 'Išlaidos';
-    document.getElementById('tx-amount').value = '';
-    document.getElementById('transaction-modal').classList.remove('hidden');
+// --- SHIFT LOGIC ---
+function openStartModal() {
+    const sel = document.getElementById('start-vehicle');
+    sel.innerHTML = state.fleet.map(v => `<option value="${v.id}">${v.name} ($${v.operating_cost_weekly}/wk)</option>`).join('');
+    document.getElementById('start-modal').classList.remove('hidden');
 }
 
-async function confirmShiftAction() {
-    const odo = document.getElementById('odo-input').value;
-    if(!odo) return showToast('Įveskite ODO', 'error');
+async function confirmStart() {
+    const vid = document.getElementById('start-vehicle').value;
+    const odo = document.getElementById('start-odo').value;
+    const goal = document.getElementById('start-goal').value;
+    
+    if(!vid || !odo) return showToast('Vehicle & ODO required', 'error');
+    
     state.loading = true;
     try {
-        const { data: v } = await db.from('vehicles').select('id').eq('is_active', true).limit(1).single();
-        await db.from('finance_shifts').insert({ user_id: state.user.id, vehicle_id: v?.id, start_odo: odo, status: 'active' });
-        closeModals(); refreshAll(); showToast('Shift Started', 'success');
+        await db.from('finance_shifts').insert({
+            user_id: state.user.id,
+            vehicle_id: vid,
+            start_odo: odo,
+            goal_amount: goal || null,
+            status: 'active'
+        });
+        closeModals();
+        await refreshAll();
+        showToast('Shift Started', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-async function finishShift() {
-    const endOdo = parseFloat(document.getElementById('end-odo').value);
-    const income = parseFloat(document.getElementById('end-income').value) || 0;
-    const fuel = parseFloat(document.getElementById('end-fuel').value) || 0;
-    if(!endOdo) return showToast('Reikalingas ODO', 'error');
+async function togglePause() {
+    if(!state.activeShift) return;
+    const isPaused = !!state.activeShift.pause_start;
+    
     state.loading = true;
     try {
-        const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
-        if(income > 0) await db.from('finance_transactions').insert({ user_id: state.user.id, asset_id: asset.id, amount: income, direction: 'in', shift_id: state.activeShift.id });
-        if(fuel > 0) await db.from('finance_transactions').insert({ user_id: state.user.id, asset_id: asset.id, amount: fuel, direction: 'out', shift_id: state.activeShift.id });
-        await db.from('finance_shifts').update({ end_odo: endOdo, status: 'completed', end_time: new Date().toISOString() }).eq('id', state.activeShift.id);
-        closeModals(); refreshAll(); showToast('Shift Closed', 'success');
-    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
-}
-
-async function confirmTransaction() {
-    const amt = parseFloat(document.getElementById('tx-amount').value);
-    if(!amt) return showToast('Nėra sumos', 'error');
-    state.loading = true;
-    try {
-        const { data: asset } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
-        await db.from('finance_transactions').insert({ user_id: state.user.id, asset_id: asset.id, amount: amt, direction: state.txDirection, shift_id: state.activeShift?.id });
-        closeModals(); refreshAll(); showToast('Saved', 'success');
-    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
-}
-
-// --- INVEST ---
-function openBuyModal() { document.getElementById('buy-modal').classList.remove('hidden'); }
-function selectAssetType(type) {
-    state.buyType = type;
-    document.getElementById('btn-type-crypto').className = `asset-type-btn ${type === 'crypto' ? 'active' : ''}`;
-    document.getElementById('btn-type-stock').className = `asset-type-btn ${type === 'stock' ? 'active' : ''}`;
-}
-async function confirmBuyAction() {
-    const symbol = document.getElementById('buy-symbol').value.toUpperCase();
-    const qty = parseFloat(document.getElementById('buy-amount').value);
-    const price = parseFloat(document.getElementById('buy-price').value);
-    if(!symbol || !qty || !price) return showToast('Trūksta duomenų', 'error');
-    state.loading = true;
-    try {
-        let { data: asset } = await db.from('investment_assets').select('id').eq('symbol', symbol).maybeSingle();
-        if(!asset) {
-            const { data: newAsset } = await db.from('investment_assets').insert({ user_id: state.user.id, symbol: symbol, name: symbol, asset_type: state.buyType, current_price: price }).select().single();
-            asset = newAsset;
+        if(isPaused) {
+            // Resume
+            // Reikia SQL funkcijos arba logikos, bet v1.0 paprastumo dėlei darome update
+            // Čia supaprastinta: (Dabar - pause_start) pridedam prie total
+            const pauseTime = new Date(state.activeShift.pause_start);
+            const diffSec = Math.floor((new Date() - pauseTime) / 1000);
+            
+            await db.from('finance_shifts').update({
+                pause_start: null,
+                total_paused_seconds: (state.activeShift.total_paused_seconds || 0) + diffSec
+            }).eq('id', state.activeShift.id);
+            showToast('Resumed', 'success');
+        } else {
+            // Pause
+            await db.from('finance_shifts').update({
+                pause_start: new Date().toISOString()
+            }).eq('id', state.activeShift.id);
+            showToast('Paused', 'success');
         }
-        const { data: fiat } = await db.from('finance_assets').select('id').eq('is_liquid', true).limit(1).single();
-        await db.from('investment_transactions').insert({ user_id: state.user.id, investment_id: asset.id, fiat_asset_id: fiat.id, type: 'buy', quantity: qty, price_per_unit: price, total_fiat: qty * price });
-        closeModals(); refreshAll(); showToast('Asset Purchased', 'success');
+        await refreshAll();
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- UI ---
+function openEndModal() { document.getElementById('end-modal').classList.remove('hidden'); }
+
+async function confirmEnd() {
+    const odo = document.getElementById('end-odo').value;
+    const earn = document.getElementById('end-earn').value;
+    
+    if(!odo || !earn) return showToast('ODO & Earnings required', 'error');
+    
+    state.loading = true;
+    try {
+        const { error } = await db.from('finance_shifts').update({
+            end_odo: odo,
+            gross_earnings: earn,
+            end_time: new Date().toISOString(),
+            status: 'completed'
+        }).eq('id', state.activeShift.id);
+        
+        if(error) throw error;
+        
+        closeModals();
+        await refreshAll();
+        showToast('Shift Completed', 'success');
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+}
+
+// --- TRANSACTIONS ---
+function openTxModal(dir) {
+    state.txDirection = dir;
+    document.getElementById('tx-title').textContent = dir === 'in' ? 'Income' : 'Expense';
+    document.getElementById('tx-amount').value = '';
+    
+    const isExp = dir === 'out';
+    document.getElementById('expense-types').classList.toggle('hidden', !isExp);
+    document.getElementById('fuel-fields').classList.add('hidden'); // Reset
+    
+    document.getElementById('tx-modal').classList.remove('hidden');
+}
+
+function setExpType(type) {
+    document.getElementById('tx-type').value = type;
+    document.getElementById('fuel-fields').classList.toggle('hidden', type !== 'fuel');
+    // Visual feedback
+    document.querySelectorAll('.exp-btn').forEach(b => b.classList.remove('bg-teal-500', 'text-black'));
+    event.target.classList.add('bg-teal-500', 'text-black');
+}
+
+async function confirmTx() {
+    const amt = parseFloat(document.getElementById('tx-amount').value);
+    if(!amt) return;
+    
+    state.loading = true;
+    try {
+        if(state.txDirection === 'out') {
+            // Expense Logic
+            const type = document.getElementById('tx-type').value;
+            const gal = document.getElementById('tx-gal').value;
+            const odo = document.getElementById('tx-odo').value;
+            
+            if(type === 'fuel' && (!gal || !odo)) throw new Error('Fuel requires Gallons & ODO');
+            
+            await db.from('expenses').insert({
+                user_id: state.user.id,
+                shift_id: state.activeShift?.id,
+                vehicle_id: state.activeShift?.vehicle_id,
+                type: type,
+                amount: amt,
+                gallons: gal || null,
+                odometer: odo || null
+            });
+        } else {
+            // Income Logic (Tarpinė)
+            // v1.0 konstitucija sako, kad Gross Earnings fiksuojami gale.
+            // Bet jei norime vesti tarpines pajamas (pvz. cash tips), galime naudoti atskirą lentelę arba tiesiog ignoruoti.
+            // Kol kas v1.0 UI: Income mygtukas tiesiog parodo Toast (nes DB earnings yra Shift stulpelis).
+            showToast('Earnings logged at End Shift', 'info');
+        }
+        closeModals();
+        await refreshAll();
+        showToast('Saved', 'success');
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+}
+
+// --- AI EXPORT ---
+async function exportAI() {
+    state.loading = true;
+    try {
+        const { data, error } = await db.rpc('get_empire_report', { target_user_id: state.user.id });
+        if(error) throw error;
+        
+        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+        showToast('Empire Data Copied to Clipboard!', 'success');
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+}
+
+// --- UI UPDATERS ---
 function updateUI(key) {
     if(key === 'loading') document.getElementById('loading').classList.toggle('hidden', !state.loading);
     
-    if(key === 'summary') {
-        document.getElementById('buffer-bar').style.width = `${state.summary.buffer_pct}%`;
-        document.getElementById('runway-val').innerHTML = `${state.summary.runway_months} <span class="text-xs text-gray-500 font-sans">mo</span>`;
-        document.getElementById('stat-liquid').textContent = `$${Math.round(state.summary.total_liquid).toLocaleString()}`;
-    }
-    if(key === 'netWorth') document.getElementById('net-worth-val').textContent = `$${Math.round(state.netWorth).toLocaleString()}`;
-
     if(key === 'activeShift') {
-        const btn = document.getElementById('shift-btn');
-        if(state.activeShift) {
-            btn.innerHTML = '<i class="fa-solid fa-stop mr-2"></i> END SHIFT';
-            btn.classList.remove('btn-action-start'); btn.classList.add('btn-action-stop');
-            btn.onclick = openEndModal;
-            startTimer();
-        } else {
-            btn.innerHTML = '<i class="fa-solid fa-play mr-2"></i> START SHIFT';
-            btn.classList.remove('btn-action-stop'); btn.classList.add('btn-action-start');
-            btn.onclick = openOdoModal;
-            stopTimer();
-        }
+        const hasShift = !!state.activeShift;
+        document.getElementById('btn-start').classList.toggle('hidden', hasShift);
+        document.getElementById('active-controls').classList.toggle('hidden', !hasShift);
+        
+        if(hasShift) startTimer(); else stopTimer();
     }
 }
 
+function updateGrindBar() {
+    // Čia yra v1.0 Grind Bar logika
+    // Target = Daily Cost (Rental/7 + Fixed/30)
+    // Current = Shift Earnings (kurie kol kas vvedami tik gale)
+    // TAI YRA TOBULINTINA VIETA: Reikia mechanizmo vesti pajamas eigoje, kad baras judėtų.
+    // Kol kas rodysime Target.
+    
+    const target = Math.round(state.dailyCost);
+    document.getElementById('grind-val').textContent = `$0 / $${target}`;
+    document.getElementById('grind-label').textContent = 'DAILY COST COVERAGE';
+    // Bar is empty until earnings logic is added
+}
+
+// --- UTILS ---
 function closeModals() { document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden')); }
-function setupRealtime() { db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe(); }
-function showAuthScreen(show) { document.getElementById('auth-screen').classList.toggle('hidden', !show); document.getElementById('app-content').classList.toggle('hidden', show); }
+function showToast(msg, type='info') {
+    const c = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<i class="fa-solid fa-${type==='error'?'triangle-exclamation':'check-circle'}"></i> <span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+function switchTab(id) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.getElementById(`tab-${id}`).classList.remove('hidden');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`btn-${id}`).classList.add('active');
+}
+
+// Timer Logic (Su Pause palaikymu)
 let timerInt;
-function startTimer() { stopTimer(); const start = new Date(state.activeShift.start_time); timerInt = setInterval(() => { 
-    const diff = Math.floor((new Date() - start)/1000); 
-    const h = String(Math.floor(diff/3600)).padStart(2,'0'); const m = String(Math.floor((diff%3600)/60)).padStart(2,'0'); const s = String(diff%60).padStart(2,'0');
-    if(document.getElementById('shift-timer')) document.getElementById('shift-timer').textContent = `${h}:${m}:${s}`; 
-}, 1000); }
-function stopTimer() { clearInterval(timerInt); if(document.getElementById('shift-timer')) document.getElementById('shift-timer').textContent = '00:00:00'; }
-function initTheme() { document.documentElement.classList.toggle('light', state.theme === 'light'); }
-function toggleTheme() { state.theme = state.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', state.theme); initTheme(); }
+function startTimer() {
+    clearInterval(timerInt);
+    timerInt = setInterval(() => {
+        if(!state.activeShift) return;
+        
+        const start = new Date(state.activeShift.start_time).getTime();
+        const now = new Date().getTime();
+        let diff = Math.floor((now - start) / 1000);
+        
+        // Atimame pauzes
+        if(state.activeShift.total_paused_seconds) diff -= state.activeShift.total_paused_seconds;
+        
+        // Jei dabar pauzėje
+        if(state.activeShift.pause_start) {
+            const pauseStart = new Date(state.activeShift.pause_start).getTime();
+            const currentPause = Math.floor((now - pauseStart) / 1000);
+            diff -= currentPause;
+            document.getElementById('shift-timer').classList.add('text-yellow-500');
+            document.getElementById('shift-timer').classList.remove('text-white');
+        } else {
+            document.getElementById('shift-timer').classList.remove('text-yellow-500');
+            document.getElementById('shift-timer').classList.add('text-white');
+        }
+
+        const h = String(Math.floor(diff/3600)).padStart(2,'0');
+        const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
+        const s = String(diff%60).padStart(2,'0');
+        document.getElementById('shift-timer').textContent = `${h}:${m}:${s}`;
+    }, 1000);
+}
+function stopTimer() { clearInterval(timerInt); document.getElementById('shift-timer').textContent = "00:00:00"; }
+function setupRealtime() { db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe(); }
+
+// Auth
+async function login() {
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-pass').value;
+    const { error } = await db.auth.signInWithPassword({email, password});
+    if(error) showToast(error.message, 'error'); else location.reload();
+}
+async function logout() { await db.auth.signOut(); location.reload(); }
+function toggleTheme() { document.documentElement.classList.toggle('light'); }
 
 document.addEventListener('DOMContentLoaded', init);

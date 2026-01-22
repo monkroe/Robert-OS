@@ -5,7 +5,7 @@
 const CONFIG = {
     SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- ĮRAŠYK SAVO URL ČIA
     SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- ĮRAŠYK SAVO KEY ČIA
-    VERSION: '1.1-Theme'
+    VERSION: '1.1'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);

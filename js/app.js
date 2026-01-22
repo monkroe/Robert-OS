@@ -1,12 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
-   ROBERT OS v1.0 - CONSTITUTIONAL LOGIC (FINAL)
-   Grįžta prie originalios 'expenses' + 'shifts' struktūros
+   ROBERT OS v1.1 - LOGIC ENGINE (THEME EDITION)
    ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- ĮRAŠYK
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- ĮRAŠYK
-    VERSION: '1.0-Final'
+    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- ĮRAŠYK SAVO URL ČIA
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- ĮRAŠYK SAVO KEY ČIA
+    VERSION: '1.1-Theme'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
@@ -27,6 +26,8 @@ const state = new Proxy({
 
 // --- INIT ---
 async function init() {
+    applyTheme(); // Pirmiausia nustatome temą
+    
     const { data: { session } } = await db.auth.getSession();
     if (session) {
         state.user = session.user;
@@ -42,7 +43,6 @@ async function init() {
 
 // --- DATA FETCHING ---
 async function fetchFleet() {
-    // 1.0 SQL naudoja 'operating_cost_weekly'
     const { data } = await db.from('vehicles').select('*').eq('is_active', true);
     state.fleet = data || [];
 }
@@ -58,7 +58,6 @@ async function refreshAll() {
         const v = state.fleet.find(f => f.id === shift.vehicle_id);
         if (v) vehicleCost = v.operating_cost_weekly / 7;
     } else if (state.fleet.length > 0) {
-        // Fallback į pirmą mašiną
         if (state.fleet[0].operating_cost_weekly) vehicleCost = state.fleet[0].operating_cost_weekly / 7;
     }
 
@@ -70,8 +69,6 @@ async function refreshAll() {
 }
 
 async function refreshAudit() {
-    // ČIA YRA MAGIJA: Sujungiame dvi lenteles be jokio SQL keitimo
-    
     // 1. Paimam užbaigtas pamainas (Pajamos)
     const { data: shifts } = await db.from('finance_shifts')
         .select('end_time, gross_earnings, vehicle_id')
@@ -85,36 +82,14 @@ async function refreshAudit() {
         .order('created_at', {ascending: false})
         .limit(5);
 
-    // 3. Sujungiame į vieną sąrašą
+    // 3. Sujungiame
     let history = [];
-    
-    if (shifts) {
-        shifts.forEach(s => {
-            history.push({
-                date: new Date(s.end_time),
-                amount: s.gross_earnings,
-                type: 'SHIFT',
-                is_income: true
-            });
-        });
-    }
+    if (shifts) shifts.forEach(s => history.push({ date: new Date(s.end_time), amount: s.gross_earnings, type: 'SHIFT', is_income: true }));
+    if (expenses) expenses.forEach(e => history.push({ date: new Date(e.created_at), amount: e.amount, type: e.type.toUpperCase(), is_income: false }));
 
-    if (expenses) {
-        expenses.forEach(e => {
-            history.push({
-                date: new Date(e.created_at),
-                amount: e.amount,
-                type: e.type.toUpperCase(),
-                is_income: false
-            });
-        });
-    }
-
-    // 4. Surūšiuojame pagal laiką (naujausi viršuje)
     history.sort((a, b) => b.date - a.date);
-    history = history.slice(0, 50); // Rodyti max 50 įrašų
+    history = history.slice(0, 50);
 
-    // 5. Atvaizduojame
     const el = document.getElementById('audit-list');
     if(!el) return;
     
@@ -124,7 +99,7 @@ async function refreshAudit() {
             <div class="bento-card flex-row justify-between items-center p-3 mb-2 animate-slideUp">
                 <div>
                     <p class="text-[9px] text-gray-500 font-bold uppercase">${item.date.toLocaleDateString()} ${item.date.getHours()}:${String(item.date.getMinutes()).padStart(2, '0')}</p>
-                    <p class="font-bold text-xs text-white uppercase">${item.type}</p>
+                    <p class="font-bold text-xs font-bold uppercase">${item.type}</p>
                 </div>
                 <p class="font-mono font-bold ${item.is_income ? 'text-green-500' : 'text-red-500'}">
                     ${item.is_income ? '+' : '-'}$${item.amount}
@@ -136,7 +111,7 @@ async function refreshAudit() {
     }
 }
 
-// --- GARAGE (VEIKIA SU 1.0 SQL) ---
+// --- GARAGE (1.0 SQL) ---
 function openGarage() {
     vibrate();
     document.getElementById('veh-name').value = '';
@@ -167,7 +142,6 @@ async function saveVehicle() {
 
     state.loading = true;
     try {
-        // GRĮŽTAME PRIE 1.0 SQL STRUKTŪROS
         const { error } = await db.from('vehicles').insert({
             user_id: state.user.id,
             name: name,
@@ -175,7 +149,6 @@ async function saveVehicle() {
             operating_cost_weekly: parseFloat(cost || 0),
             is_active: true
         });
-        
         if (error) throw error;
         showToast('Mašina pridėta!', 'success');
         closeModals();
@@ -205,7 +178,6 @@ async function confirmStart() {
     
     state.loading = true;
     try {
-        // 1.0 SQL naudoja 'start_odo'
         await db.from('finance_shifts').insert({
             user_id: state.user.id,
             vehicle_id: vid,
@@ -238,7 +210,6 @@ async function confirmEnd() {
     
     state.loading = true;
     try {
-        // 1.0 SQL naudoja 'end_odo' ir 'gross_earnings'
         const { error } = await db.from('finance_shifts').update({
             end_odo: parseInt(odo), 
             gross_earnings: parseFloat(earn || 0),
@@ -247,19 +218,17 @@ async function confirmEnd() {
         }).eq('id', state.activeShift.id);
         
         if(error) throw error;
-
         closeModals(); await refreshAll(); showToast('Pamaina baigta', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- TRANSACTIONS (GRĮŽTAME PRIE 'expenses') ---
+// --- TRANSACTIONS ('expenses' lentelė) ---
 function openTxModal(dir) {
     vibrate();
     state.txDirection = dir;
     document.getElementById('tx-title').textContent = dir === 'in' ? 'Pajamos' : 'Išlaidos';
     document.getElementById('tx-amount').value = '';
     
-    // UI: Rodyti kuro laukus tik jei tai Išlaidos
     const isExp = dir === 'out';
     document.getElementById('expense-types').classList.toggle('hidden', !isExp);
     document.getElementById('fuel-fields').classList.add('hidden');
@@ -283,12 +252,10 @@ async function confirmTx() {
     state.loading = true;
     try {
         if(state.txDirection === 'out') {
-            // IŠLAIDOS: Rašome į 'expenses' lentelę (1.0 SQL)
             const type = document.getElementById('tx-type').value;
             const gal = document.getElementById('tx-gal').value;
             const odo = document.getElementById('tx-odo').value;
             
-            // Validacija kurui
             if(type === 'fuel' && (!gal || !odo)) throw new Error('Kurui reikia Litrų ir Ridos');
             
             await db.from('expenses').insert({
@@ -300,18 +267,13 @@ async function confirmTx() {
                 gallons: gal ? parseFloat(gal) : null,
                 odometer: odo ? parseInt(odo) : null
             });
-            
             showToast('Išlaida įrašyta', 'success');
         } else {
-            // PAJAMOS: 1.0 Konstitucija sako, kad pajamos vedamos tik gale.
-            // Bet jei nori, galime tiesiog rodyti pranešimą.
             showToast('Pajamos vedamos uždarant pamainą', 'info');
             state.loading = false;
             return; 
         }
-
-        closeModals(); 
-        await refreshAll(); 
+        closeModals(); await refreshAll(); 
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
@@ -326,7 +288,8 @@ async function exportAI() {
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- UI UTILS ---
+// --- UI UTILS & THEME ENGINE ---
+
 function updateUI(key) {
     if(key === 'loading') document.getElementById('loading').classList.toggle('hidden', !state.loading);
     if(key === 'activeShift') {
@@ -336,6 +299,7 @@ function updateUI(key) {
         if(hasShift) startTimer(); else stopTimer();
     }
 }
+
 function updateGrindBar() {
     const target = Math.round(state.dailyCost) || 1; 
     const current = state.shiftEarnings || 0; 
@@ -344,10 +308,12 @@ function updateGrindBar() {
     document.getElementById('grind-bar').style.width = `${pct}%`;
     if(pct >= 100) document.getElementById('grind-glow').classList.remove('hidden');
 }
+
 function closeModals() { 
     vibrate();
     document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden')); 
 }
+
 function showToast(msg, type='info') {
     const c = document.getElementById('toast-container');
     const t = document.createElement('div');
@@ -358,6 +324,7 @@ function showToast(msg, type='info') {
     vibrate(type === 'error' ? [50, 50, 50] : [20]);
     setTimeout(() => t.remove(), 3000);
 }
+
 function switchTab(id) {
     vibrate();
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -365,6 +332,51 @@ function switchTab(id) {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.getElementById(`btn-${id}`).classList.add('active');
 }
+
+// --- THEME ENGINE ---
+let currentTheme = localStorage.getItem('theme') || 'auto';
+
+function applyTheme() {
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('btn-theme');
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    
+    let isDark = false;
+    if (currentTheme === 'dark') isDark = true;
+    else if (currentTheme === 'light') isDark = false;
+    else if (currentTheme === 'auto') isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    if (isDark) {
+        html.classList.add('dark');
+        metaThemeColor?.setAttribute('content', '#000000');
+    } else {
+        html.classList.remove('dark');
+        metaThemeColor?.setAttribute('content', '#f3f4f6'); // Šviesus status bar
+    }
+
+    if (themeBtn) {
+        let iconClass = 'fa-circle-half-stroke';
+        if (currentTheme === 'dark') iconClass = 'fa-moon';
+        if (currentTheme === 'light') iconClass = 'fa-sun';
+        themeBtn.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+    }
+}
+
+function cycleTheme() {
+    vibrate();
+    if (currentTheme === 'auto') currentTheme = 'dark';
+    else if (currentTheme === 'dark') currentTheme = 'light';
+    else currentTheme = 'auto';
+    localStorage.setItem('theme', currentTheme);
+    applyTheme();
+    showToast(`Theme: ${currentTheme.toUpperCase()}`, 'info');
+}
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (currentTheme === 'auto') applyTheme();
+});
+
+// --- SYSTEM ---
 let timerInt;
 function startTimer() {
     clearInterval(timerInt);
@@ -373,7 +385,6 @@ function startTimer() {
         const start = new Date(state.activeShift.start_time).getTime();
         const now = new Date().getTime();
         let diff = Math.floor((now - start) / 1000);
-        
         const h = String(Math.floor(diff/3600)).padStart(2,'0');
         const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
         const s = String(diff%60).padStart(2,'0');
@@ -390,5 +401,5 @@ async function login() {
     if(error) showToast(error.message, 'error'); else location.reload();
 }
 async function logout() { vibrate(); await db.auth.signOut(); location.reload(); }
-function toggleTheme() { vibrate(); document.documentElement.classList.toggle('light'); }
+
 document.addEventListener('DOMContentLoaded', init);

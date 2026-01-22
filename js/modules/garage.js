@@ -4,8 +4,11 @@ import { showToast, vibrate } from '../utils.js';
 
 // --- DATA ---
 export async function fetchFleet() {
-    const { data } = await db.from('vehicles').select('*').eq('is_active', true);
-    state.fleet = data || [];
+    // Svarbu: Nuimtas filtras, kad matytume ir TEST mašinas
+    const { data } = await db.from('vehicles').select('*').order('created_at', { ascending: false });
+    
+    // Filtruojame tik active (neištrintas), bet paliekame TEST
+    state.fleet = (data || []).filter(v => v.is_active === true);
 }
 
 // --- ACTIONS ---
@@ -23,13 +26,15 @@ export function openGarage() {
     document.getElementById('garage-modal').classList.remove('hidden');
 }
 
-// NAUJA: Test Mode Perjungiklis
-window.toggleTestMode = function() {
+// TEST MODE Perjungiklis
+export function toggleTestMode() {
     vibrate();
     const input = document.getElementById('veh-is-test');
-    const isTest = input.value === 'true';
-    input.value = !isTest;
-    updateTestUI(!isTest);
+    // Konvertuojam string 'true'/'false' į boolean, tada apverčiam
+    const isTest = !(input.value === 'true');
+    
+    input.value = String(isTest);
+    updateTestUI(isTest);
 }
 
 function updateTestUI(isActive) {
@@ -37,15 +42,13 @@ function updateTestUI(isActive) {
     const dot = document.getElementById('test-indicator');
     
     if (isActive) {
-        btn.classList.remove('opacity-60', 'border-gray-700');
-        btn.classList.add('opacity-100', 'border-yellow-500', 'bg-yellow-500/10');
-        dot.classList.remove('bg-gray-700');
-        dot.classList.add('bg-yellow-400', 'shadow-[0_0_10px_rgba(250,204,21,0.5)]');
+        // Įjungta
+        btn.className = "cursor-pointer border border-yellow-500 bg-yellow-500/10 rounded-lg p-3 flex items-center justify-between transition-all";
+        dot.className = "w-3 h-3 rounded-full bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.8)]";
     } else {
-        btn.classList.add('opacity-60', 'border-gray-700');
-        btn.classList.remove('opacity-100', 'border-yellow-500', 'bg-yellow-500/10');
-        dot.classList.add('bg-gray-700');
-        dot.classList.remove('bg-yellow-400', 'shadow-[0_0_10px_rgba(250,204,21,0.5)]');
+        // Išjungta
+        btn.className = "cursor-pointer border border-gray-700 opacity-60 rounded-lg p-3 flex items-center justify-between transition-all hover:opacity-100";
+        dot.className = "w-3 h-3 rounded-full bg-gray-600";
     }
 }
 
@@ -59,16 +62,18 @@ export function renderGarageList() {
     }
 
     list.innerHTML = state.fleet.map(v => {
-        // Ar tai testinis automobilis?
         const isTest = v.is_test;
-        const borderClass = isTest ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5';
+        // Pataisytas stilius, kad aiškiai matytųsi skirtumas
+        const borderClass = isTest 
+            ? 'border-yellow-500/50 bg-yellow-500/5' 
+            : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5';
+            
         const badge = isTest 
-            ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-yellow-500 text-black uppercase ml-2"><i class="fa-solid fa-flask mr-1"></i>TEST</span>` 
+            ? `<span class="text-[10px] font-bold px-2 py-1 rounded bg-yellow-400 text-black uppercase ml-2 shadow-sm"><i class="fa-solid fa-flask mr-1"></i>TEST</span>` 
             : '';
 
         return `
         <div class="group relative flex items-center justify-between p-4 mb-3 rounded-xl border ${borderClass} transition-all">
-            
             <div class="flex flex-col text-left">
                 <div class="flex items-center">
                     <span class="text-base font-bold text-gray-900 dark:text-white tracking-tight">${v.name}</span>
@@ -79,12 +84,10 @@ export function renderGarageList() {
                     <span class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">$${v.operating_cost_weekly}/wk</span>
                 </div>
             </div>
-
             <button onclick="window.deleteVehicle('${v.id}')" 
                 class="h-10 w-10 flex items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-500 border border-red-500/20 active:scale-95 transition-transform">
                 <i class="fa-solid fa-trash-can text-sm"></i>
             </button>
-            
         </div>
     `}).join('');
 }
@@ -94,7 +97,7 @@ export async function saveVehicle() {
     const name = document.getElementById('veh-name').value;
     const cost = document.getElementById('veh-cost').value;
     const type = document.getElementById('veh-type').value;
-    const isTest = document.getElementById('veh-is-test').value === 'true'; // Skaitome reikšmę
+    const isTest = document.getElementById('veh-is-test').value === 'true';
 
     if (!name) return showToast('Reikia pavadinimo', 'error');
 
@@ -106,7 +109,7 @@ export async function saveVehicle() {
             type: type,
             operating_cost_weekly: parseFloat(cost || 0),
             is_active: true,
-            is_test: isTest // Įrašome į DB
+            is_test: isTest
         });
         if (error) throw error;
         
@@ -124,25 +127,19 @@ export async function saveVehicle() {
     } catch (e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- IŠMANUSIS TRYNIMAS ---
 export async function deleteVehicle(id) {
     vibrate([20]);
-
-    // 1. Patikriname, ar tai TEST automobilis
     const vehicle = state.fleet.find(v => v.id === id);
     const isTest = vehicle?.is_test;
 
-    // A. Jei TESTINIS - Triname greitai ir be gailesčio
+    // A. TESTINĖ - Triname viską
     if (isTest) {
-        if(!confirm('🧪 Tai TESTINIS automobilis. Ištrinti jį ir visus jo duomenis?')) return;
+        if(!confirm('🧪 Tai TESTINIS automobilis. Ištrinti jį ir visus susijusius duomenis?')) return;
         state.loading = true;
         try {
-            // Pirmiausia ištriname susijusias testines pamainas/išlaidas (kad nekiltų SQL klaidų)
             await db.from('expenses').delete().eq('vehicle_id', id);
             await db.from('finance_shifts').delete().eq('vehicle_id', id);
-            // Tada patį automobilį
             await db.from('vehicles').delete().eq('id', id);
-            
             showToast('Testiniai duomenys išvalyti 🧹', 'success');
             await fetchFleet();
             renderGarageList();
@@ -150,35 +147,24 @@ export async function deleteVehicle(id) {
         return;
     }
 
-    // B. Jei REALI - Saugome
+    // B. REALI - Saugome
     if(!confirm('Ar norite pašalinti šį automobilį?')) return;
-
     state.loading = true;
     try {
         const { error } = await db.from('vehicles').delete().eq('id', id);
-
         if (error) {
-            if (error.code === '23503') { // Foreign Key Violation
-                if (confirm('⚠️ Automobilis turi finansinę istoriją (Real Production). Negalima trinti.\n\nAr norite jį ARCHYVUOTI?')) {
+            if (error.code === '23503') { 
+                if (confirm('⚠️ Automobilis turi istoriją. ARCHYVUOTI?')) {
                     await db.from('vehicles').update({ is_active: false }).eq('id', id);
-                    showToast('Automobilis perkeltas į archyvą', 'success');
-                } else {
-                    state.loading = false;
-                    return;
-                }
+                    showToast('Automobilis archyvuotas', 'success');
+                } else { state.loading = false; return; }
             } else { throw error; }
         } else {
-            showToast('Automobilis ištrintas visiškai', 'success');
+            showToast('Automobilis ištrintas', 'success');
         }
-        
         await fetchFleet();
         renderGarageList();
-    } catch (e) {
-        console.error(e);
-        showToast('Klaida: ' + e.message, 'error');
-    } finally {
-        state.loading = false;
-    }
+    } catch (e) { showToast('Klaida: ' + e.message, 'error'); } finally { state.loading = false; }
 }
 
 export function setVehType(type) {

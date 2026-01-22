@@ -2,9 +2,8 @@ import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
 import { closeModals } from './ui.js';
-import { refreshAll } from '../app.js'; // Reikia, kad atnaujintų viską po veiksmo
+// SVARBU: IŠTRINTAS 'refreshAll' importas, kad nebūtų klaidų
 
-// --- TIMER LOGIC ---
 let timerInt;
 
 export function startTimer() {
@@ -12,19 +11,28 @@ export function startTimer() {
     const el = document.getElementById('shift-timer');
     if(!el) return;
 
-    timerInt = setInterval(() => {
-        if(!state.activeShift) return;
-        
-        const start = new Date(state.activeShift.start_time).getTime();
-        const now = new Date().getTime();
-        let diff = Math.floor((now - start) / 1000);
-        
-        const h = String(Math.floor(diff/3600)).padStart(2,'0');
-        const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
-        const s = String(diff%60).padStart(2,'0');
-        
-        el.textContent = `${h}:${m}:${s}`;
-    }, 1000);
+    // Iškart atnaujinam, nelaukdami 1 sek.
+    updateTimerDisplay();
+
+    timerInt = setInterval(updateTimerDisplay, 1000);
+}
+
+function updateTimerDisplay() {
+    const el = document.getElementById('shift-timer');
+    if(!state.activeShift || !el) return;
+    
+    const start = new Date(state.activeShift.start_time).getTime();
+    const now = new Date().getTime();
+    let diff = Math.floor((now - start) / 1000);
+    
+    // Apsauga nuo neigiamo laiko (jei laikrodis nesinchronizuotas)
+    if (diff < 0) diff = 0;
+    
+    const h = String(Math.floor(diff/3600)).padStart(2,'0');
+    const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
+    const s = String(diff%60).padStart(2,'0');
+    
+    el.textContent = `${h}:${m}:${s}`;
 }
 
 export function stopTimer() {
@@ -33,14 +41,13 @@ export function stopTimer() {
     if(el) el.textContent = "00:00:00";
 }
 
-// --- SHIFT ACTIONS ---
 export function openStartModal() {
     vibrate();
     const sel = document.getElementById('start-vehicle');
     if(state.fleet.length === 0) {
         sel.innerHTML = '<option value="">Garažas tuščias!</option>';
     } else {
-        sel.innerHTML = state.fleet.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+        sel.innerHTML = state.fleet.map(v => `<option value="${v.id}">${v.name}${v.is_test ? ' (TEST)' : ''}</option>`).join('');
     }
     document.getElementById('start-modal').classList.remove('hidden');
 }
@@ -59,12 +66,15 @@ export async function confirmStart() {
             user_id: state.user.id,
             vehicle_id: vid,
             start_odo: parseInt(odo), 
-            status: 'active'
+            status: 'active',
+            start_time: new Date().toISOString() // Užtikrinam, kad laikas tikslus
         });
         closeModals();
-        await refreshAll();
+        
+        // SVARBU: Siunčiame signalą į app.js
+        window.dispatchEvent(new Event('refresh-data'));
+        
         showToast('Pamaina pradėta', 'success');
-        startTimer();
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
@@ -92,15 +102,15 @@ export async function confirmEnd() {
         if(error) throw error;
         
         closeModals();
-        stopTimer();
-        await refreshAll();
+        
+        // SVARBU: Siunčiame signalą
+        window.dispatchEvent(new Event('refresh-data'));
+        
         showToast('Pamaina baigta', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 export function togglePause() {
     vibrate();
-    if(!state.activeShift) return;
     showToast('Pause funkcija ruošiama', 'info'); 
 }
-

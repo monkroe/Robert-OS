@@ -2,29 +2,37 @@ import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
 import { closeModals } from './ui.js';
-// SVARBU: Čia NĖRA importo iš '../app.js' - tai išsprendžia strigimą!
 
 let timerInt;
 
+// --- LAIKMATIS (Valdomas iš app.js) ---
+
 export function startTimer() {
     clearInterval(timerInt);
-    const el = document.getElementById('shift-timer');
-    if(!el) return;
-
-    // Paleidžiam laikmatį iškart
+    
+    // Atnaujiname iškart, nelaukdami 1 sek.
     updateTimerDisplay();
+    
+    // Tiksi kas sekundę
     timerInt = setInterval(updateTimerDisplay, 1000);
+}
+
+export function stopTimer() {
+    clearInterval(timerInt);
+    const el = document.getElementById('shift-timer');
+    if(el) el.textContent = "00:00:00";
 }
 
 function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
-    // Jei nėra activeShift, nerodom nieko
+    // Jei nėra pamainos arba nerandame elemento - stabdome
     if(!state.activeShift || !el) return;
     
     const start = new Date(state.activeShift.start_time).getTime();
     const now = new Date().getTime();
     let diff = Math.floor((now - start) / 1000);
     
+    // Apsauga nuo neigiamo laiko
     if (diff < 0) diff = 0;
     
     const h = String(Math.floor(diff/3600)).padStart(2,'0');
@@ -34,20 +42,19 @@ function updateTimerDisplay() {
     el.textContent = `${h}:${m}:${s}`;
 }
 
-export function stopTimer() {
-    clearInterval(timerInt);
-    const el = document.getElementById('shift-timer');
-    if(el) el.textContent = "00:00:00";
-}
+// --- MODALAI IR VEIKSMAI ---
 
 export function openStartModal() {
     vibrate();
     const sel = document.getElementById('start-vehicle');
+    
     if(state.fleet.length === 0) {
         sel.innerHTML = '<option value="">Garažas tuščias!</option>';
     } else {
-        // Rodo ir TEST, ir REAL mašinas
-        sel.innerHTML = state.fleet.map(v => `<option value="${v.id}">${v.name}${v.is_test ? ' (TEST)' : ''}</option>`).join('');
+        // Rodo visus automobilius
+        sel.innerHTML = state.fleet.map(v => 
+            `<option value="${v.id}">${v.name}${v.is_test ? ' 🧪' : ''}</option>`
+        ).join('');
     }
     document.getElementById('start-modal').classList.remove('hidden');
 }
@@ -62,22 +69,28 @@ export async function confirmStart() {
     
     state.loading = true;
     try {
-        await db.from('finance_shifts').insert({
+        const { error } = await db.from('finance_shifts').insert({
             user_id: state.user.id,
             vehicle_id: vid,
             start_odo: parseInt(odo), 
             status: 'active',
             start_time: new Date().toISOString()
         });
+
+        if (error) throw error;
+
         closeModals();
         
-        // --- ČIA YRA PATAISYMAS ---
-        // Vietoj to, kad kviestume refreshAll() tiesiogiai (kas užlaužia programą),
-        // mes siunčiame signalą. Tavo app.js jį pagaus.
+        // SVARBU: Siunčiame signalą į app.js, kad atnaujintų visą sistemą
         window.dispatchEvent(new Event('refresh-data'));
         
-        showToast('Pamaina pradėta', 'success');
-    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+        showToast('Pamaina pradėta 🚀', 'success');
+
+    } catch(e) { 
+        showToast(e.message, 'error'); 
+    } finally { 
+        state.loading = false; 
+    }
 }
 
 export function openEndModal() { 
@@ -90,7 +103,7 @@ export async function confirmEnd() {
     const odo = document.getElementById('end-odo').value;
     const earn = document.getElementById('end-earn').value;
     
-    if(!odo) return showToast('Įvesk ridą ir pajamas', 'error');
+    if(!odo) return showToast('Įvesk duomenis', 'error');
     
     state.loading = true;
     try {
@@ -105,10 +118,10 @@ export async function confirmEnd() {
         
         closeModals();
         
-        // Siunčiame signalą atnaujinti duomenis
+        // Signalizuojame atnaujinimą
         window.dispatchEvent(new Event('refresh-data'));
         
-        showToast('Pamaina baigta', 'success');
+        showToast('Pamaina baigta 🏁', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 

@@ -26,12 +26,10 @@ async function init() {
     
     // --- KLAUSYTOJAI ---
     
-    // Klausome tik vieno dalyko: ar kas nors paprašė atnaujinti duomenis?
     window.addEventListener('refresh-data', () => {
         refreshAll();
     });
 
-    // Temos keitimas
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
     });
@@ -39,19 +37,21 @@ async function init() {
 
 // --- PAGRINDINĖ FUNKCIJA (KOMANDAVIMO CENTRAS) ---
 export async function refreshAll() {
-    // 1. Gauname pamainą iš DB
-    const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
+    // 1. Gauname pamainą iš DB (SU user_id FILTRU!)
+    const { data: shift } = await db.from('finance_shifts')
+        .select('*')
+        .eq('status', 'active')
+        .eq('user_id', state.user.id) // <--- KRITINIS PATAISYMAS
+        .maybeSingle();
     
     // 2. Įrašome į State
     state.activeShift = shift; 
 
-    // 3. TIESIOGINIS VALDYMAS (Jokių signalų laukimo)
-    // Atnaujiname mygtukus (Start/End)
+    // 3. TIESIOGINIS VALDYMAS
     UI.updateUI('activeShift');
 
-    // Valdome laikmatį TIESIOGIAI
     if (shift) {
-        Shifts.startTimer(); // <--- PRIŽADINAME LAIKMATĮ
+        Shifts.startTimer();
     } else {
         Shifts.stopTimer();
     }
@@ -78,7 +78,7 @@ function setupRealtime() {
     db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe();
 }
 
-// --- EXPOSE TO WINDOW (Sujungiame HTML mygtukus su JS) ---
+// --- EXPOSE TO WINDOW ---
 window.login = Auth.login;
 window.logout = Auth.logout;
 window.register = Auth.register;

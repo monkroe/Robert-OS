@@ -1,8 +1,8 @@
 import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
-import { closeModals, updateGrindBar } from './ui.js';
-import { refreshAll } from '../app.js';
+import { closeModals } from './ui.js';
+// IŠTRINTAS 'refreshAll' importas
 
 export function openTxModal(dir) {
     vibrate();
@@ -55,7 +55,10 @@ export async function confirmTx() {
             return; 
         }
         closeModals(); 
-        await refreshAll(); 
+        
+        // SVARBU: Siunčiame signalą
+        window.dispatchEvent(new Event('refresh-data'));
+        
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
@@ -69,7 +72,6 @@ export async function exportAI() {
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- DATA PROCESSING ---
 export async function refreshAudit() {
     const { data: shifts } = await db.from('finance_shifts')
         .select('end_time, gross_earnings, vehicle_id')
@@ -109,4 +111,3 @@ export async function refreshAudit() {
         el.innerHTML = '<div class="text-center py-4 opacity-50 text-xs">NO HISTORY</div>';
     }
 }
-

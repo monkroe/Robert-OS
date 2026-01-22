@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { vibrate, showToast } from '../utils.js';
+// SVARBU: IŠTRINTAS 'Shifts' importas
 
 // --- THEME ENGINE ---
 let currentTheme = localStorage.getItem('theme') || 'auto';
@@ -43,17 +44,22 @@ export function cycleTheme() {
 // --- UI UPDATES ---
 export function updateUI(key) {
     if (key === 'loading') {
-        document.getElementById('loading').classList.toggle('hidden', !state.loading);
+        const el = document.getElementById('loading');
+        if(el) el.classList.toggle('hidden', !state.loading);
     }
     
     if (key === 'activeShift') {
         const hasShift = !!state.activeShift;
-        document.getElementById('btn-start').classList.toggle('hidden', hasShift);
-        document.getElementById('active-controls').classList.toggle('hidden', !hasShift);
+        const btnStart = document.getElementById('btn-start');
+        const activeControls = document.getElementById('active-controls');
         
-        // Timer valdymas bus shifts.js, bet čia atnaujinam būseną
-        const startTimerEvent = new CustomEvent('shiftStateChanged', { detail: hasShift });
-        window.dispatchEvent(startTimerEvent);
+        if(btnStart) btnStart.classList.toggle('hidden', hasShift);
+        if(activeControls) activeControls.classList.toggle('hidden', !hasShift);
+        
+        // SVARBU: Mes tik pranešame app.js, kad būsena pasikeitė.
+        // Mes patys nekviečiame Shifts.startTimer()
+        const event = new CustomEvent('shiftStateChanged', { detail: hasShift });
+        window.dispatchEvent(event);
     }
 }
 
@@ -91,4 +97,3 @@ export function switchTab(id) {
     const btn = document.getElementById(`btn-${id}`);
     if(btn) btn.classList.add('active');
 }
-

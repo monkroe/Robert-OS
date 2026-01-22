@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ROBERT OS v8.4</title>
+    <title>ROBERT OS v1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -27,11 +27,10 @@
     </div>
 
     <div id="app-content" class="hidden">
-        
         <header class="global-header">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
-                <span class="font-bold uppercase tracking-widest text-xs">OS v8.4</span>
+                <span class="font-bold uppercase tracking-widest text-xs">OS v1.0</span>
             </div>
             <div class="flex gap-2">
                 <button onclick="toggleTheme()" class="header-btn" id="theme-icon"><i class="fa-solid fa-moon"></i></button>
@@ -45,82 +44,73 @@
                 
                 <div>
                     <div class="flex justify-between items-end mb-1">
-                        <span class="label-xs ml-1">Emergency Buffer</span>
-                        <span class="text-[10px] font-bold text-teal-500" id="buffer-pct-text">0%</span>
+                        <span class="label-xs ml-1 text-red-400" id="grind-label">COST COVERAGE</span>
+                        <span class="text-[10px] font-bold text-white" id="grind-val">$0 / $0</span>
                     </div>
-                    <div class="bg-gray-800/50 h-1.5 rounded-full overflow-hidden w-full">
-                        <div id="buffer-bar" class="h-full bg-teal-500 transition-all duration-500" style="width: 0%"></div>
+                    <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
+                        <div id="grind-bar" class="h-full bg-red-500 transition-all duration-500 relative" style="width: 0%">
+                            <div class="absolute inset-0 bg-white/20 hidden" id="grind-glow"></div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="bento-grid">
-                    
-                    <div class="bento-card col-span-2 text-center py-8">
+                    <div class="bento-card col-span-2 text-center py-6">
                         <span class="label-xs">Active Session</span>
-                        <h2 id="shift-timer" class="val-timer my-4 text-teal-500">00:00:00</h2>
-                        <button id="shift-btn" onclick="openOdoModal()" class="btn-primary-os btn-action-start py-4">
-                            <i class="fa-solid fa-play mr-2"></i> START SHIFT
-                        </button>
+                        <h2 id="shift-timer" class="val-timer my-2 text-white">00:00:00</h2>
+                        
+                        <div id="shift-controls" class="mt-4">
+                            <button id="btn-start" onclick="openStartModal()" class="btn-primary-os py-4"><i class="fa-solid fa-play mr-2"></i> START SHIFT</button>
+                            
+                            <div id="active-controls" class="hidden grid grid-cols-4 gap-2">
+                                <button onclick="togglePause()" id="btn-pause" class="col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50">
+                                    <i class="fa-solid fa-pause"></i>
+                                </button>
+                                <button onclick="openEndModal()" class="col-span-3 btn-primary-os bg-red-500 text-white shadow-red-500/20">
+                                    <i class="fa-solid fa-stop mr-2"></i> END SHIFT
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div onclick="switchTab('audit')" class="bento-card clickable col-span-1 aspect-square justify-center hover:border-teal-500/50 transition">
-                        <div class="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center mb-2 text-teal-500">
-                            <i class="fa-solid fa-wallet"></i>
-                        </div>
-                        <span class="label-xs">Liquid</span>
-                        <p id="stat-liquid" class="val-lg tracking-tight">$0</p>
-                    </div>
-
-                    <div onclick="switchTab('runway')" class="bento-card clickable col-span-1 aspect-square justify-center hover:border-purple-500/50 transition">
-                        <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-2 text-purple-500">
-                            <i class="fa-solid fa-hourglass-half"></i>
-                        </div>
+                    <div onclick="switchTab('runway')" class="bento-card clickable col-span-1 aspect-square justify-center">
+                        <div class="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center mb-2 text-teal-500"><i class="fa-solid fa-wallet"></i></div>
                         <span class="label-xs">Runway</span>
-                        <p id="runway-val" class="val-lg">0.0 <span class="text-xs opacity-50">mo</span></p>
+                        <p id="runway-months" class="val-lg">0.0 <span class="text-xs opacity-50">mo</span></p>
+                    </div>
+
+                    <div onclick="switchTab('audit')" class="bento-card clickable col-span-1 aspect-square justify-center">
+                        <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-2 text-purple-500"><i class="fa-solid fa-list-check"></i></div>
+                        <span class="label-xs">Shift Earnings</span>
+                        <p id="shift-earnings" class="val-lg text-green-400">$0</p>
                     </div>
 
                     <div class="bento-card col-span-2 flex-row items-center gap-3 p-3">
-                        <button onclick="openTransactionModal('in')" class="btn-bento flex-1 hover:bg-green-500/10 hover:border-green-500/50">
-                            <i class="fa-solid fa-arrow-down text-green-500"></i> IN
-                        </button>
-                        <div class="w-px h-8 bg-gray-500/20"></div>
-                        <button onclick="openTransactionModal('out')" class="btn-bento flex-1 hover:bg-red-500/10 hover:border-red-500/50">
-                            <i class="fa-solid fa-arrow-up text-red-500"></i> OUT
-                        </button>
+                        <button onclick="openTxModal('in')" class="btn-bento flex-1 hover:bg-green-500/10 hover:border-green-500/50"><i class="fa-solid fa-arrow-down text-green-500"></i> IN</button>
+                        <div class="w-px h-8 bg-white/10"></div>
+                        <button onclick="openTxModal('out')" class="btn-bento flex-1 hover:bg-red-500/10 hover:border-red-500/50"><i class="fa-solid fa-arrow-up text-red-500"></i> OUT</button>
                     </div>
-
                 </div>
+            </section>
+
+            <section id="tab-audit" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center px-1">
+                    <h2 class="font-bold uppercase tracking-tight">History</h2>
+                    <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/20 text-purple-400 px-3 py-1.5 rounded-lg border border-purple-500/30 flex items-center gap-2">
+                        <i class="fa-solid fa-robot"></i> EXPORT AI
+                    </button>
+                </div>
+                <div id="audit-list" class="space-y-2"></div>
             </section>
 
             <section id="tab-runway" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10">
-                    <div class="w-16 h-16 bg-purple-500/20 text-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fa-solid fa-chart-line text-2xl"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold">Runway Analytics</h2>
-                    <p class="text-sm opacity-60 mt-2 px-4">Čia bus rodoma, kaip ilgai tavo santaupos leis išgyventi be pajamų.</p>
-                </div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Runway</h2><p class="text-xs opacity-50 mt-2">Data from DB</p></div>
             </section>
-
             <section id="tab-future" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10">
-                    <span class="label-xs">Total Net Worth</span>
-                    <h1 id="net-worth-val" class="text-4xl font-black text-teal-500 my-4">$0</h1>
-                    <p class="text-xs opacity-50">Fiat + Assets combined</p>
-                </div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Projection</h2><p class="text-xs opacity-50 mt-2">Data from DB</p></div>
             </section>
-            
             <section id="tab-vault" class="tab-content hidden space-y-4">
-                <div class="flex justify-between items-center px-2">
-                    <h2 class="font-bold uppercase tracking-tight ml-1">Assets</h2>
-                    <button onclick="openBuyModal()" class="bg-teal-500 text-black font-bold text-xs px-4 py-2 rounded-xl">+ INVEST</button>
-                </div>
-                <div id="asset-list" class="space-y-2"></div>
-            </section>
-            
-            <section id="tab-audit" class="tab-content hidden space-y-4">
-                <h2 class="font-bold uppercase tracking-tight ml-1">History</h2>
-                <div id="audit-list" class="space-y-2"></div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Vault</h2><p class="text-xs opacity-50 mt-2">Data from DB</p></div>
             </section>
 
         </main>
@@ -134,69 +124,65 @@
         </nav>
     </div>
 
-    <div id="odo-modal" class="modal-overlay hidden">
+    <div id="start-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-6">Start Shift</h3>
-            <input type="number" id="odo-input" class="input-field mb-6" placeholder="Current ODO">
-            <button onclick="confirmShiftAction()" class="btn-primary-os py-4 mb-3">CONFIRM</button>
+            <h3 class="text-xl font-bold uppercase mb-4">Start Shift</h3>
+            
+            <div class="text-left mb-4">
+                <label class="label-xs ml-1">Vehicle</label>
+                <select id="start-vehicle" class="input-field text-sm bg-black border-gray-700 mb-4">
+                    <option value="">Loading fleet...</option>
+                </select>
+                
+                <label class="label-xs ml-1">Start Odometer</label>
+                <input type="number" id="start-odo" class="input-field mb-2" placeholder="123456">
+                
+                <label class="label-xs ml-1">Daily Goal ($)</label>
+                <input type="number" id="start-goal" class="input-field" placeholder="Optional">
+            </div>
+
+            <button onclick="confirmStart()" class="btn-primary-os py-4 mb-3">CONFIRM</button>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
         </div>
     </div>
 
-    <div id="end-shift-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp">
-            <div class="text-center mb-6"><h3 class="text-xl font-bold uppercase">End Shift</h3></div>
-            <div class="space-y-4">
-                <div><label class="label-xs ml-1">End ODO</label><input type="number" id="end-odo" class="input-field"></div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="label-xs ml-1">Income</label><input type="number" id="end-income" class="input-field text-green-500" placeholder="0"></div>
-                    <div><label class="label-xs ml-1">Fuel</label><input type="number" id="end-fuel" class="input-field text-red-500" placeholder="0"></div>
-                </div>
-            </div>
-            <button onclick="finishShift()" class="btn-primary-os bg-red-500 text-white py-4 mt-6">FINISH</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full mt-2">Cancel</button>
-        </div>
-    </div>
-
-    <div id="transaction-modal" class="modal-overlay hidden">
+    <div id="end-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 id="tx-title" class="text-xl font-bold uppercase mb-6">Transaction</h3>
-            <input type="number" id="tx-amount" class="input-field text-3xl mb-6" placeholder="$0.00">
-            <button onclick="confirmTransaction()" class="btn-primary-os py-4 mb-3">SAVE</button>
+            <h3 class="text-xl font-bold uppercase mb-4">End Shift</h3>
+            <div class="text-left mb-4">
+                <label class="label-xs ml-1">End Odometer</label>
+                <input type="number" id="end-odo" class="input-field mb-4">
+                <label class="label-xs ml-1">Total Earnings ($)</label>
+                <input type="number" id="end-earn" class="input-field text-green-500">
+            </div>
+            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 mb-3">FINISH</button>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
         </div>
     </div>
 
-    <div id="buy-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp space-y-4">
-            <h3 class="text-xl font-bold uppercase">New Asset</h3>
-            <div class="flex gap-2 bg-gray-900 p-1 rounded-xl">
-                <button onclick="selectAssetType('crypto')" id="btn-type-crypto" class="asset-type-btn active">CRYPTO</button>
-                <button onclick="selectAssetType('stock')" id="btn-type-stock" class="asset-type-btn">STOCK</button>
+    <div id="tx-modal" class="modal-overlay hidden">
+        <div class="modal-content animate-slideUp text-center">
+            <h3 id="tx-title" class="text-xl font-bold uppercase mb-4">Transaction</h3>
+            <input type="number" id="tx-amount" class="input-field text-3xl mb-4" placeholder="$0.00">
+            
+            <div id="expense-types" class="grid grid-cols-3 gap-2 mb-4 hidden">
+                <button onclick="setExpType('fuel')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">Fuel</button>
+                <button onclick="setExpType('food')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">Food</button>
+                <button onclick="setExpType('other')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">Other</button>
             </div>
-            <input type="text" id="buy-symbol" class="input-field uppercase" placeholder="SYMBOL">
-            <div class="grid grid-cols-2 gap-3">
-                <input type="number" id="buy-amount" class="input-field" placeholder="Qty">
-                <input type="number" id="buy-price" class="input-field" placeholder="Price">
+            <input type="hidden" id="tx-type" value="other">
+
+            <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">
+                <div><label class="label-xs">Gallons</label><input type="number" id="tx-gal" class="input-field text-sm"></div>
+                <div><label class="label-xs">Odometer</label><input type="number" id="tx-odo" class="input-field text-sm"></div>
             </div>
-            <button onclick="confirmBuyAction()" class="btn-primary-os py-4 mt-2">EXECUTE</button>
+
+            <button onclick="confirmTx()" class="btn-primary-os py-4 mb-3">SAVE</button>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
         </div>
     </div>
 
-    <div id="setup-modal" class="modal-overlay hidden z-[600]">
-        <div class="modal-content animate-slideUp text-center">
-            <div class="w-16 h-16 bg-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-6"><i class="fa-solid fa-power-off text-black text-2xl"></i></div>
-            <h3 class="text-2xl font-black uppercase tracking-tight mb-2">Initialize</h3>
-            <p class="text-sm text-gray-500 mb-6">Configure your operating environment.</p>
-            <div class="space-y-4 text-left">
-                <div><label class="label-xs ml-1">Starting Capital</label><input type="number" id="setup-cash" class="input-field" placeholder="$"></div>
-                <div><label class="label-xs ml-1">Monthly Burn</label><input type="number" id="setup-burn" class="input-field" placeholder="$"></div>
-                <div><label class="label-xs ml-1">Vehicle</label><input type="text" id="setup-car" class="input-field" placeholder="Model"></div>
-            </div>
-            <button onclick="finishSetup()" class="btn-primary-os py-4 mt-8">BOOT SYSTEM</button>
-        </div>
-    </div>
+    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold">SYNCING...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/app.js"></script>

@@ -1,16 +1,17 @@
 /* ═══════════════════════════════════════════════════════════
-   ROBERT OS v1.1 - LOGIC ENGINE (THEME EDITION)
+   ROBERT OS v1.1 - LOGIC ENGINE (FINAL & STABLE)
+   Su veikiančiu Logout, Temomis ir 1.0 SQL logika
    ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- ĮRAŠYK SAVO URL ČIA
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- ĮRAŠYK SAVO KEY ČIA
-    VERSION: '1.1'
+    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- BŪTINAI ĮRAŠYK SAVO URL
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- BŪTINAI ĮRAŠYK SAVO KEY
+    VERSION: '1.1-Stable'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
-// Haptic (Paliekame, nes tai geras UX)
+// Haptic (Vibracija)
 const vibrate = (pattern = [10]) => { if (navigator.vibrate) navigator.vibrate(pattern); };
 
 const state = new Proxy({
@@ -351,7 +352,7 @@ function applyTheme() {
         metaThemeColor?.setAttribute('content', '#000000');
     } else {
         html.classList.remove('dark');
-        metaThemeColor?.setAttribute('content', '#f3f4f6'); // Šviesus status bar
+        metaThemeColor?.setAttribute('content', '#f3f4f6');
     }
 
     if (themeBtn) {
@@ -393,6 +394,8 @@ function startTimer() {
 }
 function stopTimer() { clearInterval(timerInt); document.getElementById('shift-timer').textContent = "00:00:00"; }
 function setupRealtime() { db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe(); }
+
+// --- ATNAUJINTAS LOGOUT (Agresyvus) ---
 async function login() {
     vibrate();
     const email = document.getElementById('auth-email').value;
@@ -400,6 +403,19 @@ async function login() {
     const { error } = await db.auth.signInWithPassword({email, password});
     if(error) showToast(error.message, 'error'); else location.reload();
 }
-async function logout() { vibrate(); await db.auth.signOut(); location.reload(); }
+
+async function logout() {
+    vibrate();
+    const savedTheme = localStorage.getItem('theme'); // Išsaugom temą
+    
+    await db.auth.signOut(); // Bandom atsijungti normaliai
+    localStorage.clear();    // Išvalom viską (sesiją)
+    
+    if (savedTheme) localStorage.setItem('theme', savedTheme); // Grąžinam temą
+    
+    location.reload(); // Perkraunam (dabar jau rodys Login ekraną)
+}
+
+function toggleTheme() { vibrate(); document.documentElement.classList.toggle('light'); }
 
 document.addEventListener('DOMContentLoaded', init);

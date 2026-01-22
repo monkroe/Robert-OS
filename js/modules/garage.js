@@ -14,14 +14,11 @@ export function openGarage() {
     document.getElementById('veh-name').value = '';
     document.getElementById('veh-cost').value = '';
     setVehType('rental');
-    
-    // Sugeneruojame sąrašą atidarant modalą
     renderGarageList();
-    
     document.getElementById('garage-modal').classList.remove('hidden');
 }
 
-// ČIA PAKEISTAS DIZAINAS (renderGarageList)
+// ČIA PAKEISTAS KODAS (Dabar veiks ir šviesioje, ir tamsioje temoje)
 export function renderGarageList() {
     const list = document.getElementById('garage-list');
     if (!list) return;
@@ -32,18 +29,19 @@ export function renderGarageList() {
     }
 
     list.innerHTML = state.fleet.map(v => `
-        <div class="group relative flex items-center justify-between p-4 mb-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all">
+        <div class="group relative flex items-center justify-between p-4 mb-3 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 transition-all">
             
             <div class="flex flex-col text-left">
-                <span class="text-base font-bold text-white tracking-tight">${v.name}</span>
+                <span class="text-base font-bold text-gray-900 dark:text-white tracking-tight">${v.name}</span>
+                
                 <div class="flex items-center gap-2 mt-1">
-                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400 uppercase">${v.type}</span>
-                    <span class="text-[10px] text-gray-400 font-mono">$${v.operating_cost_weekly}/wk</span>
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 uppercase">${v.type}</span>
+                    <span class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">$${v.operating_cost_weekly}/wk</span>
                 </div>
             </div>
 
             <button onclick="window.deleteVehicle('${v.id}')" 
-                class="h-10 w-10 flex items-center justify-center rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 active:scale-95 transition-transform">
+                class="h-10 w-10 flex items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-500 border border-red-500/20 active:scale-95 transition-transform">
                 <i class="fa-solid fa-trash-can text-sm"></i>
             </button>
             
@@ -92,7 +90,7 @@ export async function deleteVehicle(id) {
         await fetchFleet();
         renderGarageList();
     } catch (e) {
-        showToast('Nepavyko ištrinti (Check Permissions)', 'error');
+        showToast('Klaida trinant', 'error');
     } finally {
         state.loading = false;
     }

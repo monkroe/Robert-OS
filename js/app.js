@@ -23,12 +23,10 @@ async function init() {
         document.getElementById('auth-screen').classList.remove('hidden');
     }
     
-    // TEMOS Listeneris
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
     });
     
-    // SHIFT TIMER Listeneris
     window.addEventListener('shiftStateChanged', (e) => {
         if(e.detail) Shifts.startTimer(); else Shifts.stopTimer();
     });
@@ -40,7 +38,6 @@ export async function refreshAll() {
     state.activeShift = shift;
 
     const monthlyFixed = 2500; 
-    
     let vehicleCost = 0;
     if (shift) {
         const v = state.fleet.find(f => f.id === shift.vehicle_id);
@@ -60,15 +57,17 @@ function setupRealtime() {
     db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe();
 }
 
-// --- EXPOSE TO WINDOW (HTML BUTTONS NEED THIS) ---
+// --- EXPOSE TO WINDOW (BŪTINA KAD VEIKTŲ MYGTUKAI) ---
 window.login = Auth.login;
 window.logout = Auth.logout;
 
+// Garažas
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
-window.deleteVehicle = Garage.deleteVehicle;
+window.deleteVehicle = Garage.deleteVehicle; // <--- SVARBU: Čia "įjungiamas" trynimas
 window.setVehType = Garage.setVehType;
 
+// Kiti
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
@@ -84,5 +83,4 @@ window.cycleTheme = UI.cycleTheme;
 window.closeModals = UI.closeModals;
 window.switchTab = UI.switchTab;
 
-// Start
 document.addEventListener('DOMContentLoaded', init);

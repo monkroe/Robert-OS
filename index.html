@@ -197,29 +197,31 @@
 
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4 text-teal-500">Add Vehicle</h3>
-            <p class="text-xs text-gray-400 mb-6">Define your operating assets.</p>
-            <div class="text-left space-y-3 mb-6">
+            <h3 class="text-xl font-bold uppercase mb-4 text-teal-500">Garage Management</h3>
+            
+            <div class="text-left space-y-3 mb-6 border-b border-gray-800 pb-6">
+                <p class="text-[10px] font-bold text-gray-500 uppercase">Add New</p>
                 <div>
-                    <label class="label-xs ml-1">Vehicle Name</label>
-                    <input type="text" id="veh-name" class="input-field" placeholder="e.g. 2024 Kia Forte">
+                    <input type="text" id="veh-name" class="input-field" placeholder="Vehicle Name (e.g. Kia Forte)">
                 </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn btn-bento bg-teal-500 text-black border-teal-500">RENTAL</button>
+                    <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn btn-bento opacity-50">OWNED</button>
+                </div>
+                <input type="hidden" id="veh-type" value="rental">
                 <div>
-                    <label class="label-xs ml-1">Type</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn btn-bento bg-teal-500 text-black border-teal-500">RENTAL</button>
-                        <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn btn-bento opacity-50">OWNED</button>
-                    </div>
-                    <input type="hidden" id="veh-type" value="rental">
+                    <input type="number" inputmode="decimal" pattern="[0-9]*" id="veh-cost" class="input-field border-teal-500/50" placeholder="Weekly Cost ($)" step="0.01">
                 </div>
-                <div>
-                    <label class="label-xs ml-1 text-teal-400">Weekly Cost / Payment ($)</label>
-                    <input type="number" inputmode="decimal" pattern="[0-9]*" id="veh-cost" class="input-field border-teal-500/50" placeholder="338.74" step="0.01">
-                    <p class="text-[9px] text-gray-500 mt-1">*Rental fee or maintenance savings</p>
-                </div>
+                <button onclick="saveVehicle()" class="btn-primary-os py-3 mt-2">ADD TO FLEET</button>
             </div>
-            <button onclick="saveVehicle()" class="btn-primary-os py-4 mb-3">SAVE TO FLEET</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+
+            <div class="text-left mt-4 border-t border-gray-800 pt-4">
+                <p class="text-[10px] font-bold text-gray-500 uppercase mb-2">Your Fleet</p>
+                <div id="garage-list" class="space-y-2 max-h-40 overflow-y-auto">
+                    </div>
+            </div>
+
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-4 w-full mt-2">Close</button>
         </div>
     </div>
 
@@ -228,7 +230,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="js/app.js"></script>
     
-<script>
+    <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')

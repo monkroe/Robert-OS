@@ -14,11 +14,41 @@ export function openGarage() {
     document.getElementById('veh-name').value = '';
     document.getElementById('veh-cost').value = '';
     setVehType('rental');
+    
+    // Reset Test Mode
+    document.getElementById('veh-is-test').value = 'false';
+    updateTestUI(false);
+
     renderGarageList();
     document.getElementById('garage-modal').classList.remove('hidden');
 }
 
-// ČIA PAKEISTAS KODAS (Dabar veiks ir šviesioje, ir tamsioje temoje)
+// NAUJA: Test Mode Perjungiklis
+window.toggleTestMode = function() {
+    vibrate();
+    const input = document.getElementById('veh-is-test');
+    const isTest = input.value === 'true';
+    input.value = !isTest;
+    updateTestUI(!isTest);
+}
+
+function updateTestUI(isActive) {
+    const btn = document.getElementById('btn-test-mode');
+    const dot = document.getElementById('test-indicator');
+    
+    if (isActive) {
+        btn.classList.remove('opacity-60', 'border-gray-700');
+        btn.classList.add('opacity-100', 'border-yellow-500', 'bg-yellow-500/10');
+        dot.classList.remove('bg-gray-700');
+        dot.classList.add('bg-yellow-400', 'shadow-[0_0_10px_rgba(250,204,21,0.5)]');
+    } else {
+        btn.classList.add('opacity-60', 'border-gray-700');
+        btn.classList.remove('opacity-100', 'border-yellow-500', 'bg-yellow-500/10');
+        dot.classList.add('bg-gray-700');
+        dot.classList.remove('bg-yellow-400', 'shadow-[0_0_10px_rgba(250,204,21,0.5)]');
+    }
+}
+
 export function renderGarageList() {
     const list = document.getElementById('garage-list');
     if (!list) return;
@@ -28,12 +58,22 @@ export function renderGarageList() {
         return;
     }
 
-    list.innerHTML = state.fleet.map(v => `
-        <div class="group relative flex items-center justify-between p-4 mb-3 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 transition-all">
+    list.innerHTML = state.fleet.map(v => {
+        // Ar tai testinis automobilis?
+        const isTest = v.is_test;
+        const borderClass = isTest ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5';
+        const badge = isTest 
+            ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-yellow-500 text-black uppercase ml-2"><i class="fa-solid fa-flask mr-1"></i>TEST</span>` 
+            : '';
+
+        return `
+        <div class="group relative flex items-center justify-between p-4 mb-3 rounded-xl border ${borderClass} transition-all">
             
             <div class="flex flex-col text-left">
-                <span class="text-base font-bold text-gray-900 dark:text-white tracking-tight">${v.name}</span>
-                
+                <div class="flex items-center">
+                    <span class="text-base font-bold text-gray-900 dark:text-white tracking-tight">${v.name}</span>
+                    ${badge}
+                </div>
                 <div class="flex items-center gap-2 mt-1">
                     <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 uppercase">${v.type}</span>
                     <span class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">$${v.operating_cost_weekly}/wk</span>
@@ -46,7 +86,7 @@ export function renderGarageList() {
             </button>
             
         </div>
-    `).join('');
+    `}).join('');
 }
 
 export async function saveVehicle() {
@@ -54,6 +94,7 @@ export async function saveVehicle() {
     const name = document.getElementById('veh-name').value;
     const cost = document.getElementById('veh-cost').value;
     const type = document.getElementById('veh-type').value;
+    const isTest = document.getElementById('veh-is-test').value === 'true'; // Skaitome reikšmę
 
     if (!name) return showToast('Reikia pavadinimo', 'error');
 
@@ -64,33 +105,77 @@ export async function saveVehicle() {
             name: name,
             type: type,
             operating_cost_weekly: parseFloat(cost || 0),
-            is_active: true
+            is_active: true,
+            is_test: isTest // Įrašome į DB
         });
         if (error) throw error;
         
-        showToast('Mašina pridėta!', 'success');
+        showToast(isTest ? '🧪 Testinis automobilis sukurtas' : 'Automobilis pridėtas!', 'success');
+        
+        // Išvalyti formą
         document.getElementById('veh-name').value = '';
         document.getElementById('veh-cost').value = '';
+        // Reset Test UI
+        document.getElementById('veh-is-test').value = 'false';
+        updateTestUI(false);
         
         await fetchFleet();
         renderGarageList();
     } catch (e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
+// --- IŠMANUSIS TRYNIMAS ---
 export async function deleteVehicle(id) {
     vibrate([20]);
-    if(!confirm('Ar tikrai nori ištrinti?')) return;
+
+    // 1. Patikriname, ar tai TEST automobilis
+    const vehicle = state.fleet.find(v => v.id === id);
+    const isTest = vehicle?.is_test;
+
+    // A. Jei TESTINIS - Triname greitai ir be gailesčio
+    if (isTest) {
+        if(!confirm('🧪 Tai TESTINIS automobilis. Ištrinti jį ir visus jo duomenis?')) return;
+        state.loading = true;
+        try {
+            // Pirmiausia ištriname susijusias testines pamainas/išlaidas (kad nekiltų SQL klaidų)
+            await db.from('expenses').delete().eq('vehicle_id', id);
+            await db.from('finance_shifts').delete().eq('vehicle_id', id);
+            // Tada patį automobilį
+            await db.from('vehicles').delete().eq('id', id);
+            
+            showToast('Testiniai duomenys išvalyti 🧹', 'success');
+            await fetchFleet();
+            renderGarageList();
+        } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+        return;
+    }
+
+    // B. Jei REALI - Saugome
+    if(!confirm('Ar norite pašalinti šį automobilį?')) return;
 
     state.loading = true;
     try {
         const { error } = await db.from('vehicles').delete().eq('id', id);
-        if (error) throw error;
+
+        if (error) {
+            if (error.code === '23503') { // Foreign Key Violation
+                if (confirm('⚠️ Automobilis turi finansinę istoriją (Real Production). Negalima trinti.\n\nAr norite jį ARCHYVUOTI?')) {
+                    await db.from('vehicles').update({ is_active: false }).eq('id', id);
+                    showToast('Automobilis perkeltas į archyvą', 'success');
+                } else {
+                    state.loading = false;
+                    return;
+                }
+            } else { throw error; }
+        } else {
+            showToast('Automobilis ištrintas visiškai', 'success');
+        }
         
-        showToast('Mašina ištrinta', 'success');
         await fetchFleet();
         renderGarageList();
     } catch (e) {
-        showToast('Klaida trinant', 'error');
+        console.error(e);
+        showToast('Klaida: ' + e.message, 'error');
     } finally {
         state.loading = false;
     }

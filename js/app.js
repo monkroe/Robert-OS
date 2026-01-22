@@ -1,19 +1,18 @@
 /* ═══════════════════════════════════════════════════════════
-   ROBERT OS v1.1 - LOGIC ENGINE (BEN'S PATCH)
+   ROBERT OS v1.0 - CONSTITUTIONAL LOGIC (FINAL)
+   Grįžta prie originalios 'expenses' + 'shifts' struktūros
    ═══════════════════════════════════════════════════════════ */
 
 const CONFIG = {
-    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- ĮRAŠYK SAVO URL ČIA
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- ĮRAŠYK SAVO KEY ČIA
-    VERSION: '1.1'
+    SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co', // <--- ĮRAŠYK
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy', // <--- ĮRAŠYK
+    VERSION: '1.0-Final'
 };
 
 const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
-// Haptic Feedback Helper (Fizinis pojūtis)
-const vibrate = (pattern = [10]) => {
-    if (navigator.vibrate) navigator.vibrate(pattern);
-};
+// Haptic (Paliekame, nes tai geras UX)
+const vibrate = (pattern = [10]) => { if (navigator.vibrate) navigator.vibrate(pattern); };
 
 const state = new Proxy({
     user: null, fleet: [], activeShift: null, dailyCost: 0, 
@@ -41,8 +40,9 @@ async function init() {
     }
 }
 
-// --- DATA ---
+// --- DATA FETCHING ---
 async function fetchFleet() {
+    // 1.0 SQL naudoja 'operating_cost_weekly'
     const { data } = await db.from('vehicles').select('*').eq('is_active', true);
     state.fleet = data || [];
 }
@@ -51,13 +51,14 @@ async function refreshAll() {
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
     state.activeShift = shift;
 
-    const monthlyFixed = 2500; // Galima keisti ateityje
+    const monthlyFixed = 2500; 
     
     let vehicleCost = 0;
     if (shift) {
         const v = state.fleet.find(f => f.id === shift.vehicle_id);
-        if (v && v.operating_cost_weekly) vehicleCost = v.operating_cost_weekly / 7;
+        if (v) vehicleCost = v.operating_cost_weekly / 7;
     } else if (state.fleet.length > 0) {
+        // Fallback į pirmą mašiną
         if (state.fleet[0].operating_cost_weekly) vehicleCost = state.fleet[0].operating_cost_weekly / 7;
     }
 
@@ -69,25 +70,64 @@ async function refreshAll() {
 }
 
 async function refreshAudit() {
-    const { data } = await db.from('finance_transactions')
-        .select('*')
-        .order('date', {ascending: false})
+    // ČIA YRA MAGIJA: Sujungiame dvi lenteles be jokio SQL keitimo
+    
+    // 1. Paimam užbaigtas pamainas (Pajamos)
+    const { data: shifts } = await db.from('finance_shifts')
+        .select('end_time, gross_earnings, vehicle_id')
+        .eq('status', 'completed')
+        .order('end_time', {ascending: false})
         .limit(5);
 
+    // 2. Paimam išlaidas (Expenses)
+    const { data: expenses } = await db.from('expenses')
+        .select('created_at, amount, type')
+        .order('created_at', {ascending: false})
+        .limit(5);
+
+    // 3. Sujungiame į vieną sąrašą
+    let history = [];
+    
+    if (shifts) {
+        shifts.forEach(s => {
+            history.push({
+                date: new Date(s.end_time),
+                amount: s.gross_earnings,
+                type: 'SHIFT',
+                is_income: true
+            });
+        });
+    }
+
+    if (expenses) {
+        expenses.forEach(e => {
+            history.push({
+                date: new Date(e.created_at),
+                amount: e.amount,
+                type: e.type.toUpperCase(),
+                is_income: false
+            });
+        });
+    }
+
+    // 4. Surūšiuojame pagal laiką (naujausi viršuje)
+    history.sort((a, b) => b.date - a.date);
+    history = history.slice(0, 50); // Rodyti max 50 įrašų
+
+    // 5. Atvaizduojame
     const el = document.getElementById('audit-list');
     if(!el) return;
     
-    if(data && data.length) {
-        el.innerHTML = data.map(t => {
-            const isInc = t.direction === 'in';
+    if(history.length > 0) {
+        el.innerHTML = history.map(item => {
             return `
             <div class="bento-card flex-row justify-between items-center p-3 mb-2 animate-slideUp">
                 <div>
-                    <p class="text-[9px] text-gray-500 font-bold uppercase">${new Date(t.date).toLocaleDateString()}</p>
-                    <p class="font-bold text-xs text-white uppercase">${t.source || 'Manual'}</p>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase">${item.date.toLocaleDateString()} ${item.date.getHours()}:${String(item.date.getMinutes()).padStart(2, '0')}</p>
+                    <p class="font-bold text-xs text-white uppercase">${item.type}</p>
                 </div>
-                <p class="font-mono font-bold ${isInc ? 'text-green-500' : 'text-red-500'}">
-                    ${isInc ? '+' : '-'}$${t.amount}
+                <p class="font-mono font-bold ${item.is_income ? 'text-green-500' : 'text-red-500'}">
+                    ${item.is_income ? '+' : '-'}$${item.amount}
                 </p>
             </div>`;
         }).join('');
@@ -96,7 +136,7 @@ async function refreshAudit() {
     }
 }
 
-// --- GARAGE ---
+// --- GARAGE (VEIKIA SU 1.0 SQL) ---
 function openGarage() {
     vibrate();
     document.getElementById('veh-name').value = '';
@@ -121,32 +161,34 @@ async function saveVehicle() {
     vibrate([20]);
     const name = document.getElementById('veh-name').value;
     const cost = document.getElementById('veh-cost').value;
-    // const type = document.getElementById('veh-type').value;
+    const type = document.getElementById('veh-type').value;
 
-    if (!name) return showToast('Name required', 'error');
+    if (!name) return showToast('Reikia pavadinimo', 'error');
 
     state.loading = true;
     try {
+        // GRĮŽTAME PRIE 1.0 SQL STRUKTŪROS
         const { error } = await db.from('vehicles').insert({
             user_id: state.user.id,
             name: name,
-            plate: 'NEW',
-            is_active: true,
-            operating_cost_weekly: parseFloat(cost || 0)
+            type: type,
+            operating_cost_weekly: parseFloat(cost || 0),
+            is_active: true
         });
+        
         if (error) throw error;
-        showToast('Vehicle Added!', 'success');
+        showToast('Mašina pridėta!', 'success');
         closeModals();
         await fetchFleet(); 
     } catch (e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- SHIFT ---
+// --- SHIFT LOGIC (1.0 SQL) ---
 function openStartModal() {
     vibrate();
     const sel = document.getElementById('start-vehicle');
     if(state.fleet.length === 0) {
-        sel.innerHTML = '<option value="">No vehicles! Add in Garage.</option>';
+        sel.innerHTML = '<option value="">Garažas tuščias!</option>';
     } else {
         sel.innerHTML = state.fleet.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
     }
@@ -158,27 +200,28 @@ async function confirmStart() {
     const vid = document.getElementById('start-vehicle').value;
     const odo = document.getElementById('start-odo').value;
     
-    if(!vid) return showToast('Select Vehicle', 'error');
-    if(!odo) return showToast('Start Odometer Required', 'error');
+    if(!vid) return showToast('Pasirink mašiną', 'error');
+    if(!odo) return showToast('Įvesk ridą', 'error');
     
     state.loading = true;
     try {
+        // 1.0 SQL naudoja 'start_odo'
         await db.from('finance_shifts').insert({
             user_id: state.user.id,
             vehicle_id: vid,
-            start_odometer: parseInt(odo), // FIX: start_odometer pagal DB
+            start_odo: parseInt(odo), 
             status: 'active'
         });
         closeModals();
         await refreshAll();
-        showToast('Shift Started', 'success');
+        showToast('Pamaina pradėta', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 async function togglePause() {
     vibrate();
     if(!state.activeShift) return;
-    showToast('Pause feature pending SQL update', 'info'); 
+    showToast('Pause funkcija ruošiama', 'info'); 
 }
 
 function openEndModal() { 
@@ -191,13 +234,13 @@ async function confirmEnd() {
     const odo = document.getElementById('end-odo').value;
     const earn = document.getElementById('end-earn').value;
     
-    if(!odo) return showToast('Enter ODO & Earnings', 'error');
+    if(!odo) return showToast('Įvesk ridą ir pajamas', 'error');
     
     state.loading = true;
     try {
-        // 1. Close Shift
+        // 1.0 SQL naudoja 'end_odo' ir 'gross_earnings'
         const { error } = await db.from('finance_shifts').update({
-            end_odometer: parseInt(odo), // FIX: end_odometer pagal DB
+            end_odo: parseInt(odo), 
             gross_earnings: parseFloat(earn || 0),
             end_time: new Date().toISOString(), 
             status: 'completed'
@@ -205,30 +248,22 @@ async function confirmEnd() {
         
         if(error) throw error;
 
-        // 2. Add Earnings Transaction
-        if (earn > 0) {
-            await db.from('finance_transactions').insert({
-                user_id: state.user.id,
-                amount: parseFloat(earn),
-                direction: 'in',
-                source: 'shift_earnings',
-                date: new Date().toISOString()
-            });
-        }
-
-        closeModals(); await refreshAll(); showToast('Shift Ended', 'success');
+        closeModals(); await refreshAll(); showToast('Pamaina baigta', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-// --- TRANSACTIONS (BEN'S FIX) ---
+// --- TRANSACTIONS (GRĮŽTAME PRIE 'expenses') ---
 function openTxModal(dir) {
     vibrate();
     state.txDirection = dir;
-    document.getElementById('tx-title').textContent = dir === 'in' ? 'Income' : 'Expense';
+    document.getElementById('tx-title').textContent = dir === 'in' ? 'Pajamos' : 'Išlaidos';
     document.getElementById('tx-amount').value = '';
+    
+    // UI: Rodyti kuro laukus tik jei tai Išlaidos
     const isExp = dir === 'out';
     document.getElementById('expense-types').classList.toggle('hidden', !isExp);
     document.getElementById('fuel-fields').classList.add('hidden');
+    
     document.getElementById('tx-modal').classList.remove('hidden');
 }
 
@@ -247,21 +282,36 @@ async function confirmTx() {
     
     state.loading = true;
     try {
-        const type = state.txDirection === 'out' ? document.getElementById('tx-type').value : 'manual_income';
-        
-        // FIX: Rašome į finance_transactions
-        await db.from('finance_transactions').insert({
-            user_id: state.user.id, 
-            shift_id: state.activeShift?.id || null, 
-            amount: amt,
-            direction: state.txDirection,
-            source: type,
-            notes: type === 'fuel' ? `Gal: ${document.getElementById('tx-gal').value}` : null
-        });
+        if(state.txDirection === 'out') {
+            // IŠLAIDOS: Rašome į 'expenses' lentelę (1.0 SQL)
+            const type = document.getElementById('tx-type').value;
+            const gal = document.getElementById('tx-gal').value;
+            const odo = document.getElementById('tx-odo').value;
+            
+            // Validacija kurui
+            if(type === 'fuel' && (!gal || !odo)) throw new Error('Kurui reikia Litrų ir Ridos');
+            
+            await db.from('expenses').insert({
+                user_id: state.user.id,
+                shift_id: state.activeShift?.id || null,
+                vehicle_id: state.activeShift?.vehicle_id || null,
+                type: type,
+                amount: amt,
+                gallons: gal ? parseFloat(gal) : null,
+                odometer: odo ? parseInt(odo) : null
+            });
+            
+            showToast('Išlaida įrašyta', 'success');
+        } else {
+            // PAJAMOS: 1.0 Konstitucija sako, kad pajamos vedamos tik gale.
+            // Bet jei nori, galime tiesiog rodyti pranešimą.
+            showToast('Pajamos vedamos uždarant pamainą', 'info');
+            state.loading = false;
+            return; 
+        }
 
         closeModals(); 
         await refreshAll(); 
-        showToast('Saved', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
@@ -270,13 +320,9 @@ async function exportAI() {
     vibrate();
     state.loading = true;
     try {
-        const { data: shifts } = await db.from('finance_shifts').select('*').limit(20);
-        const { data: txs } = await db.from('finance_transactions').select('*').limit(20);
-        
-        const report = JSON.stringify({ shifts, transactions: txs }, null, 2);
-        await navigator.clipboard.writeText(report);
-        
-        showToast('Data Copied!', 'success');
+        const { data: report } = await db.rpc('get_empire_report', { target_user_id: state.user.id });
+        await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+        showToast('Nukopijuota į Clipboard!', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 

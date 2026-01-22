@@ -10,7 +10,21 @@ import * as UI from './modules/ui.js';
 async function init() {
     UI.applyTheme();
     
-    // --- LISTENERS (SVARBU: Jie turi būti pirmiau nei duomenų krovimas) ---
+    const { data: { session } } = await db.auth.getSession();
+    
+    if (session) {
+        state.user = session.user;
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-content').classList.remove('hidden');
+        
+        await Garage.fetchFleet(); 
+        await refreshAll(); 
+        setupRealtime();
+    } else {
+        document.getElementById('auth-screen').classList.remove('hidden');
+    }
+    
+    // --- LISTENERS (Čia magija) ---
     
     // 1. Klausome STATE pasikeitimų (Sujungia State su UI)
     window.addEventListener('state-updated', (e) => {
@@ -23,7 +37,6 @@ async function init() {
     });
 
     // 3. Klausome pamainos būsenos (Laikmačiui)
-    // Dabar šis listeneris jau egzistuos, kai refreshAll() praneš apie aktyvią pamainą
     window.addEventListener('shiftStateChanged', (e) => {
         if(e.detail) Shifts.startTimer(); else Shifts.stopTimer();
     });
@@ -32,21 +45,6 @@ async function init() {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
     });
-
-    // --- SESSION & DATA ---
-    const { data: { session } } = await db.auth.getSession();
-    
-    if (session) {
-        state.user = session.user;
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-content').classList.remove('hidden');
-        
-        await Garage.fetchFleet(); 
-        await refreshAll(); // Dabar tai saugu: listeneriai jau laukia
-        setupRealtime();
-    } else {
-        document.getElementById('auth-screen').classList.remove('hidden');
-    }
 }
 
 // --- GLOBAL REFRESH ---
@@ -54,7 +52,7 @@ export async function refreshAll() {
     // 1. Gauname aktyvią pamainą
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').maybeSingle();
     
-    // Tai automatiškai paleis 'state-updated' -> UI.updateUI('activeShift') -> 'shiftStateChanged'
+    // Tai automatiškai paleis 'state-updated' -> UI.updateUI('activeShift')
     state.activeShift = shift; 
 
     const monthlyFixed = 2500; 
@@ -87,7 +85,7 @@ window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
 window.setVehType = Garage.setVehType;
-window.toggleTestMode = Garage.toggleTestMode;
+window.toggleTestMode = Garage.toggleTestMode; // Svarbu Test Mode mygtukui!
 
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;

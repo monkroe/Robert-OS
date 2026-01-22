@@ -15,31 +15,38 @@ export function openGarage() {
     document.getElementById('veh-cost').value = '';
     setVehType('rental');
     
-    // SVARBU: Sugeneruojame sąrašą atidarant modalą
+    // Sugeneruojame sąrašą atidarant modalą
     renderGarageList();
     
     document.getElementById('garage-modal').classList.remove('hidden');
 }
 
+// ČIA PAKEISTAS DIZAINAS (renderGarageList)
 export function renderGarageList() {
     const list = document.getElementById('garage-list');
     if (!list) return;
 
     if (state.fleet.length === 0) {
-        list.innerHTML = '<p class="text-xs text-gray-500 italic text-center py-4">Garažas tuščias</p>';
+        list.innerHTML = '<div class="text-center py-6"><p class="text-xs text-gray-500 uppercase tracking-widest">Garažas tuščias</p></div>';
         return;
     }
 
-    // ČIA YRA GENERUOJAMAS TRYNIMO MYGTUKAS
     list.innerHTML = state.fleet.map(v => `
-        <div class="flex justify-between items-center bg-gray-900/50 p-3 rounded-xl border border-gray-800 mb-2">
-            <div>
-                <p class="text-sm font-bold text-white">${v.name}</p>
-                <p class="text-[10px] text-gray-500 uppercase">${v.type} • $${v.operating_cost_weekly}/wk</p>
+        <div class="group relative flex items-center justify-between p-4 mb-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all">
+            
+            <div class="flex flex-col text-left">
+                <span class="text-base font-bold text-white tracking-tight">${v.name}</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400 uppercase">${v.type}</span>
+                    <span class="text-[10px] text-gray-400 font-mono">$${v.operating_cost_weekly}/wk</span>
+                </div>
             </div>
-            <button onclick="window.deleteVehicle('${v.id}')" class="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors">
-                <i class="fa-solid fa-trash"></i>
+
+            <button onclick="window.deleteVehicle('${v.id}')" 
+                class="h-10 w-10 flex items-center justify-center rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 active:scale-95 transition-transform">
+                <i class="fa-solid fa-trash-can text-sm"></i>
             </button>
+            
         </div>
     `).join('');
 }

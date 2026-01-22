@@ -1,34 +1,24 @@
 import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
-import { closeModals } from './ui.js';
 
+// --- DATA ---
 export async function fetchFleet() {
     const { data } = await db.from('vehicles').select('*').eq('is_active', true);
     state.fleet = data || [];
 }
 
+// --- ACTIONS ---
 export function openGarage() {
     vibrate();
     document.getElementById('veh-name').value = '';
     document.getElementById('veh-cost').value = '';
     setVehType('rental');
+    
+    // SVARBU: Sugeneruojame sąrašą atidarant modalą
     renderGarageList();
+    
     document.getElementById('garage-modal').classList.remove('hidden');
-}
-
-export function setVehType(type) {
-    vibrate();
-    document.getElementById('veh-type').value = type;
-    document.querySelectorAll('.veh-type-btn').forEach(b => {
-        b.classList.remove('bg-teal-500', 'text-black', 'border-teal-500', 'opacity-100');
-        b.classList.add('opacity-50');
-    });
-    const activeBtn = document.getElementById(`btn-type-${type}`);
-    if(activeBtn) {
-        activeBtn.classList.remove('opacity-50');
-        activeBtn.classList.add('bg-teal-500', 'text-black', 'border-teal-500', 'opacity-100');
-    }
 }
 
 export function renderGarageList() {
@@ -36,12 +26,13 @@ export function renderGarageList() {
     if (!list) return;
 
     if (state.fleet.length === 0) {
-        list.innerHTML = '<p class="text-xs text-gray-500 italic">No vehicles yet.</p>';
+        list.innerHTML = '<p class="text-xs text-gray-500 italic text-center py-4">Garažas tuščias</p>';
         return;
     }
 
+    // ČIA YRA GENERUOJAMAS TRYNIMO MYGTUKAS
     list.innerHTML = state.fleet.map(v => `
-        <div class="flex justify-between items-center bg-gray-900/50 p-3 rounded-xl border border-gray-800">
+        <div class="flex justify-between items-center bg-gray-900/50 p-3 rounded-xl border border-gray-800 mb-2">
             <div>
                 <p class="text-sm font-bold text-white">${v.name}</p>
                 <p class="text-[10px] text-gray-500 uppercase">${v.type} • $${v.operating_cost_weekly}/wk</p>
@@ -75,6 +66,7 @@ export async function saveVehicle() {
         showToast('Mašina pridėta!', 'success');
         document.getElementById('veh-name').value = '';
         document.getElementById('veh-cost').value = '';
+        
         await fetchFleet();
         renderGarageList();
     } catch (e) { showToast(e.message, 'error'); } finally { state.loading = false; }
@@ -99,3 +91,16 @@ export async function deleteVehicle(id) {
     }
 }
 
+export function setVehType(type) {
+    vibrate();
+    document.getElementById('veh-type').value = type;
+    document.querySelectorAll('.veh-type-btn').forEach(b => {
+        b.classList.remove('bg-teal-500', 'text-black', 'border-teal-500', 'opacity-100');
+        b.classList.add('opacity-50');
+    });
+    const activeBtn = document.getElementById(`btn-type-${type}`);
+    if(activeBtn) {
+        activeBtn.classList.remove('opacity-50');
+        activeBtn.classList.add('bg-teal-500', 'text-black', 'border-teal-500', 'opacity-100');
+    }
+}

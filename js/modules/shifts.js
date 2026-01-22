@@ -5,15 +5,10 @@ import { closeModals } from './ui.js';
 
 let timerInt;
 
-// --- LAIKMATIS (Valdomas iš app.js) ---
-
+// --- LAIKMATIS ---
 export function startTimer() {
     clearInterval(timerInt);
-    
-    // Atnaujiname iškart, nelaukdami 1 sek.
     updateTimerDisplay();
-    
-    // Tiksi kas sekundę
     timerInt = setInterval(updateTimerDisplay, 1000);
 }
 
@@ -25,14 +20,11 @@ export function stopTimer() {
 
 function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
-    // Jei nėra pamainos arba nerandame elemento - stabdome
     if(!state.activeShift || !el) return;
     
     const start = new Date(state.activeShift.start_time).getTime();
     const now = new Date().getTime();
     let diff = Math.floor((now - start) / 1000);
-    
-    // Apsauga nuo neigiamo laiko
     if (diff < 0) diff = 0;
     
     const h = String(Math.floor(diff/3600)).padStart(2,'0');
@@ -42,16 +34,13 @@ function updateTimerDisplay() {
     el.textContent = `${h}:${m}:${s}`;
 }
 
-// --- MODALAI IR VEIKSMAI ---
-
+// --- MODALAI ---
 export function openStartModal() {
     vibrate();
     const sel = document.getElementById('start-vehicle');
-    
     if(state.fleet.length === 0) {
         sel.innerHTML = '<option value="">Garažas tuščias!</option>';
     } else {
-        // Rodo visus automobilius
         sel.innerHTML = state.fleet.map(v => 
             `<option value="${v.id}">${v.name}${v.is_test ? ' 🧪' : ''}</option>`
         ).join('');
@@ -69,8 +58,8 @@ export async function confirmStart() {
     
     state.loading = true;
     try {
+        // PAKEITIMAS: Neberašome user_id, DB pati jį užpildys!
         const { error } = await db.from('finance_shifts').insert({
-            user_id: state.user.id,
             vehicle_id: vid,
             start_odo: parseInt(odo), 
             status: 'active',
@@ -81,12 +70,12 @@ export async function confirmStart() {
 
         closeModals();
         
-        // SVARBU: Siunčiame signalą į app.js, kad atnaujintų visą sistemą
+        // Atnaujinam viską
         window.dispatchEvent(new Event('refresh-data'));
         
         showToast('Pamaina pradėta 🚀', 'success');
-
     } catch(e) { 
+        console.error(e);
         showToast(e.message, 'error'); 
     } finally { 
         state.loading = false; 
@@ -117,10 +106,7 @@ export async function confirmEnd() {
         if(error) throw error;
         
         closeModals();
-        
-        // Signalizuojame atnaujinimą
         window.dispatchEvent(new Event('refresh-data'));
-        
         showToast('Pamaina baigta 🏁', 'success');
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }

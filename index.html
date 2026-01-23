@@ -416,6 +416,22 @@
 
     <!-- SCRIPTS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+// Emergency error catcher
+window.addEventListener('error', function(e) {
+    document.body.innerHTML = `
+        <div style="padding: 20px; background: black; color: red; font-family: monospace;">
+            <h1>ERROR DETECTED</h1>
+            <p><strong>Message:</strong> ${e.message}</p>
+            <p><strong>File:</strong> ${e.filename}</p>
+            <p><strong>Line:</strong> ${e.lineno}:${e.colno}</p>
+        </div>
+    `;
+});
+
+console.log('✅ DEBUG: index.html loaded');
+    </script>
     <script type="module" src="js/app.js?v=1.2"></script>
     
     <script>

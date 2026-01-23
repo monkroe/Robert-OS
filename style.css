@@ -317,3 +317,72 @@ function closeModals() {
         el.classList.add('hidden');
     });
         }
+// ─────────────────────────────────────── 
+// HYBRID STYLE ENHANCEMENTS (v1.2)                                           
+// ───────────────────────────────────────
+
+/* Progress bars - Glow effect */
+.shadow-glow {
+    box-shadow: 0 0 12px rgba(20,184,166,0.6);
+}
+
+html:not(.dark) .shadow-glow {
+    box-shadow: 0 0 12px rgba(20,184,166,0.4);
+}
+
+/* Smooth transitions for theme switching */
+body, .bento-card, .modal-content, .global-header, .bottom-nav {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Enhanced button hover states */
+.header-btn:hover {
+    transform: scale(1.05);
+}
+
+.header-btn:active {
+    transform: scale(0.95);
+}
+
+/* Light mode text shadows for better readability */
+html:not(.dark) .label-xs {
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+html:not(.dark) .val-timer {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Progress bar animations */
+@keyframes pulse-glow {
+    0%, 100% { 
+        box-shadow: 0 0 12px rgba(20,184,166,0.6); 
+    }
+    50% { 
+        box-shadow: 0 0 20px rgba(20,184,166,0.9); 
+    }
+}
+
+#rental-bar:not([style*="width: 0"]) {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Better contrast for light mode progress bars */
+html:not(.dark) #rental-bar,
+html:not(.dark) #grind-bar {
+    box-shadow: 0 0 8px rgba(20,184,166,0.3);
+}
+
+html:not(.dark) .bg-gray-800 {
+    background-color: #e5e7eb; /* gray-200 */
+}
+
+/* Bento card hover effect enhancement */
+.bento-card.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+html.dark .bento-card.clickable:hover {
+    box-shadow: 0 8px 16px rgba(20,184,166,0.2);
+}

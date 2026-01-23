@@ -9,107 +9,38 @@ export function openTxModal(dir) {
     vibrate();
     state.txDirection = dir;
     document.getElementById('tx-title').textContent = dir === 'in' ? 'Pajamos' : 'Išlaidos';
-    document.getElementById('tx-amount').value = '';
-    const isExp = dir === 'out';
-    document.getElementById('expense-types').classList.toggle('hidden', !isExp);
-    document.getElementById('fuel-fields').classList.add('hidden');
     document.getElementById('tx-modal').classList.remove('hidden');
 }
 
 export function setExpType(type) {
     vibrate();
     document.getElementById('tx-type').value = type;
-    document.getElementById('fuel-fields').classList.toggle('hidden', type !== 'fuel');
     document.querySelectorAll('.exp-btn').forEach(b => b.classList.remove('bg-teal-500', 'text-black'));
     if (event) event.target.classList.add('bg-teal-500', 'text-black');
 }
 
 export async function confirmTx() {
-    vibrate([20]);
     const amt = parseFloat(document.getElementById('tx-amount').value);
     if(!amt) return;
-    
-    state.loading = true;
     try {
         if(state.txDirection === 'out') {
-            const type = document.getElementById('tx-type').value;
-            const gal = document.getElementById('tx-gal').value;
-            const odo = document.getElementById('tx-odo').value;
-            await db.from('expenses').insert({
-                type: type,
-                amount: amt,
-                gallons: gal ? parseFloat(gal) : null,
-                odometer: odo ? parseInt(odo) : null
-            });
-            showToast('Išlaida įrašyta', 'success');
-        } else {
-            // Įmesti pajamas į aktyvią pamainą, jei ji vyksta
-            if (state.activeShift) {
-                const isCash = confirm("Ar tai grynieji / Tips? (OK = Taip, Cancel = Uber/App)");
-                const field = isCash ? 'income_cash' : 'income_app';
-                const currentVal = state.activeShift[field] || 0;
-                
-                await db.from('finance_shifts')
-                    .update({ [field]: currentVal + amt })
-                    .eq('id', state.activeShift.id);
-                showToast('Pajamos pridėtos prie pamainos!', 'success');
-            } else {
-                showToast('Pajamos vedamos tik pamainos metu', 'error');
-            }
+            await db.from('expenses').insert({ type: document.getElementById('tx-type').value, amount: amt });
+        } else if (state.activeShift) {
+            const field = confirm("Ar tai Tips/Grynieji?") ? 'income_cash' : 'income_app';
+            await db.from('finance_shifts').update({ [field]: (state.activeShift[field] || 0) + amt }).eq('id', state.activeShift.id);
         }
-        closeModals(); 
+        closeModals();
         window.dispatchEvent(new Event('refresh-data'));
-    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+    } catch(e) { showToast(e.message, 'error'); }
 }
 
 export async function refreshAudit() {
-    // Gauname pamainas su visais naujais laukais
-    const { data: shifts } = await db.from('finance_shifts')
-        .select('*, vehicles(name)')
-        .eq('status', 'completed')
-        .order('end_time', {ascending: false})
-        .limit(20);
-
-    const { data: expenses } = await db.from('expenses')
-        .select('*')
-        .order('created_at', {ascending: false})
-        .limit(20);
+    const { data: shifts } = await db.from('finance_shifts').select('*, vehicles(name)').eq('status', 'completed').order('end_time', {ascending: false}).limit(30);
+    const { data: expenses } = await db.from('expenses').select('*').order('created_at', {ascending: false}).limit(30);
 
     let history = [];
-    if (shifts) shifts.forEach(s => {
-        const start = new Date(s.start_time);
-        const end = new Date(s.end_time);
-        const diff = Math.floor((end - start) / 1000);
-        const h = Math.floor(diff / 3600);
-        const m = Math.floor((diff % 3600) / 60);
-
-        history.push({ 
-            id: s.id, 
-            table: 'finance_shifts', 
-            date: end, 
-            amount: s.gross_earnings, 
-            type: 'PAMAINA', 
-            is_income: true,
-            details: {
-                interval: `${start.getHours()}:${String(start.getMinutes()).padStart(2,'0')} - ${end.getHours()}:${String(end.getMinutes()).padStart(2,'0')}`,
-                duration: `${h}h ${m}m`,
-                car: s.vehicles?.name || 'Nenurodyta',
-                app: s.income_app || 0,
-                private: s.income_private || 0,
-                cash: s.income_cash || 0,
-                weather: s.weather || 'sunny'
-            }
-        });
-    });
-    
-    if (expenses) expenses.forEach(e => history.push({ 
-        id: e.id, 
-        table: 'expenses', 
-        date: new Date(e.created_at), 
-        amount: e.amount, 
-        type: e.type.toUpperCase(), 
-        is_income: false 
-    }));
+    if (shifts) shifts.forEach(s => history.push({ id: s.id, table: 'finance_shifts', date: new Date(s.end_time), amount: s.gross_earnings, type: 'PAMAINA', is_income: true, data: s }));
+    if (expenses) expenses.forEach(e => history.push({ id: e.id, table: 'expenses', date: new Date(e.created_at), amount: e.amount, type: e.type.toUpperCase(), is_income: false }));
 
     history.sort((a, b) => b.date - a.date);
     currentHistory = history;
@@ -117,59 +48,94 @@ export async function refreshAudit() {
     const el = document.getElementById('audit-list');
     if(!el) return;
 
-    el.innerHTML = history.map(item => {
-        if (item.table === 'finance_shifts') {
-            return `
-            <div class="bento-card p-0 overflow-hidden border-white/5 mb-2">
-                <button onclick="this.nextElementSibling.classList.toggle('hidden'); vibrate();" class="w-full text-left p-4 flex items-center justify-between active:bg-white/5">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-teal-500/10 flex items-center justify-center text-teal-500">
-                            <i class="fa-solid fa-car-side"></i>
-                        </div>
-                        <div>
-                            <p class="text-xs font-bold uppercase tracking-tight text-white">${item.type}</p>
-                            <p class="text-[10px] text-gray-500">${item.date.toLocaleDateString()} • ${item.details.interval}</p>
-                        </div>
+    // ADMIN VALDYMAS
+    let html = `
+    <div class="flex justify-between items-center mb-3 px-1">
+        <label class="flex items-center gap-2 text-[10px] font-bold text-gray-400 cursor-pointer">
+            <input type="checkbox" id="hist-select-all" class="w-4 h-4 rounded bg-gray-700 border-gray-600"> SELECT ALL
+        </label>
+        <button id="hist-delete-btn" class="hidden bg-red-500/20 text-red-500 px-3 py-1 rounded text-[10px] font-bold border border-red-500/50">
+            TRINTI (<span id="hist-sel-count">0</span>)
+        </button>
+    </div>`;
+
+    html += history.map(item => {
+        const isShift = item.table === 'finance_shifts';
+        return `
+        <div class="bento-card p-0 overflow-hidden border-white/5 mb-2 flex flex-col">
+            <div class="flex items-center p-3 gap-3">
+                <input type="checkbox" class="hist-checkbox w-5 h-5 rounded bg-gray-800 border-gray-600 focus:ring-teal-500 text-teal-500" data-id="${item.id}" data-table="${item.table}">
+                
+                <button onclick="this.parentElement.nextElementSibling?.classList.toggle('hidden'); vibrate();" class="flex-1 text-left flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] font-bold uppercase ${isShift ? 'text-teal-500' : 'text-red-400'}">${item.type}</p>
+                        <p class="text-[10px] text-gray-500">${item.date.toLocaleDateString()} ${item.date.getHours()}:${String(item.date.getMinutes()).padStart(2,'0')}</p>
                     </div>
-                    <div class="text-right">
-                        <p class="font-bold text-green-500">+$${item.amount}</p>
-                        <i class="fa-solid fa-chevron-down text-[10px] opacity-20"></i>
-                    </div>
+                    <p class="font-mono font-bold ${item.is_income ? 'text-green-500' : 'text-red-400'}">${item.is_income ? '+' : '-'}$${item.amount}</p>
                 </button>
-                <div class="hidden bg-white/[0.02] border-t border-white/5 p-4 space-y-3 animate-slideUp">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><span class="label-xs block">Trukmė</span><p class="text-sm font-mono text-white">${item.details.duration}</p></div>
-                        <div><span class="label-xs block">Auto</span><p class="text-sm text-white">${item.details.car}</p></div>
-                    </div>
-                    <div class="border-t border-white/5 pt-2 space-y-1">
-                        <div class="flex justify-between text-[11px]"><span class="text-gray-400">Uber / App:</span><span class="text-white">$${item.details.app}</span></div>
-                        <div class="flex justify-between text-[11px]"><span class="text-gray-400">Privatūs:</span><span class="text-white">$${item.details.private}</span></div>
-                        <div class="flex justify-between text-[11px]"><span class="text-gray-400">Cash Tips:</span><span class="text-white">$${item.details.cash}</span></div>
-                    </div>
+
+                <button onclick="window.editItem('${item.id}')" class="p-2 text-gray-500 hover:text-teal-400">✏️</button>
+            </div>
+
+            ${isShift ? `
+            <div class="hidden bg-white/[0.02] border-t border-white/5 p-4 space-y-2 animate-slideUp">
+                <div class="grid grid-cols-2 gap-4 text-[11px]">
+                    <div><span class="text-gray-500 block">Auto:</span> ${item.data.vehicles?.name || '---'}</div>
+                    <div><span class="text-gray-500 block">Sąlygos:</span> ${item.data.weather || 'Sunny'}</div>
                 </div>
-            </div>`;
-        } else {
-            return `
-            <div class="bento-card flex-row items-center p-4 gap-3 border-white/5 mb-2">
-                <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
-                    <i class="fa-solid fa-tag"></i>
+                <div class="border-t border-white/5 pt-2 flex justify-between text-[10px]">
+                    <span>Uber: $${item.data.income_app}</span>
+                    <span>Tips: $${item.data.income_cash}</span>
+                    <span>Private: $${item.data.income_private}</span>
                 </div>
-                <div class="flex-1">
-                    <p class="text-[10px] text-gray-500 uppercase font-bold">${item.date.toLocaleDateString()}</p>
-                    <p class="text-xs font-bold uppercase text-white">${item.type}</p>
-                </div>
-                <p class="font-bold text-red-400">-$${item.amount}</p>
-            </div>`;
-        }
+            </div>` : ''}
+        </div>`;
     }).join('');
+
+    el.innerHTML = html;
+    setupHistoryEvents();
+}
+
+function setupHistoryEvents() {
+    const selectAll = document.getElementById('hist-select-all');
+    const deleteBtn = document.getElementById('hist-delete-btn');
+    const countSpan = document.getElementById('hist-sel-count');
+    const checkboxes = document.querySelectorAll('.hist-checkbox');
+
+    if(selectAll) selectAll.onclick = (e) => {
+        checkboxes.forEach(cb => cb.checked = e.target.checked);
+        updateBtn();
+    };
+
+    checkboxes.forEach(cb => cb.onclick = () => updateBtn());
+
+    async function updateBtn() {
+        const count = document.querySelectorAll('.hist-checkbox:checked').length;
+        deleteBtn.classList.toggle('hidden', count === 0);
+        countSpan.textContent = count;
+    }
+
+    deleteBtn.onclick = async () => {
+        if(!confirm('Ištrinti pasirinktus?')) return;
+        const selected = Array.from(document.querySelectorAll('.hist-checkbox:checked')).map(cb => ({ id: cb.dataset.id, table: cb.dataset.table }));
+        for (const item of selected) await db.from(item.table).delete().eq('id', item.id);
+        window.dispatchEvent(new Event('refresh-data'));
+    };
+}
+
+export async function editItem(id) {
+    vibrate();
+    const item = currentHistory.find(i => i.id === id);
+    const newAmt = prompt(`Nauja suma ($) įrašui ${item.type}:`, item.amount);
+    if (newAmt === null || isNaN(newAmt)) return;
+
+    const field = item.table === 'finance_shifts' ? 'gross_earnings' : 'amount';
+    await db.from(item.table).update({ [field]: parseFloat(newAmt) }).eq('id', id);
+    window.dispatchEvent(new Event('refresh-data'));
 }
 
 export async function exportAI() {
-    vibrate();
-    state.loading = true;
-    try {
-        const { data: report } = await db.rpc('get_empire_report', { target_user_id: state.user.id });
-        await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
-        showToast('Nukopijuota į Clipboard!', 'success');
-    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+    const { data: report } = await db.rpc('get_empire_report', { target_user_id: state.user.id });
+    navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+    showToast('Nukopijuota!', 'success');
 }

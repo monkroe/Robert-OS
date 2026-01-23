@@ -1,16 +1,18 @@
 import { supabase } from './db.js';
 import { state } from './state.js';
 import { updateUI, initClocks } from './modules/ui.js';
-import { startTimer, stopTimer } from './modules/shifts.js';
-import { refreshAudit } from './modules/finance.js';
+import { startTimer, stopTimer, openStartModal, openEndModal, togglePause, confirmStart, confirmEnd } from './modules/shifts.js';
+import { refreshAudit, openTxModal, confirmTx, setExpType, exportAI } from './modules/finance.js';
 import { showToast } from './utils.js';
 
-// --- PAGRINDINĖ DUOMENŲ UŽKROVIMO FUNKCIJA ---
+/**
+ * Pagrindinis duomenų atnaujinimas iš DB
+ */
 async function refreshData() {
     if (!state.user) return;
 
     try {
-        // 1. Gauname aktyvią pamainą
+        // 1. Aktyvi pamaina
         const { data: active } = await supabase
             .from('finance_shifts')
             .select('*')
@@ -18,21 +20,9 @@ async function refreshData() {
             .eq('status', 'active')
             .maybeSingle();
 
-        // 2. Gauname automobilį
-        let activeVehicle = null;
-        if (active?.vehicle_id) {
-            const { data: v } = await supabase
-                .from('vehicles')
-                .select('*')
-                .eq('id', active.vehicle_id)
-                .single();
-            activeVehicle = v;
-        }
-
-        // 3. Šiandienos statistika (skaičiuojame pabaigtas pamainas)
+        // 2. Šiandienos pajamos
         const today = new Date();
         today.setHours(0,0,0,0);
-        
         const { data: todayShifts } = await supabase
             .from('finance_shifts')
             .select('gross_earnings')
@@ -41,19 +31,18 @@ async function refreshData() {
 
         const earnedToday = todayShifts?.reduce((sum, s) => sum + (s.gross_earnings || 0), 0) || 0;
 
-        // 4. Garažas
+        // 3. Garažas
         const { data: fleet } = await supabase
             .from('vehicles')
             .select('*')
             .eq('user_id', state.user.id);
 
-        // 5. State atnaujinimas
+        // State update
         state.activeShift = active;
-        state.activeVehicle = activeVehicle;
         state.fleet = fleet || [];
         state.stats.today = earnedToday;
 
-        // 6. UI atnaujinimas
+        // UI update
         updateUI('all');
         refreshAudit();
 
@@ -61,66 +50,85 @@ async function refreshData() {
         else stopTimer();
 
     } catch (e) {
-        console.error("Klaida refreshData:", e);
+        console.error("Duomenų krovimo klaida:", e);
     }
 }
 
-// --- AUTENTIFIKACIJA ---
+/**
+ * Prisijungimo logika
+ */
 async function handleLogin() {
     const email = document.getElementById('auth-email').value;
     const pass = document.getElementById('auth-pass').value;
     
-    if (!email || !pass) return showToast('Įveskite duomenis', 'error');
+    if (!email || !pass) return showToast('Užpildykite laukus!', 'error');
     
     document.getElementById('loading-overlay')?.classList.remove('hidden');
     
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     
     if (error) {
         showToast(error.message, 'error');
         document.getElementById('loading-overlay')?.classList.add('hidden');
     } else {
-        location.reload(); // Saugiausia tiesiog perkrauti po login
+        location.reload();
     }
 }
 
+/**
+ * Atsijungimo logika
+ */
 async function handleLogout() {
     await supabase.auth.signOut();
     location.reload();
 }
 
-// --- PROGRAMĖLĖS STARTAS ---
+/**
+ * Programėlės inicializacija
+ */
 async function initApp() {
     const { data: { session } } = await supabase.auth.getSession();
     
     const authScreen = document.getElementById('auth-screen');
     const appContent = document.getElementById('app-content');
 
+    // 1. Tikriname ar vartotojas prisijungęs
     if (!session) {
-        // Rodyti Login ekraną
         authScreen?.classList.remove('hidden');
         appContent?.classList.add('hidden');
-        
-        // Prikergiame prisijungimo mygtuką
         document.getElementById('btn-login')?.addEventListener('click', handleLogin);
         return;
     }
 
-    // Vartotojas prisijungęs
+    // 2. Vartotojas prisijungęs - krauname sistemą
     state.user = session.user;
     authScreen?.classList.add('hidden');
     appContent?.classList.remove('hidden');
 
-    // Globalios funkcijos (kad veiktų senas onclick="logout()")
+    // 3. PRISKIRIAME FUNKCIJAS PRIE WINDOW (Kad veiktų HTML onclick)
     window.logout = handleLogout;
+    window.openStartModal = openStartModal;
+    window.confirmStart = confirmStart;
+    window.openEndModal = openEndModal;
+    window.confirmEnd = confirmEnd;
+    window.handlePause = togglePause;
+    window.openTxModal = openTxModal;
+    window.confirmTx = confirmTx;
+    window.setExpType = setExpType;
+    window.exportAI = exportAI;
 
+    // 4. Paleidžiame laikrodžius ir krauname duomenis
     initClocks();
     await refreshData();
 
+    // 5. Klausomės signalų atnaujinimui
     window.addEventListener('refresh-data', refreshData);
+    
+    // Auto-atnaujinimas kas 30 sekundžių
     setInterval(refreshData, 30000);
 }
 
+// Paleidimas
 document.addEventListener('DOMContentLoaded', initApp);
 
 export { refreshData };

@@ -1,134 +1,107 @@
-import { supabase } from './db.js';
+import { db } from './db.js';
 import { state } from './state.js';
-import { updateUI, initClocks } from './modules/ui.js';
-import { startTimer, stopTimer, openStartModal, openEndModal, togglePause, confirmStart, confirmEnd } from './modules/shifts.js';
-import { refreshAudit, openTxModal, confirmTx, setExpType, exportAI } from './modules/finance.js';
-import { showToast } from './utils.js';
+import * as Auth from './modules/auth.js';
+import * as Garage from './modules/garage.js';
+import * as Shifts from './modules/shifts.js';
+import * as Finance from './modules/finance.js';
+import * as UI from './modules/ui.js';
 
-/**
- * Pagrindinis duomenų atnaujinimas iš DB
- */
-async function refreshData() {
-    if (!state.user) return;
-
-    try {
-        // 1. Aktyvi pamaina
-        const { data: active } = await supabase
-            .from('finance_shifts')
-            .select('*')
-            .eq('user_id', state.user.id)
-            .eq('status', 'active')
-            .maybeSingle();
-
-        // 2. Šiandienos pajamos
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const { data: todayShifts } = await supabase
-            .from('finance_shifts')
-            .select('gross_earnings')
-            .eq('user_id', state.user.id)
-            .gte('end_time', today.toISOString());
-
-        const earnedToday = todayShifts?.reduce((sum, s) => sum + (s.gross_earnings || 0), 0) || 0;
-
-        // 3. Garažas
-        const { data: fleet } = await supabase
-            .from('vehicles')
-            .select('*')
-            .eq('user_id', state.user.id);
-
-        // State update
-        state.activeShift = active;
-        state.fleet = fleet || [];
-        state.stats.today = earnedToday;
-
-        // UI update
-        updateUI('all');
-        refreshAudit();
-
-        if (active) startTimer();
-        else stopTimer();
-
-    } catch (e) {
-        console.error("Duomenų krovimo klaida:", e);
-    }
-}
-
-/**
- * Prisijungimo logika
- */
-async function handleLogin() {
-    const email = document.getElementById('auth-email').value;
-    const pass = document.getElementById('auth-pass').value;
+// --- INIT ---
+async function init() {
+    UI.applyTheme();
     
-    if (!email || !pass) return showToast('Užpildykite laukus!', 'error');
+    const { data: { session } } = await db.auth.getSession();
     
-    document.getElementById('loading-overlay')?.classList.remove('hidden');
-    
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    
-    if (error) {
-        showToast(error.message, 'error');
-        document.getElementById('loading-overlay')?.classList.add('hidden');
+    if (session) {
+        state.user = session.user;
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-content').classList.remove('hidden');
+        
+        await Garage.fetchFleet(); 
+        await refreshAll(); // <--- Čia automatiškai pasileis laikmatis
+        setupRealtime();
     } else {
-        location.reload();
+        document.getElementById('auth-screen').classList.remove('hidden');
     }
-}
-
-/**
- * Atsijungimo logika
- */
-async function handleLogout() {
-    await supabase.auth.signOut();
-    location.reload();
-}
-
-/**
- * Programėlės inicializacija
- */
-async function initApp() {
-    const { data: { session } } = await supabase.auth.getSession();
     
-    const authScreen = document.getElementById('auth-screen');
-    const appContent = document.getElementById('app-content');
+    // --- KLAUSYTOJAI ---
+    
+    window.addEventListener('refresh-data', () => {
+        refreshAll();
+    });
 
-    // 1. Tikriname ar vartotojas prisijungęs
-    if (!session) {
-        authScreen?.classList.remove('hidden');
-        appContent?.classList.add('hidden');
-        document.getElementById('btn-login')?.addEventListener('click', handleLogin);
-        return;
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
+    });
+}
+
+// --- PAGRINDINĖ FUNKCIJA (KOMANDAVIMO CENTRAS) ---
+export async function refreshAll() {
+    // 1. Gauname pamainą iš DB (SU user_id FILTRU!)
+    const { data: shift } = await db.from('finance_shifts')
+        .select('*')
+        .eq('status', 'active')
+        .eq('user_id', state.user.id) // <--- KRITINIS PATAISYMAS
+        .maybeSingle();
+    
+    // 2. Įrašome į State
+    state.activeShift = shift; 
+
+    // 3. TIESIOGINIS VALDYMAS
+    UI.updateUI('activeShift');
+
+    if (shift) {
+        Shifts.startTimer();
+    } else {
+        Shifts.stopTimer();
     }
 
-    // 2. Vartotojas prisijungęs - krauname sistemą
-    state.user = session.user;
-    authScreen?.classList.add('hidden');
-    appContent?.classList.remove('hidden');
-
-    // 3. PRISKIRIAME FUNKCIJAS PRIE WINDOW (Kad veiktų HTML onclick)
-    window.logout = handleLogout;
-    window.openStartModal = openStartModal;
-    window.confirmStart = confirmStart;
-    window.openEndModal = openEndModal;
-    window.confirmEnd = confirmEnd;
-    window.handlePause = togglePause;
-    window.openTxModal = openTxModal;
-    window.confirmTx = confirmTx;
-    window.setExpType = setExpType;
-    window.exportAI = exportAI;
-
-    // 4. Paleidžiame laikrodžius ir krauname duomenis
-    initClocks();
-    await refreshData();
-
-    // 5. Klausomės signalų atnaujinimui
-    window.addEventListener('refresh-data', refreshData);
+    // 4. Skaičiuojame finansus
+    const monthlyFixed = 2500; 
+    let vehicleCost = 0;
     
-    // Auto-atnaujinimas kas 30 sekundžių
-    setInterval(refreshData, 30000);
+    if (shift) {
+        const v = state.fleet.find(f => f.id === shift.vehicle_id);
+        if (v) vehicleCost = v.operating_cost_weekly / 7;
+    } else if (state.fleet.length > 0) {
+        if (state.fleet[0].operating_cost_weekly) vehicleCost = state.fleet[0].operating_cost_weekly / 7;
+    }
+
+    state.dailyCost = (monthlyFixed / 30) + vehicleCost;
+    state.shiftEarnings = shift?.gross_earnings || 0; 
+    
+    UI.updateGrindBar();
+    Finance.refreshAudit();
 }
 
-// Paleidimas
-document.addEventListener('DOMContentLoaded', initApp);
+function setupRealtime() {
+    db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe();
+}
 
-export { refreshData };
+// --- EXPOSE TO WINDOW ---
+window.login = Auth.login;
+window.logout = Auth.logout;
+window.register = Auth.register;
+
+window.openGarage = Garage.openGarage;
+window.saveVehicle = Garage.saveVehicle;
+window.deleteVehicle = Garage.deleteVehicle;
+window.setVehType = Garage.setVehType;
+window.toggleTestMode = Garage.toggleTestMode;
+
+window.openStartModal = Shifts.openStartModal;
+window.confirmStart = Shifts.confirmStart;
+window.openEndModal = Shifts.openEndModal;
+window.confirmEnd = Shifts.confirmEnd;
+window.togglePause = Shifts.togglePause;
+
+window.openTxModal = Finance.openTxModal;
+window.setExpType = Finance.setExpType;
+window.confirmTx = Finance.confirmTx;
+window.exportAI = Finance.exportAI;
+
+window.cycleTheme = UI.cycleTheme;
+window.closeModals = UI.closeModals;
+window.switchTab = UI.switchTab;
+
+document.addEventListener('DOMContentLoaded', init);

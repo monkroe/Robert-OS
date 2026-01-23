@@ -7,11 +7,6 @@ let timerInt;
 
 export function startTimer() {
     clearInterval(timerInt);
-    if (state.activeShift?.status === 'paused') {
-        const el = document.getElementById('shift-timer');
-        if(el) el.textContent = "PAUSE";
-        return;
-    }
     updateTimerDisplay();
     timerInt = setInterval(updateTimerDisplay, 1000);
 }
@@ -26,11 +21,6 @@ function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
     if(!state.activeShift || !el) return;
     
-    if (state.activeShift.status === 'paused') {
-        el.textContent = "PAUSE";
-        return;
-    }
-
     const start = new Date(state.activeShift.start_time).getTime();
     const now = new Date().getTime();
     let diff = Math.floor((now - start) / 1000);
@@ -39,86 +29,69 @@ function updateTimerDisplay() {
     const h = String(Math.floor(diff/3600)).padStart(2,'0');
     const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
     const s = String(diff%60).padStart(2,'0');
-    el.textContent = `${h}:${m}:${s}`;
+    const timeStr = `${h}:${m}:${s}`;
+
+    if (state.activeShift.status === 'paused') {
+        el.innerHTML = `<span class="opacity-50">${timeStr}</span> <span class="animate-pulse text-yellow-500 text-2xl ml-2">⏸️</span>`;
+        clearInterval(timerInt); // Sustabdome skaičiavimą vizualiai
+    } else {
+        el.textContent = timeStr;
+    }
 }
 
 export function openStartModal() {
     vibrate();
     const sel = document.getElementById('start-vehicle');
-    if(state.fleet.length === 0) {
-        sel.innerHTML = '<option value="">Garažas tuščias!</option>';
-    } else {
-        sel.innerHTML = state.fleet.map(v => 
-            `<option value="${v.id}">${v.name}${v.is_test ? ' 🧪' : ''}</option>`
-        ).join('');
-    }
+    sel.innerHTML = state.fleet.length ? state.fleet.map(v => `<option value="${v.id}">${v.name}</option>`).join('') : '<option>Garažas tuščias</option>';
     document.getElementById('start-modal').classList.remove('hidden');
 }
 
 export async function confirmStart() {
-    vibrate([20]);
+    vibrate(20);
     const vid = document.getElementById('start-vehicle').value;
     const odo = document.getElementById('start-odo').value;
-    const targetMoney = document.getElementById('start-money-target').value;
-    const targetTime = document.getElementById('start-time-target').value;
+    if(!vid || !odo) return showToast('Įveskite duomenis', 'error');
     
-    if(!vid || !odo) return showToast('Užpildyk duomenis', 'error');
-    
-    state.loading = true;
     try {
-        const { error } = await db.from('finance_shifts').insert({
+        await db.from('finance_shifts').insert({
             vehicle_id: vid,
-            start_odo: parseInt(odo), 
+            start_odo: parseInt(odo),
+            target_money: parseFloat(document.getElementById('start-money-target').value || 0),
+            target_time: parseFloat(document.getElementById('start-time-target').value || 12),
             status: 'active',
-            target_money: parseFloat(targetMoney || 0),
-            target_time: parseFloat(targetTime || 12),
             start_time: new Date().toISOString()
         });
-        if (error) throw error;
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
-        showToast('Sėkmės kelyje! 🚀', 'success');
-    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+    } catch(e) { showToast(e.message, 'error'); }
 }
 
-export function openEndModal() { 
-    vibrate();
-    document.getElementById('end-modal').classList.remove('hidden'); 
-}
+export function openEndModal() { vibrate(); document.getElementById('end-modal').classList.remove('hidden'); }
 
 export async function confirmEnd() {
-    vibrate([20]);
+    vibrate(20);
     const odoEnd = parseInt(document.getElementById('end-odo').value);
-    const appIncome = parseFloat(document.getElementById('end-earn').value || 0);
-    
-    if(!odoEnd) return showToast('Įvesk ridą', 'error');
-
-    state.loading = true;
+    if(!odoEnd) return showToast('Įveskite ridą', 'error');
     try {
-        const { error } = await db.from('finance_shifts').update({
-            end_odo: odoEnd, 
-            income_app: appIncome,
+        await db.from('finance_shifts').update({
+            end_odo: odoEnd,
+            income_app: parseFloat(document.getElementById('end-earn').value || 0),
             weather: state.currentWeather,
-            end_time: new Date().toISOString(), 
+            end_time: new Date().toISOString(),
             status: 'completed'
         }).eq('id', state.activeShift.id);
-        
-        if(error) throw error;
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
-        showToast('Pamaina baigta 🏁', 'success');
-    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
+    } catch(e) { showToast(e.message, 'error'); }
 }
 
 export async function togglePause() {
     vibrate();
     if (!state.activeShift) return;
-    const isPaused = state.activeShift.status === 'paused';
-    const newStatus = isPaused ? 'active' : 'paused';
+    const newStatus = state.activeShift.status === 'paused' ? 'active' : 'paused';
     state.activeShift.status = newStatus;
     updateUI('activeShift');
-    try {
-        await db.from('finance_shifts').update({ status: newStatus }).eq('id', state.activeShift.id);
-        if (newStatus === 'active') startTimer();
-    } catch (e) { console.error(e); }
+    await db.from('finance_shifts').update({ status: newStatus }).eq('id', state.activeShift.id);
+    if (newStatus === 'active') startTimer();
+    else updateTimerDisplay();
 }

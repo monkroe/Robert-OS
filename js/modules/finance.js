@@ -469,33 +469,3 @@ export async function exportAI() {
         state.loading = false;
     }
 }
-```
-
-**PABAIGA KODO ↑↑↑**
-
----
-
-## ✅ KAS PASIKEITĖ?
-
-### **1. Pajamos pamainos metu (IN)**
-```javascript
-if (!state.activeShift) {
-    return showToast('Pradėk pamainą, kad įvestum pajamas', 'error');
-}
-
-// Atnaujinti income_cash
-const currentCash = state.activeShift.income_cash || 0;
-const newCash = currentCash + amt;
-```
-
-### **2. Expense kategorijos (category)**
-```javascript
-category: type, // Nauja versija naudoja 'category'
-```
-
-### **3. AI Export su istorija**
-```javascript
-await db.from('export_history').insert({
-    export_type: 'ai_assistant',
-    file_format: 'json'
-});

@@ -24,7 +24,6 @@ function updateTimerDisplay() {
     const start = new Date(state.activeShift.start_time).getTime();
     const now = new Date().getTime();
     let diff = Math.floor((now - start) / 1000);
-    if (diff < 0) diff = 0;
     
     const h = String(Math.floor(diff/3600)).padStart(2,'0');
     const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
@@ -32,8 +31,8 @@ function updateTimerDisplay() {
     const timeStr = `${h}:${m}:${s}`;
 
     if (state.activeShift.status === 'paused') {
-        el.innerHTML = `<span class="opacity-50">${timeStr}</span> <span class="animate-pulse text-yellow-500 text-2xl ml-2">⏸️</span>`;
-        clearInterval(timerInt); // Sustabdome skaičiavimą vizualiai
+        el.innerHTML = `<span class="opacity-40">${timeStr}</span> <span class="animate-pulse text-yellow-500 ml-2">⏸️</span>`;
+        clearInterval(timerInt);
     } else {
         el.textContent = timeStr;
     }
@@ -50,10 +49,11 @@ export async function confirmStart() {
     vibrate(20);
     const vid = document.getElementById('start-vehicle').value;
     const odo = document.getElementById('start-odo').value;
-    if(!vid || !odo) return showToast('Įveskite duomenis', 'error');
+    if(!vid || !odo) return showToast('Užpildykite pradinę ridą', 'error');
     
+    state.loading = true;
     try {
-        await db.from('finance_shifts').insert({
+        const { error } = await db.from('finance_shifts').insert({
             vehicle_id: vid,
             start_odo: parseInt(odo),
             target_money: parseFloat(document.getElementById('start-money-target').value || 0),
@@ -61,9 +61,11 @@ export async function confirmStart() {
             status: 'active',
             start_time: new Date().toISOString()
         });
+        if(error) throw error;
+        showToast('Pamaina pradėta! Sėkmės kelyje 🚀', 'success');
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 export function openEndModal() { vibrate(); document.getElementById('end-modal').classList.remove('hidden'); }
@@ -71,27 +73,44 @@ export function openEndModal() { vibrate(); document.getElementById('end-modal')
 export async function confirmEnd() {
     vibrate(20);
     const odoEnd = parseInt(document.getElementById('end-odo').value);
-    if(!odoEnd) return showToast('Įveskite ridą', 'error');
+    const appIncome = parseFloat(document.getElementById('end-earn').value || 0);
+    
+    // SAUGIKLIS: Ridos patikra
+    if(!odoEnd) return showToast('Įveskite pabaigos ridą', 'error');
+    if(odoEnd < state.activeShift.start_odo) {
+        return showToast(`Klaida! Rida mažesnė nei pradžios (${state.activeShift.start_odo})`, 'error');
+    }
+
+    state.loading = true;
     try {
-        await db.from('finance_shifts').update({
+        const { error } = await db.from('finance_shifts').update({
             end_odo: odoEnd,
-            income_app: parseFloat(document.getElementById('end-earn').value || 0),
+            income_app: (state.activeShift.income_app || 0) + appIncome,
             weather: state.currentWeather,
             end_time: new Date().toISOString(),
             status: 'completed'
         }).eq('id', state.activeShift.id);
+        
+        if(error) throw error;
+        showToast('Pamaina sėkmingai baigta! 🏁', 'success');
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
 export async function togglePause() {
     vibrate();
     if (!state.activeShift) return;
-    const newStatus = state.activeShift.status === 'paused' ? 'active' : 'paused';
+    const isPaused = state.activeShift.status === 'paused';
+    const newStatus = isPaused ? 'active' : 'paused';
+    
     state.activeShift.status = newStatus;
     updateUI('activeShift');
-    await db.from('finance_shifts').update({ status: newStatus }).eq('id', state.activeShift.id);
-    if (newStatus === 'active') startTimer();
-    else updateTimerDisplay();
+    
+    try {
+        await db.from('finance_shifts').update({ status: newStatus }).eq('id', state.activeShift.id);
+        showToast(isPaused ? 'Darbas tęsiamas ▶️' : 'Pertrauka ⏸️', 'info');
+        if (newStatus === 'active') startTimer();
+        else updateTimerDisplay();
+    } catch (e) { showToast('Klaida keičiant būseną', 'error'); }
 }

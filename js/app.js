@@ -23,16 +23,24 @@ async function init() {
     }
     
     window.addEventListener('refresh-data', () => refreshAll());
-    window.addEventListener('shiftStateChanged', (e) => e.detail ? Shifts.startTimer() : Shifts.stopTimer());
+    window.addEventListener('shiftStateChanged', (e) => {
+        if (e.detail) Shifts.startTimer();
+        else Shifts.stopTimer();
+    });
 }
 
 async function refreshAll() {
     const { data: shift } = await db.from('finance_shifts').select('*').eq('status', 'active').eq('user_id', state.user.id).maybeSingle();
-    state.activeShift = shift;
+    
+    // JEI PAMAINA AKTYVI - atnaujiname state NEstabdykdami esamo laikmačio
     if (shift) {
+        state.activeShift = shift;
         state.targetMoney = shift.target_money || 0;
         state.targetTime = shift.target_time || 12;
+    } else {
+        state.activeShift = null;
     }
+
     UI.updateUI('activeShift');
     UI.updateGrindBar();
     Finance.refreshAudit();

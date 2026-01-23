@@ -49,7 +49,7 @@ export async function confirmStart() {
     vibrate(20);
     const vid = document.getElementById('start-vehicle').value;
     const odo = document.getElementById('start-odo').value;
-    if(!vid || !odo) return showToast('Užpildykite pradinę ridą', 'error');
+    if(!vid || !odo) return showToast('Įveskite pradinę ridą!', 'error');
     
     state.loading = true;
     try {
@@ -62,23 +62,32 @@ export async function confirmStart() {
             start_time: new Date().toISOString()
         });
         if(error) throw error;
-        showToast('Pamaina pradėta! Sėkmės kelyje 🚀', 'success');
+        showToast('Pamaina pradėta! 🚀', 'success');
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
 }
 
-export function openEndModal() { vibrate(); document.getElementById('end-modal').classList.remove('hidden'); }
+export function openEndModal() { 
+    vibrate();
+    // GRĄŽINTAS RIDOS SUFLERIS
+    const odoInput = document.getElementById('end-odo');
+    if(state.activeShift && odoInput) {
+        odoInput.placeholder = `Pradėta su: ${state.activeShift.start_odo}`;
+        odoInput.value = ''; // Išvalom seną
+    }
+    document.getElementById('end-modal').classList.remove('hidden'); 
+}
 
 export async function confirmEnd() {
     vibrate(20);
     const odoEnd = parseInt(document.getElementById('end-odo').value);
     const appIncome = parseFloat(document.getElementById('end-earn').value || 0);
     
-    // SAUGIKLIS: Ridos patikra
-    if(!odoEnd) return showToast('Įveskite pabaigos ridą', 'error');
+    if(!odoEnd) return showToast('Įveskite pabaigos ridą!', 'error');
+    // SAUGIKLIS
     if(odoEnd < state.activeShift.start_odo) {
-        return showToast(`Klaida! Rida mažesnė nei pradžios (${state.activeShift.start_odo})`, 'error');
+        return showToast(`Rida negali būti mažesnė nei ${state.activeShift.start_odo}!`, 'error');
     }
 
     state.loading = true;
@@ -92,7 +101,7 @@ export async function confirmEnd() {
         }).eq('id', state.activeShift.id);
         
         if(error) throw error;
-        showToast('Pamaina sėkmingai baigta! 🏁', 'success');
+        showToast('Pamaina baigta 🏁', 'success');
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
@@ -103,14 +112,13 @@ export async function togglePause() {
     if (!state.activeShift) return;
     const isPaused = state.activeShift.status === 'paused';
     const newStatus = isPaused ? 'active' : 'paused';
-    
     state.activeShift.status = newStatus;
     updateUI('activeShift');
     
     try {
         await db.from('finance_shifts').update({ status: newStatus }).eq('id', state.activeShift.id);
-        showToast(isPaused ? 'Darbas tęsiamas ▶️' : 'Pertrauka ⏸️', 'info');
+        showToast(isPaused ? 'Dirbame toliau ▶️' : 'Pertrauka ⏸️', 'info');
         if (newStatus === 'active') startTimer();
         else updateTimerDisplay();
-    } catch (e) { showToast('Klaida keičiant būseną', 'error'); }
+    } catch (e) { showToast('Klaida DB', 'error'); }
 }

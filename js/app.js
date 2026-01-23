@@ -1,3 +1,11 @@
+// ════════════════════════════════════════════════════════════════
+// ROBERT OS - APP.JS (ORCHESTRATOR)
+// Versija: 1.2
+// 
+// ATSAKOMYBĖ: Sistemos orkestravimas (Dirigentas)
+// NIEKADA neskaičiuoja - tik koordinuoja modulius
+// ════════════════════════════════════════════════════════════════
+
 import { db } from './db.js';
 import { state } from './state.js';
 import * as Auth from './modules/auth.js';
@@ -5,8 +13,13 @@ import * as Garage from './modules/garage.js';
 import * as Shifts from './modules/shifts.js';
 import * as Finance from './modules/finance.js';
 import * as UI from './modules/ui.js';
+import * as Settings from './modules/settings.js';
+import * as Costs from './modules/costs.js';
 
-// --- INIT ---
+// ────────────────────────────────────────────────────────────────
+// INIT - Sistema paleidžiama
+// ────────────────────────────────────────────────────────────────
+
 async function init() {
     UI.applyTheme();
     
@@ -17,15 +30,22 @@ async function init() {
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-content').classList.remove('hidden');
         
-        await Garage.fetchFleet(); 
-        await refreshAll(); // <--- Čia automatiškai pasileis laikmatis
+        // 1. Užkrauti settings (turi būti pirma, nes reikia valiutos/tikslų)
+        await Settings.loadSettings();
+        
+        // 2. Užkrauti garažą
+        await Garage.fetchFleet();
+        
+        // 3. Užkrauti aktyvią pamainą ir atnaujinti UI
+        await refreshAll();
+        
+        // 4. Įjungti realtime
         setupRealtime();
     } else {
         document.getElementById('auth-screen').classList.remove('hidden');
     }
     
-    // --- KLAUSYTOJAI ---
-    
+    // Event listeners
     window.addEventListener('refresh-data', () => {
         refreshAll();
     });
@@ -35,73 +55,169 @@ async function init() {
     });
 }
 
-// --- PAGRINDINĖ FUNKCIJA (KOMANDAVIMO CENTRAS) ---
+// ────────────────────────────────────────────────────────────────
+// REFRESH ALL - Pagrindinis atnaujinimas (PATAISYTA VERSIJA)
+// ────────────────────────────────────────────────────────────────
+// Tai yra "Command Center" - viską koordinuoja, nieko neskaičiuoja
+
 export async function refreshAll() {
-    // 1. Gauname pamainą iš DB (SU user_id FILTRU!)
-    const { data: shift } = await db.from('finance_shifts')
-        .select('*')
-        .eq('status', 'active')
-        .eq('user_id', state.user.id) // <--- KRITINIS PATAISYMAS
-        .maybeSingle();
-    
-    // 2. Įrašome į State
-    state.activeShift = shift; 
-
-    // 3. TIESIOGINIS VALDYMAS
-    UI.updateUI('activeShift');
-
-    if (shift) {
-        Shifts.startTimer();
-    } else {
-        Shifts.stopTimer();
+    try {
+        // 1. Gauti bet kokią neužbaigtą pamainą (active ARBA paused)
+        // Optimizacija: Viena užklausa abiems statusams
+        const { data: shift } = await db
+            .from('finance_shifts')
+            .select('*')
+            .in('status', ['active', 'paused']) // Abu statusai vienu metu
+            .eq('user_id', state.user.id)
+            .order('start_time', { ascending: false }) // Imame naujausią
+            .limit(1)
+            .maybeSingle();
+        
+        state.activeShift = shift;
+        
+        // 2. Atnaujinti UI pagal shift būseną
+        UI.updateUI('activeShift');
+        
+        // 3. Valdyti laikmatį
+        if (state.activeShift) {
+            Shifts.startTimer();
+        } else {
+            Shifts.stopTimer();
+        }
+        
+        // 4. Atnaujinti progress bars (deleguojame į UI ir Costs)
+        await updateProgressBars();
+        
+        // 5. Atnaujinti istoriją (tik jei Audit tab matomas)
+        const auditTab = document.getElementById('tab-audit');
+        if (auditTab && !auditTab.classList.contains('hidden')) {
+            Finance.refreshAudit();
+        }
+        
+    } catch (error) {
+        console.error('Error in refreshAll:', error);
     }
-
-    // 4. Skaičiuojame finansus
-    const monthlyFixed = 2500; 
-    let vehicleCost = 0;
-    
-    if (shift) {
-        const v = state.fleet.find(f => f.id === shift.vehicle_id);
-        if (v) vehicleCost = v.operating_cost_weekly / 7;
-    } else if (state.fleet.length > 0) {
-        if (state.fleet[0].operating_cost_weekly) vehicleCost = state.fleet[0].operating_cost_weekly / 7;
-    }
-
-    state.dailyCost = (monthlyFixed / 30) + vehicleCost;
-    state.shiftEarnings = shift?.gross_earnings || 0; 
-    
-    UI.updateGrindBar();
-    Finance.refreshAudit();
 }
+
+// ────────────────────────────────────────────────────────────────
+// UPDATE PROGRESS BARS
+// ────────────────────────────────────────────────────────────────
+// Deleguoja skaičiavimus į Costs modulį
+
+async function updateProgressBars() {
+    try {
+        // 1. RENTAL COVERAGE BAR (Savaitinis)
+        const rentalProgress = await Costs.calculateWeeklyRentalProgress();
+        
+        const rentalBarEl = document.getElementById('rental-bar');
+        const rentalValEl = document.getElementById('rental-val');
+        
+        if (rentalBarEl && rentalValEl) {
+            rentalValEl.textContent = `$${rentalProgress.earned} / $${rentalProgress.target}`;
+            rentalBarEl.style.width = `${rentalProgress.percentage}%`;
+            
+            // Spalvos pagal procentą
+            rentalBarEl.classList.remove('bg-red-500', 'bg-yellow-500', 'bg-green-500');
+            if (rentalProgress.percentage < 70) {
+                rentalBarEl.classList.add('bg-red-500');
+            } else if (rentalProgress.percentage < 90) {
+                rentalBarEl.classList.add('bg-yellow-500');
+            } else {
+                rentalBarEl.classList.add('bg-green-500');
+            }
+        }
+        
+        // 2. OLD GRIND BAR (Legacy - galima ištrinti vėliau arba palikti kaip dienos tikslą)
+        const dailyCost = await Costs.calculateDailyCost();
+        const shiftEarnings = Costs.calculateShiftEarnings();
+        
+        const grindBarEl = document.getElementById('grind-bar');
+        const grindValEl = document.getElementById('grind-val');
+        
+        if (grindBarEl && grindValEl) {
+            const target = Math.round(dailyCost) || 1;
+            const current = Math.round(shiftEarnings) || 0;
+            const pct = Math.min((current / target) * 100, 100);
+            
+            grindValEl.textContent = `$${current} / $${target}`;
+            grindBarEl.style.width = `${pct}%`;
+        }
+        
+        // 3. Earnings widget (Cockpit)
+        const earningsEl = document.getElementById('shift-earnings');
+        if (earningsEl) {
+            earningsEl.textContent = `$${Math.round(shiftEarnings)}`;
+        }
+        
+    } catch (error) {
+        console.error('Error updating progress bars:', error);
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
+// REALTIME SETUP
+// ────────────────────────────────────────────────────────────────
 
 function setupRealtime() {
-    db.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => refreshAll()).subscribe();
+    const userId = state.user.id;
+    
+    // Klausytis tik šio vartotojo duomenų
+    db.channel('user-channel')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public',
+            table: 'finance_shifts',
+            filter: `user_id=eq.${userId}`
+        }, () => refreshAll())
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public',
+            table: 'expenses',
+            filter: `user_id=eq.${userId}`
+        }, () => refreshAll())
+        .subscribe();
 }
 
-// --- EXPOSE TO WINDOW ---
+// ────────────────────────────────────────────────────────────────
+// EXPOSE TO WINDOW (Global funkcijos)
+// ────────────────────────────────────────────────────────────────
+// Kad veiktų HTML onclick="..."
+
+// Auth
 window.login = Auth.login;
 window.logout = Auth.logout;
-window.register = Auth.register;
 
+// Garage
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
 window.setVehType = Garage.setVehType;
 window.toggleTestMode = Garage.toggleTestMode;
 
+// Shifts
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
 window.confirmEnd = Shifts.confirmEnd;
 window.togglePause = Shifts.togglePause;
 
+// Finance
 window.openTxModal = Finance.openTxModal;
 window.setExpType = Finance.setExpType;
 window.confirmTx = Finance.confirmTx;
 window.exportAI = Finance.exportAI;
 
+// UI
 window.cycleTheme = UI.cycleTheme;
 window.closeModals = UI.closeModals;
 window.switchTab = UI.switchTab;
+
+// Settings
+window.openSettings = Settings.openSettings;
+window.saveSettings = Settings.saveSettings;
+
+// ────────────────────────────────────────────────────────────────
+// START
+// ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', init);

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="lt" class="light">
+<html lang="lt" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -10,7 +10,7 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#f3f4f6">
+    <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png">
 
     <title>ROBERT OS</title>
@@ -24,9 +24,6 @@
 
     <div id="toast-container" class="fixed top-4 left-4 right-4 z-[2000] flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- ════════════════════════════════════════════════════════════════ -->
-    <!-- AUTH SCREEN -->
-    <!-- ════════════════════════════════════════════════════════════════ -->
     <div id="auth-screen" class="fixed inset-0 z-[500] bg-black flex items-center justify-center p-6 hidden">
         <div class="w-full max-w-sm text-center space-y-8 animate-slideUp">
             <div class="w-20 h-20 mx-auto bg-teal-500 rounded-2xl flex items-center justify-center shadow-2xl rotate-3">
@@ -41,12 +38,8 @@
         </div>
     </div>
 
-    <!-- ════════════════════════════════════════════════════════════════ -->
-    <!-- APP CONTENT -->
-    <!-- ════════════════════════════════════════════════════════════════ -->
     <div id="app-content" class="hidden h-full flex flex-col">
         
-        <!-- HEADER -->
         <header class="global-header">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
@@ -60,7 +53,7 @@
                     <i class="fa-solid fa-gear"></i>
                 </button>
                 <button onclick="cycleTheme()" class="header-btn" id="btn-theme">
-                    <i class="fa-solid fa-sun"></i>
+                    <i class="fa-solid fa-circle-half-stroke"></i>
                 </button>
                 <button onclick="logout()" class="header-btn text-red-500">
                     <i class="fa-solid fa-power-off"></i>
@@ -68,39 +61,33 @@
             </div>
         </header>
 
-        <!-- MAIN CONTENT -->
         <main class="container flex-1 overflow-y-auto pb-24 no-scrollbar">
             
-            <!-- TAB: COCKPIT -->
             <section id="tab-cockpit" class="tab-content active space-y-4">
                 
-                <!-- COST COVERAGE BAR -->
                 <div>
                     <div class="flex justify-between items-end mb-1">
-                        <span class="label-xs ml-1 text-teal-400">COST COVERAGE</span>
+                        <span class="label-xs ml-1 text-teal-400">RENTAL COVERAGE</span>
                         <span class="text-[10px] font-bold" id="rental-val">$0 / $0</span>
                     </div>
-                    <div class="bg-gray-200 dark:bg-gray-900 h-2 rounded-full overflow-hidden w-full relative">
-                        <div id="rental-bar" class="h-full bg-teal-500 transition-all duration-500 relative shadow-glow" style="width: 0%"></div>
+                    <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
+                        <div id="rental-bar" class="h-full bg-teal-500 transition-all duration-500 relative" style="width: 0%"></div>
                     </div>
                 </div>
 
-                <!-- DAILY TARGET BAR -->
                 <div>
                     <div class="flex justify-between items-end mb-1">
-                        <span class="label-xs ml-1 text-red-400">DAILY TARGET</span>
+                        <span class="label-xs ml-1 text-red-400" id="grind-label">DAILY TARGET</span>
                         <span class="text-[10px] font-bold" id="grind-val">$0 / $0</span>
                     </div>
-                    <div class="bg-gray-200 dark:bg-gray-900 h-2 rounded-full overflow-hidden w-full relative">
-                        <div id="grind-bar" class="h-full bg-red-500 transition-all duration-500 relative shadow-glow" style="width: 0%">
+                    <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
+                        <div id="grind-bar" class="h-full bg-red-500 transition-all duration-500 relative" style="width: 0%">
                             <div class="absolute inset-0 bg-white/20 hidden" id="grind-glow"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- BENTO GRID -->
                 <div class="bento-grid">
-                    <!-- TIMER CARD -->
                     <div class="bento-card col-span-2 text-center py-6 relative overflow-hidden group">
                         <div class="absolute inset-0 bg-gradient-to-b from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <span class="label-xs relative z-10">Active Session</span>
@@ -120,21 +107,18 @@
                         </div>
                     </div>
 
-                    <!-- RUNWAY WIDGET -->
                     <div onclick="switchTab('runway')" class="bento-card clickable col-span-1 aspect-square justify-center items-center text-center">
                         <div class="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center mb-2 text-teal-500"><i class="fa-solid fa-wallet"></i></div>
                         <span class="label-xs block">Runway</span>
                         <p id="runway-months" class="val-lg mt-1">0.0 <span class="text-xs opacity-50">mo</span></p>
                     </div>
 
-                    <!-- EARNINGS WIDGET -->
                     <div onclick="switchTab('audit')" class="bento-card clickable col-span-1 aspect-square justify-center items-center text-center">
                         <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-2 text-purple-500"><i class="fa-solid fa-list-check"></i></div>
                         <span class="label-xs block">Earnings</span>
                         <p id="shift-earnings" class="val-lg text-green-400 mt-1">$0</p>
                     </div>
 
-                    <!-- TRANSACTION BUTTONS -->
                     <div class="bento-card col-span-2 flex-row items-center gap-3 p-3">
                         <button onclick="openTxModal('in')" class="btn-bento flex-1 hover:bg-green-500/10 hover:border-green-500/50"><i class="fa-solid fa-arrow-down text-green-500"></i> IN</button>
                         <div class="w-px h-8 bg-current opacity-10"></div>
@@ -143,7 +127,6 @@
                 </div>
             </section>
 
-            <!-- TAB: AUDIT -->
             <section id="tab-audit" class="tab-content hidden space-y-4">
                 <div class="flex justify-between items-center px-1">
                     <h2 class="font-bold uppercase tracking-tight">History</h2>
@@ -154,33 +137,18 @@
                 <div id="audit-list" class="space-y-2 pb-20"></div>
             </section>
 
-            <!-- TAB: RUNWAY -->
             <section id="tab-runway" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10">
-                    <h2 class="text-2xl font-bold">Runway</h2>
-                    <p class="text-xs opacity-50 mt-2">Coming Soon - Žingsnis 3</p>
-                </div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Runway</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
             </section>
-
-            <!-- TAB: FUTURE -->
             <section id="tab-future" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10">
-                    <h2 class="text-2xl font-bold">Goals</h2>
-                    <p class="text-xs opacity-50 mt-2">Coming Soon - Žingsnis 3</p>
-                </div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Goals</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
             </section>
-
-            <!-- TAB: VAULT -->
             <section id="tab-vault" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10">
-                    <h2 class="text-2xl font-bold">Vault</h2>
-                    <p class="text-xs opacity-50 mt-2">Coming Soon - Žingsnis 3</p>
-                </div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Vault</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
             </section>
 
         </main>
 
-        <!-- BOTTOM NAVIGATION -->
         <nav class="bottom-nav">
             <button onclick="switchTab('cockpit')" id="btn-cockpit" class="nav-item active"><i class="fa-solid fa-layer-group"></i><span>Home</span></button>
             <button onclick="switchTab('runway')" id="btn-runway" class="nav-item"><i class="fa-solid fa-chart-simple"></i><span>Runway</span></button>
@@ -190,9 +158,6 @@
         </nav>
     </div>
 
-    <!-- ════════════════════════════════════════════════════════════════ -->
-    <!-- MODAL: START SHIFT -->
-    <!-- ════════════════════════════════════════════════════════════════ -->
     <div id="start-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
             <h3 class="text-xl font-bold uppercase mb-4">Start Shift</h3>
@@ -206,16 +171,13 @@
                 <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-odo" class="input-field mb-2" placeholder="123456">
                 
                 <label class="label-xs ml-1">Shift Target (hours)</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-goal" class="input-field" placeholder="8 (optional)">
+                <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-goal" class="input-field" placeholder="12 (optional)">
             </div>
             <button onclick="confirmStart()" class="btn-primary-os py-4 mb-3">CONFIRM</button>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
         </div>
     </div>
 
-    <!-- ════════════════════════════════════════════════════════════════ -->
-    <!-- MODAL: END SHIFT -->
-    <!-- ════════════════════════════════════════════════════════════════ -->
     <div id="end-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
             <h3 class="text-xl font-bold uppercase mb-4">End Shift</h3>
@@ -225,8 +187,8 @@
                 
                 <label class="label-xs ml-1">Total Earnings ($)</label>
                 <input type="number" inputmode="decimal" pattern="[0-9]*" id="end-earn" class="input-field text-green-500 mb-4">
-                
-                <label class="label-xs ml-1 block mb-2">🌤️ Driving Conditions</label>
+
+                <label class="label-xs ml-1 block mb-2">Driving Conditions</label>
                 <div class="grid grid-cols-5 gap-2 mb-4">
                     <button type="button" onclick="selectWeather('sunny')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-yellow-500/20 hover:border-yellow-500/50">☀️</button>
                     <button type="button" onclick="selectWeather('rain')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-blue-500/20 hover:border-blue-500/50">🌧️</button>
@@ -241,22 +203,6 @@
         </div>
     </div>
 
-    <!-- Weather selector script -->
-    <script>
-        function selectWeather(type) {
-            document.getElementById('end-weather').value = type;
-            document.querySelectorAll('.weather-btn').forEach(btn => {
-                btn.classList.remove('bg-teal-500', 'border-teal-500', 'text-black');
-                btn.classList.add('opacity-50');
-            });
-            event.target.classList.remove('opacity-50');
-            event.target.classList.add('bg-teal-500', 'border-teal-500');
-        }
-    </script>
-
-    <!-- ════════════════════════════════════════════════════════════════ -->
-    <!-- MODAL: TRANSACTION (IN/OUT) -->
-    <!-- ════════════════════════════════════════════════════════════════ -->
     <div id="tx-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
             <h3 id="tx-title" class="text-xl font-bold uppercase mb-4">Transaction</h3>
@@ -282,9 +228,6 @@
         </div>
     </div>
 
-    <!-- ════════════════════════════════════════════════════════════════ -->
-    <!-- MODAL: GARAGE -->
-    <!-- ════════════════════════════════════════════════════════════════ -->
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
             <h3 class="text-xl font-bold uppercase mb-4 text-teal-500">Garage Management</h3>
@@ -327,16 +270,12 @@
         </div>
     </div>
 
-    <!-- ════════════════════════════════════════════════════════════════ -->
-    <!-- MODAL: SETTINGS -->
-    <!-- ════════════════════════════════════════════════════════════════ -->
     <div id="settings-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp text-center max-h-[80vh] overflow-y-auto">
-            <h3 class="text-xl font-bold uppercase mb-4 text-purple-500">⚙️ Settings</h3>
+        <div class="modal-content animate-slideUp text-center max-h-[85vh] overflow-y-auto no-scrollbar">
+            <h3 class="text-xl font-bold uppercase mb-4 text-purple-500">Settings</h3>
             
-            <!-- TIMEZONE SETTINGS -->
             <div class="text-left mb-6 border-b border-gray-800 pb-6">
-                <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">🌍 Time Zones</p>
+                <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">Time Zones</p>
                 
                 <label class="label-xs ml-1">Primary Timezone</label>
                 <select id="settings-tz-primary" class="input-field text-sm mb-3">
@@ -356,22 +295,21 @@
                 
                 <label class="label-xs ml-1">Clock Position</label>
                 <select id="settings-clock-pos" class="input-field text-sm">
-                    <option value="cockpit">Cockpit (virš laikmačio)</option>
-                    <option value="header">Header (viršuje)</option>
-                    <option value="both">Both (header + cockpit)</option>
+                    <option value="cockpit">Cockpit (Above Timer)</option>
+                    <option value="header">Header (Top Right)</option>
+                    <option value="both">Both</option>
                     <option value="hidden">Hidden</option>
                 </select>
             </div>
             
-            <!-- FINANCIAL SETTINGS -->
             <div class="text-left mb-6 border-b border-gray-800 pb-6">
-                <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">💰 Finansai</p>
+                <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">Financials</p>
                 
                 <label class="label-xs ml-1">Monthly Fixed Expenses ($)</label>
-                <input type="number" inputmode="decimal" id="settings-fixed-expenses" class="input-field mb-3" placeholder="2500">
+                <input type="number" inputmode="decimal" id="settings-fixed-expenses" class="input-field mb-3" placeholder="0">
                 
                 <label class="label-xs ml-1">Weekly Rental Cost ($)</label>
-                <input type="number" inputmode="decimal" id="settings-rental-cost" class="input-field mb-3" placeholder="350">
+                <input type="number" inputmode="decimal" id="settings-rental-cost" class="input-field mb-3" placeholder="0">
                 
                 <label class="label-xs ml-1">Rental Week Starts On</label>
                 <select id="settings-rental-start-day" class="input-field text-sm">
@@ -385,30 +323,28 @@
                 </select>
             </div>
             
-            <!-- WORK SETTINGS -->
             <div class="text-left mb-6 border-b border-gray-800 pb-6">
-                <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">⏰ Darbo Nustatymai</p>
+                <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">Work</p>
                 
                 <label class="label-xs ml-1">Default Shift Target (hours)</label>
                 <input type="number" inputmode="decimal" id="settings-shift-target" class="input-field mb-3" placeholder="12">
                 
-                <label class="flex items-center gap-3 cursor-pointer p-3 border border-gray-700 rounded-lg mb-2">
-                    <input type="checkbox" id="settings-notifications" class="w-5 h-5 rounded">
+                <label class="flex items-center gap-3 cursor-pointer p-3 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors">
+                    <input type="checkbox" id="settings-notifications" class="w-5 h-5 rounded accent-teal-500">
                     <div>
-                        <span class="text-sm font-bold block">Notifications</span>
+                        <span class="text-sm font-bold block text-white">Notifications</span>
                         <span class="text-xs text-gray-500">Enable shift reminders</span>
                     </div>
                 </label>
             </div>
             
-            <!-- UI SETTINGS -->
             <div class="text-left mb-6">
-                <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">🎨 UI Nustatymai</p>
+                <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">Interface</p>
                 
-                <label class="flex items-center gap-3 cursor-pointer p-3 border border-gray-700 rounded-lg">
-                    <input type="checkbox" id="settings-compact-mode" class="w-5 h-5 rounded">
+                <label class="flex items-center gap-3 cursor-pointer p-3 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors">
+                    <input type="checkbox" id="settings-compact-mode" class="w-5 h-5 rounded accent-teal-500">
                     <div>
-                        <span class="text-sm font-bold block">Compact Mode</span>
+                        <span class="text-sm font-bold block text-white">Compact Mode</span>
                         <span class="text-xs text-gray-500">Smaller UI elements</span>
                     </div>
                 </label>
@@ -419,13 +355,23 @@
         </div>
     </div>
 
-    <!-- LOADING INDICATOR -->
     <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold">SYNCING...</div>
 
-    <!-- SCRIPTS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="js/app.js?v=1.2"></script>
+    <script type="module" src="js/app.js?v=2"></script>
     
+    <script>
+        function selectWeather(type) {
+            document.getElementById('end-weather').value = type;
+            document.querySelectorAll('.weather-btn').forEach(btn => {
+                btn.classList.remove('bg-teal-500', 'border-teal-500', 'text-black');
+                btn.classList.add('opacity-50');
+            });
+            event.currentTarget.classList.remove('opacity-50');
+            event.currentTarget.classList.add('bg-teal-500', 'border-teal-500', 'text-black');
+        }
+    </script>
+
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

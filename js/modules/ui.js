@@ -5,10 +5,8 @@ let currentTheme = localStorage.getItem('theme') || 'auto';
 
 export function applyTheme() {
     const html = document.documentElement;
-    const themeBtn = document.getElementById('btn-theme');
-    let isDark = currentTheme === 'dark' || (currentTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const isDark = currentTheme === 'dark' || (currentTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     html.classList.toggle('dark', isDark);
-    if (themeBtn) themeBtn.innerHTML = `<i class="fa-solid fa-${currentTheme === 'dark' ? 'moon' : currentTheme === 'light' ? 'sun' : 'circle-half-stroke'}"></i>`;
 }
 
 export function cycleTheme() {
@@ -16,44 +14,39 @@ export function cycleTheme() {
     currentTheme = currentTheme === 'auto' ? 'dark' : currentTheme === 'dark' ? 'light' : 'auto';
     localStorage.setItem('theme', currentTheme);
     applyTheme();
+    showToast(`Theme: ${currentTheme.toUpperCase()}`, 'info');
 }
 
 export function updateDualClocks() {
-    const chiEl = document.getElementById('clock-chi');
-    const ltEl = document.getElementById('clock-lt');
-    if (!chiEl || !ltEl) return;
-
-    const options = { hour: '2-digit', minute: '2-digit', hour12: false };
-    chiEl.textContent = new Date().toLocaleTimeString('en-GB', { ...options, timeZone: 'America/Chicago' });
-    ltEl.textContent = new Date().toLocaleTimeString('en-GB', { ...options, timeZone: 'Europe/Vilnius' });
+    const c = document.getElementById('clock-chi');
+    const l = document.getElementById('clock-lt');
+    if (!c || !l) return;
+    const n = new Date();
+    const opts = { hour: '2-digit', minute: '2-digit', hour12: false };
+    c.textContent = n.toLocaleTimeString('en-GB', { ...opts, timeZone: 'America/Chicago' });
+    l.textContent = n.toLocaleTimeString('en-GB', { ...opts, timeZone: 'Europe/Vilnius' });
 }
 
 export function updateUI(key) {
+    if (key === 'loading') document.getElementById('loading')?.classList.toggle('hidden', !state.loading);
     if (key === 'activeShift') {
-        const hasShift = !!state.activeShift;
-        document.getElementById('btn-start')?.classList.toggle('hidden', hasShift);
-        document.getElementById('active-controls')?.classList.toggle('hidden', !hasShift);
-        window.dispatchEvent(new CustomEvent('shiftStateChanged', { detail: hasShift }));
+        const hasS = !!state.activeShift;
+        document.getElementById('btn-start')?.classList.toggle('hidden', hasS);
+        document.getElementById('active-controls')?.classList.toggle('hidden', !hasS);
+        window.dispatchEvent(new CustomEvent('shiftStateChanged', { detail: hasS }));
     }
 }
 
 export function updateGrindBar() {
-    const monthlyFixed = 2500; 
-    let vehicleCost = 0;
-    if (state.activeShift) {
-        const v = state.fleet.find(f => f.id === state.activeShift.vehicle_id);
-        if (v) vehicleCost = v.operating_cost_weekly / 7;
-    }
-    const target = state.targetMoney || (monthlyFixed / 30) + vehicleCost;
+    const target = state.targetMoney || 350; 
     const current = state.shiftEarnings || 0;
-    const elVal = document.getElementById('grind-val');
-    const elBar = document.getElementById('grind-bar');
-
-    if(elVal) elVal.textContent = `$${Math.round(current)} / $${Math.round(target)}`;
+    const elV = document.getElementById('grind-val');
+    const elB = document.getElementById('grind-bar');
+    if(elV) elV.textContent = `$${Math.round(current)} / $${Math.round(target)}`;
     const pct = Math.min((current / target) * 100, 100);
-    if(elBar) {
-        elBar.style.width = `${pct}%`;
-        elBar.className = `h-full transition-all duration-500 ${pct >= 100 ? 'bg-green-500' : 'bg-red-500'}`;
+    if(elB) {
+        elB.style.width = `${pct}%`;
+        elB.className = `h-full transition-all duration-500 ${pct >= 100 ? 'bg-green-500' : 'bg-teal-500'}`;
     }
 }
 

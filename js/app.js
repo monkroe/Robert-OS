@@ -18,7 +18,7 @@ async function refreshData() {
             .eq('status', 'active')
             .maybeSingle();
 
-        // 2. Gauname automobilį (jei yra aktyvi pamaina)
+        // 2. Gauname automobilį
         let activeVehicle = null;
         if (active?.vehicle_id) {
             const { data: v } = await supabase
@@ -29,7 +29,7 @@ async function refreshData() {
             activeVehicle = v;
         }
 
-        // 3. Gauname šiandienos statistiką (Pajamos)
+        // 3. Šiandienos statistika (skaičiuojame pabaigtas pamainas)
         const today = new Date();
         today.setHours(0,0,0,0);
         
@@ -41,62 +41,86 @@ async function refreshData() {
 
         const earnedToday = todayShifts?.reduce((sum, s) => sum + (s.gross_earnings || 0), 0) || 0;
 
-        // 4. Gauname garažą (automobilius)
+        // 4. Garažas
         const { data: fleet } = await supabase
             .from('vehicles')
             .select('*')
             .eq('user_id', state.user.id);
 
-        // 5. Atnaujiname globalią būseną (State)
+        // 5. State atnaujinimas
         state.activeShift = active;
         state.activeVehicle = activeVehicle;
         state.fleet = fleet || [];
         state.stats.today = earnedToday;
 
-        // 6. UI Atnaujinimas
+        // 6. UI atnaujinimas
         updateUI('all');
-        refreshAudit(); // Atnaujiname istorijos sąrašą
+        refreshAudit();
 
-        // Valdome laikmatį
-        if (active) {
-            startTimer();
-        } else {
-            stopTimer();
-        }
+        if (active) startTimer();
+        else stopTimer();
 
     } catch (e) {
         console.error("Klaida refreshData:", e);
     }
 }
 
+// --- AUTENTIFIKACIJA ---
+async function handleLogin() {
+    const email = document.getElementById('auth-email').value;
+    const pass = document.getElementById('auth-pass').value;
+    
+    if (!email || !pass) return showToast('Įveskite duomenis', 'error');
+    
+    document.getElementById('loading-overlay')?.classList.remove('hidden');
+    
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    
+    if (error) {
+        showToast(error.message, 'error');
+        document.getElementById('loading-overlay')?.classList.add('hidden');
+    } else {
+        location.reload(); // Saugiausia tiesiog perkrauti po login
+    }
+}
+
+async function handleLogout() {
+    await supabase.auth.signOut();
+    location.reload();
+}
+
 // --- PROGRAMĖLĖS STARTAS ---
 async function initApp() {
-    // Tikriname sesiją
     const { data: { session } } = await supabase.auth.getSession();
     
+    const authScreen = document.getElementById('auth-screen');
+    const appContent = document.getElementById('app-content');
+
     if (!session) {
-        // Jei nėra sesijos, nukreipiame į login (jei turi tokį puslapį)
-        // window.location.href = 'login.html';
-        console.log("Vartotojas neprisijungęs");
+        // Rodyti Login ekraną
+        authScreen?.classList.remove('hidden');
+        appContent?.classList.add('hidden');
+        
+        // Prikergiame prisijungimo mygtuką
+        document.getElementById('btn-login')?.addEventListener('click', handleLogin);
         return;
     }
 
+    // Vartotojas prisijungęs
     state.user = session.user;
+    authScreen?.classList.add('hidden');
+    appContent?.classList.remove('hidden');
 
-    // Paleidžiame laikrodžius (CST / LT)
+    // Globalios funkcijos (kad veiktų senas onclick="logout()")
+    window.logout = handleLogout;
+
     initClocks();
-
-    // Pirminis duomenų užkrovimas
     await refreshData();
 
-    // Klausomės signalų iš kitų modulių (pvz., kai baigiama pamaina)
     window.addEventListener('refresh-data', refreshData);
-
-    // Automatinis atnaujinimas kas 30s (tik pajamoms ir būsenai fone)
     setInterval(refreshData, 30000);
 }
 
-// Paleidžiame viską, kai DOM paruoštas
 document.addEventListener('DOMContentLoaded', initApp);
 
 export { refreshData };

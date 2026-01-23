@@ -43,14 +43,14 @@ export async function confirmTx() {
             });
             showToast('Išlaida įrašyta', 'success');
         } else {
-            // JEI YRA AKTYVI PAMAINA (NET IR PAUSE) - pridedame prie jos
             if (state.activeShift) {
+                // Pridedame prie aktyvios pamainos
                 await db.from('finance_shifts').update({ [type]: (state.activeShift[type] || 0) + amt }).eq('id', state.activeShift.id);
-                showToast('Pajamos pridėtos prie pamainos!', 'success');
+                showToast('Pajamos pridėtos!', 'success');
             } else {
-                // JEI NĖRA PAMAINOS - sukuriam savarankišką įrašą (kad neblokuotų)
+                // Jei pamainos nėra - įrašom kaip bendras pajamas į expenses
                 await db.from('expenses').insert({ type: 'INCOME_' + type.toUpperCase(), amount: amt });
-                showToast('Pajamos įrašytos (be pamainos)', 'success');
+                showToast('Pajamos įrašytos', 'success');
             }
         }
         closeModals();
@@ -108,20 +108,20 @@ export async function refreshAudit() {
                     </div>
                     <p class="font-mono font-bold text-lg ${item.is_income ? 'text-green-500' : 'text-red-400'}">$${item.amount}</p>
                 </button>
-                <button onclick="window.editItem('${item.id}')" class="p-2 text-gray-600 hover:text-teal-400">✏️</button>
+                <button onclick="window.editItem('${item.id}')" class="p-2 text-gray-500 hover:text-teal-400">✏️</button>
             </div>
             ${isS ? `
             <div class="hidden bg-white/[0.02] border-t border-white/5 p-4 space-y-4 animate-slideUp text-white">
                 <div class="grid grid-cols-2 gap-y-3 text-[11px]">
-                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold">Laikas</span>${item.meta.interval}</div>
-                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold">Auto</span>${item.data.vehicles?.name || '--'}</div>
-                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold">Rida</span>${item.meta.miles} mi</div>
-                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold">$/mi</span>$${item.meta.efficiency}</div>
+                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold font-black">Laikas</span>${item.meta.interval}</div>
+                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold font-black">Auto</span>${item.data.vehicles?.name || '--'}</div>
+                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold font-black">Rida</span>${item.meta.miles} mi</div>
+                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold font-black">$/mi</span>$${item.meta.efficiency}</div>
                 </div>
                 <div class="border-t border-white/5 pt-3 flex justify-between text-[10px] font-mono">
-                    <span>App: $${item.data.income_app}</span>
-                    <span>Tips: $${item.data.income_cash}</span>
-                    <span>Priv: $${item.data.income_private}</span>
+                    <span class="text-green-500">App: $${item.data.income_app}</span>
+                    <span class="text-yellow-500">Tips: $${item.data.income_cash}</span>
+                    <span class="text-blue-500">Priv: $${item.data.income_private}</span>
                 </div>
             </div>` : ''}
         </div>`;
@@ -142,7 +142,7 @@ function setupHistoryEvents() {
         if(document.getElementById('hist-sel-count')) document.getElementById('hist-sel-count').textContent = count;
     }
     deleteBtn.onclick = async () => {
-        if(!confirm('Delete selected?')) return;
+        if(!confirm('Ištrinti pasirinktus?')) return;
         state.loading = true;
         try {
             const sel = Array.from(document.querySelectorAll('.hist-checkbox:checked')).map(cb => ({ id: cb.dataset.id, table: cb.dataset.table }));

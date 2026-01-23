@@ -36,7 +36,7 @@
                 </div>
             </div>
             <div class="flex gap-2">
-                <button onclick="openGarage()" class="header-btn text-teal-500 border border-teal-500/30 bg-teal-500/10"><i class="fa-solid fa-car"></i></button>
+                <button onclick="openGarage()" class="header-btn text-teal-500"><i class="fa-solid fa-car"></i></button>
                 <button onclick="cycleTheme()" class="header-btn" id="btn-theme"><i class="fa-solid fa-circle-half-stroke"></i></button>
                 <button onclick="logout()" class="header-btn text-red-500"><i class="fa-solid fa-power-off"></i></button>
             </div>
@@ -56,7 +56,7 @@
 
                 <div class="bento-grid">
                     <div class="bento-card col-span-2 text-center py-6">
-                        <span class="label-xs text-gray-500 uppercase">Active Session</span>
+                        <span class="label-xs text-gray-500 uppercase font-black">Active Session</span>
                         <h2 id="shift-timer" class="val-timer my-2 text-white">00:00:00</h2>
                         <div id="shift-controls" class="mt-4">
                             <button id="btn-start" onclick="openStartModal()" class="btn-primary-os py-3 uppercase">Start Shift</button>
@@ -69,7 +69,7 @@
 
                     <div onclick="switchTab('audit')" class="bento-card clickable col-span-1 justify-center items-center text-center">
                         <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-2 text-purple-500"><i class="fa-solid fa-clock-rotate-left"></i></div>
-                        <span class="label-xs">EARNINGS</span>
+                        <span class="label-xs">ISTORIJA</span>
                         <p id="shift-earnings" class="val-lg text-green-400 mt-1 font-mono">$0</p>
                     </div>
 
@@ -88,7 +88,7 @@
 
             <section id="tab-audit" class="tab-content hidden space-y-4">
                 <div class="flex justify-between items-center px-1">
-                    <h2 class="font-bold uppercase text-white tracking-widest">Logbook</h2>
+                    <h2 class="font-bold uppercase text-white tracking-widest">Istorija</h2>
                     <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/20 text-purple-400 px-3 py-1.5 rounded-lg border border-purple-500/30 uppercase">Export</button>
                 </div>
                 <div id="audit-list" class="space-y-3 pb-20"></div>
@@ -112,6 +112,44 @@
             <button onclick="switchTab('vault')" id="btn-vault" class="nav-item"><i class="fa-solid fa-vault"></i><span>Vault</span></button>
             <button onclick="switchTab('audit')" id="btn-audit" class="nav-item"><i class="fa-solid fa-clock-rotate-left"></i><span>Log</span></button>
         </nav>
+    </div>
+
+    <div id="start-modal" class="modal-overlay hidden">
+        <div class="modal-content text-center">
+            <h3 class="text-xl font-bold uppercase mb-4 text-white font-black">Pradėti darbą</h3>
+            <div class="text-left space-y-4 mb-6">
+                <div><label class="label-xs">Automobilis</label><select id="start-vehicle" class="input-field text-white"></select></div>
+                <div><label class="label-xs">Pradinė rida</label><input type="number" inputmode="decimal" id="start-odo" class="input-field text-white font-mono" placeholder="123456"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="label-xs">Tikslas ($)</label><input type="number" id="start-money-target" class="input-field text-sm text-white font-mono" placeholder="300"></div>
+                    <div><label class="label-xs">Trukmė (h)</label><input type="number" id="start-time-target" class="input-field text-sm text-white font-mono" placeholder="8"></div>
+                </div>
+            </div>
+            <button onclick="confirmStart()" class="btn-primary-os py-4 font-black uppercase">Patvirtinti</button>
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-40 py-4 w-full text-white">Atšaukti</button>
+        </div>
+    </div>
+
+    <div id="end-modal" class="modal-overlay hidden">
+        <div class="modal-content text-center">
+            <h3 class="text-xl font-bold uppercase mb-4 text-white font-black">Baigti pamainą</h3>
+            <div class="text-left space-y-4 mb-6">
+                <div><label class="label-xs text-teal-500">Pabaigos rida</label><input type="number" inputmode="decimal" id="end-odo" class="input-field text-white font-mono"></div>
+                <div><label class="label-xs text-green-500">Uber Pajamos ($)</label><input type="number" inputmode="decimal" id="end-earn" class="input-field text-white font-mono" placeholder="0.00"></div>
+                <div>
+                    <label class="label-xs">Vairavimo sąlygos</label>
+                    <div class="grid grid-cols-5 gap-2 mt-1">
+                        <button onclick="window.setWeather('sunny', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-sun text-yellow-500"></i></button>
+                        <button onclick="window.setWeather('rain', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-cloud-rain text-blue-400"></i></button>
+                        <button onclick="window.setWeather('snow', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-snowflake text-blue-200"></i></button>
+                        <button onclick="window.setWeather('ice', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-icicles text-cyan-300"></i></button>
+                        <button onclick="window.setWeather('fog', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-smog text-gray-400"></i></button>
+                    </div>
+                </div>
+            </div>
+            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 font-black uppercase tracking-widest">Uždaryti pamainą</button>
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-40 py-4 w-full text-white">Atšaukti</button>
+        </div>
     </div>
 
     <div id="tx-modal" class="modal-overlay hidden">
@@ -140,7 +178,7 @@
 
     <div id="edit-modal-dynamic" class="modal-overlay hidden">
         <div class="modal-content text-center">
-            <h3 class="text-xl font-bold uppercase mb-2 text-white font-black tracking-tighter">Redaguoti įrašą</h3>
+            <h3 class="text-xl font-bold uppercase mb-2 text-white font-black tracking-tighter">Redaguoti</h3>
             <p id="edit-subtitle" class="text-[10px] text-gray-500 uppercase mb-6 font-mono font-bold"></p>
             <div class="text-left space-y-4 mb-8">
                 <div><label class="label-xs" id="edit-main-label">Suma ($)</label><input type="number" id="edit-val" class="input-field text-2xl text-center text-white font-mono"></div>
@@ -156,47 +194,9 @@
         </div>
     </div>
 
-    <div id="start-modal" class="modal-overlay hidden">
-        <div class="modal-content text-center">
-            <h3 class="text-xl font-bold uppercase mb-4 text-white font-black">Pradėti darbą</h3>
-            <div class="text-left space-y-4 mb-6">
-                <div><label class="label-xs">Automobilis</label><select id="start-vehicle" class="input-field text-white"></select></div>
-                <div><label class="label-xs">Pradinė rida</label><input type="number" inputmode="decimal" id="start-odo" class="input-field text-white font-mono" placeholder="123456"></div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="label-xs">Tikslas ($)</label><input type="number" id="start-money-target" class="input-field text-sm text-white font-mono" placeholder="300"></div>
-                    <div><label class="label-xs">Trukmė (h)</label><input type="number" id="start-time-target" class="input-field text-sm text-white font-mono" placeholder="8"></div>
-                </div>
-            </div>
-            <button onclick="confirmStart()" class="btn-primary-os py-4 font-black uppercase">Patvirtinti</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-40 py-4 w-full text-white">Atšaukti</button>
-        </div>
-    </div>
-
-    <div id="end-modal" class="modal-overlay hidden">
-        <div class="modal-content text-center">
-            <h3 class="text-xl font-bold uppercase mb-4 text-white font-black">Baigti pamainą</h3>
-            <div class="text-left space-y-4 mb-6">
-                <div><label class="label-xs text-teal-500">Pabaigos rida</label><input type="number" inputmode="decimal" id="end-odo" class="input-field text-white font-mono"></div>
-                <div><label class="label-xs text-green-500">Uber Pajamos ($)</label><input type="number" inputmode="decimal" id="end-earn" class="input-field text-white font-mono" placeholder="0.00"></div>
-                <div>
-                    <label class="label-xs">Vairavimo sąlygos</label>
-                    <div class="grid grid-cols-5 gap-2 mt-1" id="weather-selector">
-                        <button onclick="window.setWeather('sunny', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-sun text-yellow-500"></i></button>
-                        <button onclick="window.setWeather('rain', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-cloud-rain text-blue-400"></i></button>
-                        <button onclick="window.setWeather('snow', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-snowflake text-blue-200"></i></button>
-                        <button onclick="window.setWeather('ice', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-icicles text-cyan-300"></i></button>
-                        <button onclick="window.setWeather('fog', this)" class="weather-btn p-3 rounded-xl border border-white/10"><i class="fa-solid fa-smog text-gray-400"></i></button>
-                    </div>
-                </div>
-            </div>
-            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 font-black uppercase tracking-widest">Uždaryti pamainą</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-40 py-4 w-full text-white">Atšaukti</button>
-        </div>
-    </div>
-
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content text-center">
-            <h3 class="text-xl font-bold uppercase mb-6 text-teal-500 font-black">Garažas</h3>
+            <h3 class="text-xl font-bold uppercase mb-6 text-teal-500 font-black font-black">Garažas</h3>
             <div id="garage-list" class="space-y-2 max-h-48 overflow-y-auto no-scrollbar mb-6"></div>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-40 py-4 w-full text-white">Uždaryti</button>
         </div>

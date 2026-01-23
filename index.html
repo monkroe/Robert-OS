@@ -65,8 +65,8 @@
                 
                 <div>
                     <div class="flex justify-between items-end mb-1">
-                        <span class="label-xs ml-1 text-red-400" id="grind-label">COST COVERAGE</span>
-                        <span class="text-[10px] font-bold" id="grind-val">$0 / $0</span>
+                        <span class="label-xs ml-1 text-red-400" id="grind-label">DIENOS PROGRESAS</span>
+                        <span class="text-[10px] font-bold text-white" id="grind-val">$0 / $0</span>
                     </div>
                     <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
                         <div id="grind-bar" class="h-full bg-red-500 transition-all duration-500 relative" style="width: 0%">
@@ -77,9 +77,8 @@
 
                 <div class="bento-grid">
                     <div class="bento-card col-span-2 text-center py-6 relative overflow-hidden group">
-                        <div class="absolute inset-0 bg-gradient-to-b from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <span class="label-xs relative z-10">Active Session</span>
-                        <h2 id="shift-timer" class="val-timer my-2 relative z-10">00:00:00</h2>
+                        <span class="label-xs relative z-10 text-gray-500">PAMAINOS TRUKMĖ</span>
+                        <h2 id="shift-timer" class="val-timer my-2 relative z-10 text-white">00:00:00</h2>
                         
                         <div id="shift-controls" class="mt-4 relative z-10">
                             <button id="btn-start" onclick="openStartModal()" class="btn-primary-os py-3"><i class="fa-solid fa-play mr-2"></i> START SHIFT</button>
@@ -89,7 +88,7 @@
                                     <i class="fa-solid fa-pause"></i>
                                 </button>
                                 <button onclick="openEndModal()" class="col-span-3 btn-primary-os bg-red-500 text-white shadow-red-500/20 py-3">
-                                    <i class="fa-solid fa-stop mr-2"></i> END
+                                    <i class="fa-solid fa-stop mr-2"></i> END SHIFT
                                 </button>
                             </div>
                         </div>
@@ -98,41 +97,41 @@
                     <div onclick="switchTab('runway')" class="bento-card clickable col-span-1 aspect-square justify-center items-center text-center">
                         <div class="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center mb-2 text-teal-500"><i class="fa-solid fa-wallet"></i></div>
                         <span class="label-xs block">Runway</span>
-                        <p id="runway-months" class="val-lg mt-1">0.0 <span class="text-xs opacity-50">mo</span></p>
+                        <p id="runway-months" class="val-lg mt-1 text-white font-mono">0.0 <span class="text-xs opacity-50">mo</span></p>
                     </div>
 
                     <div onclick="switchTab('audit')" class="bento-card clickable col-span-1 aspect-square justify-center items-center text-center">
                         <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-2 text-purple-500"><i class="fa-solid fa-list-check"></i></div>
-                        <span class="label-xs block">Earnings</span>
-                        <p id="shift-earnings" class="val-lg text-green-400 mt-1">$0</p>
+                        <span class="label-xs block">Šiandien</span>
+                        <p id="shift-earnings" class="val-lg text-green-400 mt-1 font-mono">$0</p>
                     </div>
 
                     <div class="bento-card col-span-2 flex-row items-center gap-3 p-3">
-                        <button onclick="openTxModal('in')" class="btn-bento flex-1 hover:bg-green-500/10 hover:border-green-500/50"><i class="fa-solid fa-arrow-down text-green-500"></i> IN</button>
-                        <div class="w-px h-8 bg-current opacity-10"></div>
-                        <button onclick="openTxModal('out')" class="btn-bento flex-1 hover:bg-red-500/10 hover:border-red-500/50"><i class="fa-solid fa-arrow-up text-red-500"></i> OUT</button>
+                        <button onclick="openTxModal('in')" class="btn-bento flex-1 hover:bg-green-500/10 hover:border-green-500/50 text-white font-bold"><i class="fa-solid fa-arrow-down text-green-500"></i> PAJAMOS</button>
+                        <div class="w-px h-8 bg-white opacity-10"></div>
+                        <button onclick="openTxModal('out')" class="btn-bento flex-1 hover:bg-red-500/10 hover:border-red-500/50 text-white font-bold"><i class="fa-solid fa-arrow-up text-red-500"></i> IŠLAIDOS</button>
                     </div>
                 </div>
             </section>
 
             <section id="tab-audit" class="tab-content hidden space-y-4">
                 <div class="flex justify-between items-center px-1">
-                    <h2 class="font-bold uppercase tracking-tight">History</h2>
+                    <h2 class="font-bold uppercase tracking-tight text-white">Istorija</h2>
                     <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/20 text-purple-400 px-3 py-1.5 rounded-lg border border-purple-500/30 flex items-center gap-2">
-                        <i class="fa-solid fa-robot"></i> EXPORT
+                        <i class="fa-solid fa-robot"></i> AI EXPORT
                     </button>
                 </div>
                 <div id="audit-list" class="space-y-2 pb-20"></div>
             </section>
 
             <section id="tab-runway" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Runway</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold text-white">Runway</h2><p class="text-xs opacity-50 mt-2 text-gray-400">Coming Soon</p></div>
             </section>
             <section id="tab-future" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Goals</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold text-white">Goals</h2><p class="text-xs opacity-50 mt-2 text-gray-400">Coming Soon</p></div>
             </section>
             <section id="tab-vault" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Vault</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
+                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold text-white">Vault</h2><p class="text-xs opacity-50 mt-2 text-gray-400">Coming Soon</p></div>
             </section>
 
         </main>
@@ -148,132 +147,120 @@
 
     <div id="start-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4">Start Shift</h3>
-            <div class="text-left mb-4">
-                <label class="label-xs ml-1">Vehicle</label>
-                <select id="start-vehicle" class="input-field text-sm mb-4 h-12">
-                    <option value="">Loading fleet...</option>
-                </select>
-                
-                <label class="label-xs ml-1">Start Odometer</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-odo" class="input-field mb-4" placeholder="123456">
-                
-                <div class="grid grid-cols-2 gap-3 mb-4">
+            <h3 class="text-xl font-bold uppercase mb-4 text-white">Pradėti pamainą</h3>
+            <div class="text-left mb-4 space-y-4">
+                <div>
+                    <label class="label-xs ml-1">Automobilis</label>
+                    <select id="start-vehicle" class="input-field text-sm h-12 text-white"></select>
+                </div>
+                <div>
+                    <label class="label-xs ml-1">Pradinė rida</label>
+                    <input type="number" inputmode="decimal" id="start-odo" class="input-field text-white" placeholder="123456">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="label-xs ml-1">Tikslas ($)</label>
-                        <input type="number" id="start-money-target" class="input-field text-sm" placeholder="Pvz. 300">
+                        <input type="number" id="start-money-target" class="input-field text-sm text-white" placeholder="Pvz. 300">
                     </div>
                     <div>
-                        <label class="label-xs ml-1">Valandos (h)</label>
-                        <input type="number" id="start-time-target" class="input-field text-sm" placeholder="Pvz. 8">
+                        <label class="label-xs ml-1">Trukmė (h)</label>
+                        <input type="number" id="start-time-target" class="input-field text-sm text-white" placeholder="Pvz. 8">
                     </div>
                 </div>
             </div>
-            <button onclick="confirmStart()" class="btn-primary-os py-4 mb-3">CONFIRM</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+            <button onclick="confirmStart()" class="btn-primary-os py-4 mb-3">PATVIRTINTI</button>
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full text-gray-400">Atšaukti</button>
         </div>
     </div>
 
     <div id="end-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4">End Shift</h3>
-            <div class="text-left mb-4">
-                <label class="label-xs ml-1 text-teal-500 font-bold">End Odometer</label>
-                <input type="number" inputmode="decimal" id="end-odo" class="input-field mb-4">
-                
-                <label class="label-xs ml-1 text-green-500 font-bold">Uber / App Income ($)</label>
-                <input type="number" inputmode="decimal" id="end-earn" class="input-field mb-4" placeholder="0.00">
-
-                <label class="label-xs ml-1">Vairavimo sąlygos</label>
-                <div class="grid grid-cols-5 gap-2 mb-4">
-                    <button onclick="state.currentWeather='sunny'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-yellow-500/20"><i class="fa-solid fa-sun text-yellow-500"></i></button>
-                    <button onclick="state.currentWeather='rain'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-blue-500/20"><i class="fa-solid fa-cloud-rain text-blue-400"></i></button>
-                    <button onclick="state.currentWeather='snow'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-white/20"><i class="fa-solid fa-snowflake"></i></button>
-                    <button onclick="state.currentWeather='ice'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-cyan-500/20"><i class="fa-solid fa-icicles text-cyan-300"></i></button>
-                    <button onclick="state.currentWeather='fog'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-gray-500/20"><i class="fa-solid fa-smog text-gray-400"></i></button>
+            <h3 class="text-xl font-bold uppercase mb-4 text-white">Baigti pamainą</h3>
+            <div class="text-left mb-4 space-y-4">
+                <div>
+                    <label class="label-xs ml-1 text-teal-500 font-bold">Pabaigos rida</label>
+                    <input type="number" inputmode="decimal" id="end-odo" class="input-field text-white">
+                </div>
+                <div>
+                    <label class="label-xs ml-1 text-green-500 font-bold">Uber / App Pajamos ($)</label>
+                    <input type="number" inputmode="decimal" id="end-earn" class="input-field text-white" placeholder="0.00">
+                </div>
+                <div>
+                    <label class="label-xs ml-1">Vairavimo sąlygos</label>
+                    <div class="grid grid-cols-5 gap-2 mt-1" id="weather-selector">
+                        <button onclick="state.currentWeather='sunny'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-sun text-yellow-500"></i></button>
+                        <button onclick="state.currentWeather='rain'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-cloud-rain text-blue-400"></i></button>
+                        <button onclick="state.currentWeather='snow'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-snowflake text-blue-200"></i></button>
+                        <button onclick="state.currentWeather='ice'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-icicles text-cyan-300"></i></button>
+                        <button onclick="state.currentWeather='fog'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-smog text-gray-400"></i></button>
+                    </div>
                 </div>
             </div>
-            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 mb-3">FINISH</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 mb-3 shadow-red-500/20">UŽDARYTI PAMAINĄ</button>
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full text-gray-400">Atšaukti</button>
         </div>
     </div>
 
     <div id="tx-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 id="tx-title" class="text-xl font-bold uppercase mb-4">Transaction</h3>
-            <input type="number" inputmode="decimal" pattern="[0-9]*" id="tx-amount" class="input-field text-3xl mb-4 text-center" placeholder="$0.00">
+            <h3 id="tx-title" class="text-xl font-bold uppercase mb-4 text-white">Transaction</h3>
+            <input type="number" inputmode="decimal" id="tx-amount" class="input-field text-3xl mb-4 text-center text-white" placeholder="$0.00">
             
+            <div id="income-types" class="grid grid-cols-3 gap-2 mb-4 hidden">
+                <button onclick="window.setExpType('income_app', this)" class="tx-type-btn p-2 border border-white/10 rounded-lg text-[10px] font-bold uppercase text-gray-400">Uber/App</button>
+                <button onclick="window.setExpType('income_private', this)" class="tx-type-btn p-2 border border-white/10 rounded-lg text-[10px] font-bold uppercase text-gray-400">Private</button>
+                <button onclick="window.setExpType('income_cash', this)" class="tx-type-btn p-2 border border-white/10 rounded-lg text-[10px] font-bold uppercase text-gray-400">Tips</button>
+            </div>
+
             <div id="expense-types" class="grid grid-cols-3 gap-2 mb-4 hidden">
-                <button onclick="setExpType('fuel')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">Fuel</button>
-                <button onclick="setExpType('food')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">Food</button>
-                <button onclick="setExpType('other')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">Other</button>
+                <button onclick="window.setExpType('fuel', this)" class="tx-type-btn p-2 border border-white/10 rounded-lg text-[10px] font-bold uppercase text-gray-400">Fuel</button>
+                <button onclick="window.setExpType('food', this)" class="tx-type-btn p-2 border border-white/10 rounded-lg text-[10px] font-bold uppercase text-gray-400">Food</button>
+                <button onclick="window.setExpType('other', this)" class="tx-type-btn p-2 border border-white/10 rounded-lg text-[10px] font-bold uppercase text-gray-400">Other</button>
             </div>
-            <input type="hidden" id="tx-type" value="other">
+            <input type="hidden" id="tx-type" value="">
 
-            <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">
-                <div><label class="label-xs">Gallons</label><input type="number" inputmode="decimal" id="tx-gal" class="input-field text-sm"></div>
-                <div><label class="label-xs">Odometer</label><input type="number" inputmode="decimal" id="tx-odo" class="input-field text-sm"></div>
+            <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left animate-slideUp">
+                <div><label class="label-xs">Litriai</label><input type="number" inputmode="decimal" id="tx-gal" class="input-field text-sm text-white"></div>
+                <div><label class="label-xs">Rida</label><input type="number" inputmode="decimal" id="tx-odo" class="input-field text-sm text-white"></div>
             </div>
 
-            <button onclick="confirmTx()" class="btn-primary-os py-4 mb-3">SAVE</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+            <button onclick="confirmTx()" class="btn-primary-os py-4 mb-3">IŠSAUGOTI</button>
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full text-gray-400">Atšaukti</button>
         </div>
     </div>
 
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4 text-teal-500">Garage Management</h3>
-            
-            <div class="text-left space-y-3 mb-6 border-b border-gray-800 pb-6">
-                <p class="text-[10px] font-bold text-gray-500 uppercase">Add New</p>
-                
-                <div>
-                    <input type="text" id="veh-name" class="input-field" placeholder="Vehicle Name (e.g. Kia Forte)">
-                </div>
-
+            <h3 class="text-xl font-bold uppercase mb-4 text-teal-500">Garažas</h3>
+            <div class="text-left space-y-3 mb-6 border-b border-white/10 pb-6">
+                <input type="text" id="veh-name" class="input-field text-white" placeholder="Pavadinimas">
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn btn-bento bg-teal-500 text-black border-teal-500">RENTAL</button>
-                    <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn btn-bento opacity-50">OWNED</button>
+                    <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn btn-bento bg-teal-500 text-black border-teal-500">NUOMA</button>
+                    <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn btn-bento opacity-50 text-white">NUOSAVA</button>
                 </div>
                 <input type="hidden" id="veh-type" value="rental">
-
-                <div>
-                    <input type="number" inputmode="decimal" pattern="[0-9]*" id="veh-cost" class="input-field border-teal-500/50" placeholder="Weekly Cost ($)" step="0.01">
-                </div>
-
-                <div onclick="toggleTestMode()" id="btn-test-mode" class="cursor-pointer border border-gray-700 rounded-lg p-3 flex items-center justify-between opacity-60 hover:opacity-100 transition-all">
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-flask text-yellow-400"></i>
-                        <span class="text-xs font-bold uppercase text-gray-400">Test Mode</span>
-                    </div>
+                <input type="number" id="veh-cost" class="input-field text-white" placeholder="Savaitės kaina ($)">
+                <div onclick="toggleTestMode()" id="btn-test-mode" class="cursor-pointer border border-white/10 rounded-lg p-3 flex items-center justify-between opacity-60 hover:opacity-100">
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-flask text-yellow-400"></i><span class="text-xs font-bold uppercase text-gray-400">Test Mode</span></div>
                     <div id="test-indicator" class="w-3 h-3 rounded-full bg-gray-700"></div>
                     <input type="hidden" id="veh-is-test" value="false">
                 </div>
-
-                <button onclick="saveVehicle()" class="btn-primary-os py-3 mt-2">ADD TO FLEET</button>
+                <button onclick="saveVehicle()" class="btn-primary-os py-3 mt-2">PRIDĖTI</button>
             </div>
-
-            <div class="text-left mt-4 border-t border-gray-800 pt-4">
-                <p class="text-[10px] font-bold text-gray-500 uppercase mb-2">Your Fleet</p>
-                <div id="garage-list" class="space-y-2 max-h-40 overflow-y-auto">
-                    </div>
-            </div>
-
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-4 w-full mt-2">Close</button>
+            <div id="garage-list" class="text-left space-y-2 max-h-40 overflow-y-auto no-scrollbar"></div>
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-4 w-full mt-2 text-gray-400">Uždaryti</button>
         </div>
     </div>
 
-    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold">SYNCING...</div>
+    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold tracking-widest">SYNCING...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="js/app.js?v=2"></script>
+    <script type="module" src="js/app.js?v=1.1.1"></script>
     
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('SW Registered'))
-                    .catch(err => console.log('SW Failed', err));
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Failed', err));
             });
         }
     </script>

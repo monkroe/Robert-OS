@@ -6,13 +6,14 @@ import { closeModals, updateUI } from './ui.js';
 let timerInt;
 
 export function startTimer() {
-    clearInterval(timerInt);
+    if (timerInt) return; // Jei jau tiksi, nieko nedarom
     updateTimerDisplay();
     timerInt = setInterval(updateTimerDisplay, 1000);
 }
 
 export function stopTimer() {
     clearInterval(timerInt);
+    timerInt = null;
     const el = document.getElementById('shift-timer');
     if(el) el.textContent = "00:00:00";
 }
@@ -32,7 +33,6 @@ function updateTimerDisplay() {
 
     if (state.activeShift.status === 'paused') {
         el.innerHTML = `<span class="opacity-40">${timeStr}</span> <span class="animate-pulse text-yellow-500 ml-2">⏸️</span>`;
-        clearInterval(timerInt);
     } else {
         el.textContent = timeStr;
     }
@@ -49,7 +49,7 @@ export async function confirmStart() {
     vibrate(20);
     const vid = document.getElementById('start-vehicle').value;
     const odo = document.getElementById('start-odo').value;
-    if(!vid || !odo) return showToast('Įveskite duomenis!', 'error');
+    if(!vid || !odo) return showToast('Užpildykite duomenis!', 'error');
     state.loading = true;
     try {
         const { error } = await db.from('finance_shifts').insert({
@@ -102,8 +102,6 @@ export async function togglePause() {
     try {
         await db.from('finance_shifts').update({ status: newS }).eq('id', state.activeShift.id);
         showToast(isP ? '▶️ Darbas tęsiamas' : '⏸️ Pertrauka', 'info');
-        if (newS === 'active') startTimer();
-        else updateTimerDisplay();
     } catch (e) { showToast('Klaida DB', 'error'); }
 }
 

@@ -1,6 +1,5 @@
 import { state } from '../state.js';
 import { vibrate, showToast } from '../utils.js';
-// SVARBU: IŠTRINTAS 'Shifts' importas
 
 // --- THEME ENGINE ---
 let currentTheme = localStorage.getItem('theme') || 'auto';
@@ -41,6 +40,31 @@ export function cycleTheme() {
     showToast(`Theme: ${currentTheme.toUpperCase()}`, 'info');
 }
 
+// --- WORLD CLOCKS (NAUJA v1.1.1) ---
+export function updateDualClocks() {
+    const chiEl = document.getElementById('clock-chi');
+    const ltEl = document.getElementById('clock-lt');
+    if (!chiEl || !ltEl) return;
+
+    const now = new Date();
+    
+    // Čikagos laikas (CST)
+    chiEl.textContent = now.toLocaleTimeString('en-GB', { 
+        timeZone: 'America/Chicago', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+    });
+    
+    // Lietuvos laikas (EET)
+    ltEl.textContent = now.toLocaleTimeString('en-GB', { 
+        timeZone: 'Europe/Vilnius', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+    });
+}
+
 // --- UI UPDATES ---
 export function updateUI(key) {
     if (key === 'loading') {
@@ -56,25 +80,44 @@ export function updateUI(key) {
         if(btnStart) btnStart.classList.toggle('hidden', hasShift);
         if(activeControls) activeControls.classList.toggle('hidden', !hasShift);
         
-        // SVARBU: Mes tik pranešame app.js, kad būsena pasikeitė.
-        // Mes patys nekviečiame Shifts.startTimer()
         const event = new CustomEvent('shiftStateChanged', { detail: hasShift });
         window.dispatchEvent(event);
     }
 }
 
 export function updateGrindBar() {
-    const target = Math.round(state.dailyCost) || 1;
+    // Išmanus kaštų skaičiavimas v1.1.1
+    const monthlyFixed = 2500; 
+    let vehicleCost = 0;
+    
+    if (state.activeShift) {
+        const v = state.fleet.find(f => f.id === state.activeShift.vehicle_id);
+        if (v) vehicleCost = v.operating_cost_weekly / 7;
+    }
+
+    // Tikslas paimamas arba iš įvesties, arba iš kaštų
+    const target = state.targetMoney || (monthlyFixed / 30) + vehicleCost;
     const current = state.shiftEarnings || 0;
     
     const elVal = document.getElementById('grind-val');
     const elBar = document.getElementById('grind-bar');
     const elGlow = document.getElementById('grind-glow');
 
-    if(elVal) elVal.textContent = `$${current} / $${target}`;
+    if(elVal) elVal.textContent = `$${current} / $${Math.round(target)}`;
     
     const pct = Math.min((current / target) * 100, 100);
-    if(elBar) elBar.style.width = `${pct}%`;
+    if(elBar) {
+        elBar.style.width = `${pct}%`;
+        // Švelnesnė spalvų logika
+        if (pct >= 100) {
+            elBar.classList.remove('bg-red-500');
+            elBar.classList.add('bg-green-500');
+        } else {
+            elBar.classList.add('bg-red-500');
+            elBar.classList.remove('bg-green-500');
+        }
+    }
+
     if(elGlow) {
         if (pct >= 100) elGlow.classList.remove('hidden');
         else elGlow.classList.add('hidden');

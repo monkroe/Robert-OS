@@ -36,17 +36,22 @@ export async function confirmTx() {
     state.loading = true;
     try {
         if(state.txDirection === 'out') {
-            const { error } = await db.from('expenses').insert({
+            await db.from('expenses').insert({
                 type: type, amount: amt,
                 gallons: parseFloat(document.getElementById('tx-gal')?.value || 0) || null,
                 odometer: parseInt(document.getElementById('tx-odo')?.value || 0) || null
             });
-            if(error) throw error;
             showToast('Išlaida įrašyta', 'success');
         } else {
-            if (!state.activeShift) throw new Error('Pajamos vedamos tik pamainos metu!');
-            await db.from('finance_shifts').update({ [type]: (state.activeShift[type] || 0) + amt }).eq('id', state.activeShift.id);
-            showToast('Pajamos pridėtos!', 'success');
+            // JEI YRA AKTYVI PAMAINA (NET IR PAUSE) - pridedame prie jos
+            if (state.activeShift) {
+                await db.from('finance_shifts').update({ [type]: (state.activeShift[type] || 0) + amt }).eq('id', state.activeShift.id);
+                showToast('Pajamos pridėtos prie pamainos!', 'success');
+            } else {
+                // JEI NĖRA PAMAINOS - sukuriam savarankišką įrašą (kad neblokuotų)
+                await db.from('expenses').insert({ type: 'INCOME_' + type.toUpperCase(), amount: amt });
+                showToast('Pajamos įrašytos (be pamainos)', 'success');
+            }
         }
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
@@ -73,99 +78,103 @@ export async function refreshAudit() {
             }
         });
     });
-    if (expenses) expenses.forEach(e => history.push({ id: e.id, table: 'expenses', date: new Date(e.created_at), amount: e.amount, type: e.type.toUpperCase(), is_income: false, data: e }));
+    if (expenses) expenses.forEach(e => history.push({ id: e.id, table: 'expenses', date: new Date(e.created_at), amount: e.amount, type: e.type.replace('INCOME_', ''), is_income: e.type.startsWith('INCOME_'), data: e }));
 
     history.sort((a, b) => b.date - a.date);
     currentHistory = history;
     const el = document.getElementById('audit-list');
     if(!el) return;
 
-    el.innerHTML = history.map(item => {
+    let html = `
+    <div class="flex justify-between items-center mb-3 px-1">
+        <label class="flex items-center gap-2 text-[10px] font-bold text-gray-400 cursor-pointer">
+            <input type="checkbox" id="hist-select-all" class="w-4 h-4 rounded bg-gray-700 border-gray-600"> SELECT ALL
+        </label>
+        <button id="hist-delete-btn" class="hidden bg-red-500/20 text-red-500 px-3 py-1 rounded text-[10px] font-bold border border-red-500/50">
+            DELETE (<span id="hist-sel-count">0</span>)
+        </button>
+    </div>`;
+
+    html += history.map(item => {
         const isS = item.table === 'finance_shifts';
         return `
-        <div class="bento-card p-0 overflow-hidden border-white/5 flex flex-col">
+        <div class="bento-card p-0 overflow-hidden border-white/5 mb-3 flex flex-col">
             <div class="flex items-center p-3 gap-3">
+                <input type="checkbox" class="hist-checkbox w-5 h-5 rounded bg-gray-800 border-gray-600 text-teal-500" data-id="${item.id}" data-table="${item.table}">
                 <button onclick="this.parentElement.nextElementSibling?.classList.toggle('hidden'); vibrate();" class="flex-1 text-left flex items-center justify-between">
                     <div>
                         <p class="text-[10px] font-black uppercase ${item.is_income ? 'text-teal-500' : 'text-red-400'} tracking-widest">${item.type}</p>
                         <p class="text-[10px] text-gray-500 font-mono">${item.date.toLocaleDateString()} ${isS ? '| ' + item.meta.duration : ''}</p>
                     </div>
-                    <p class="font-mono font-bold text-lg ${item.is_income ? 'text-green-500' : 'text-red-400'}">${item.is_income ? '+' : '-'}$${item.amount}</p>
+                    <p class="font-mono font-bold text-lg ${item.is_income ? 'text-green-500' : 'text-red-400'}">$${item.amount}</p>
                 </button>
-                <button onclick="window.editItem('${item.id}')" class="p-2 text-gray-500 hover:text-teal-400">✏️</button>
+                <button onclick="window.editItem('${item.id}')" class="p-2 text-gray-600 hover:text-teal-400">✏️</button>
             </div>
             ${isS ? `
             <div class="hidden bg-white/[0.02] border-t border-white/5 p-4 space-y-4 animate-slideUp text-white">
                 <div class="grid grid-cols-2 gap-y-3 text-[11px]">
                     <div><span class="text-gray-500 block uppercase text-[9px] font-bold">Laikas</span>${item.meta.interval}</div>
                     <div><span class="text-gray-500 block uppercase text-[9px] font-bold">Auto</span>${item.data.vehicles?.name || '--'}</div>
-                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold">Atstumas</span>${item.meta.miles} mi</div>
+                    <div><span class="text-gray-500 block uppercase text-[9px] font-bold">Rida</span>${item.meta.miles} mi</div>
                     <div><span class="text-gray-500 block uppercase text-[9px] font-bold">$/mi</span>$${item.meta.efficiency}</div>
                 </div>
                 <div class="border-t border-white/5 pt-3 flex justify-between text-[10px] font-mono">
-                    <span class="text-green-400">App: $${item.data.income_app}</span>
-                    <span class="text-yellow-400">Tips: $${item.data.income_cash}</span>
-                    <span class="text-blue-400">Priv: $${item.data.income_private}</span>
+                    <span>App: $${item.data.income_app}</span>
+                    <span>Tips: $${item.data.income_cash}</span>
+                    <span>Priv: $${item.data.income_private}</span>
                 </div>
             </div>` : ''}
         </div>`;
     }).join('');
+    el.innerHTML = html;
+    setupHistoryEvents();
+}
+
+function setupHistoryEvents() {
+    const selectAll = document.getElementById('hist-select-all');
+    const deleteBtn = document.getElementById('hist-delete-btn');
+    const checkboxes = document.querySelectorAll('.hist-checkbox');
+    if(selectAll) selectAll.onclick = (e) => { checkboxes.forEach(cb => cb.checked = e.target.checked); updateBtn(); };
+    checkboxes.forEach(cb => cb.onclick = () => updateBtn());
+    function updateBtn() {
+        const count = document.querySelectorAll('.hist-checkbox:checked').length;
+        deleteBtn?.classList.toggle('hidden', count === 0);
+        if(document.getElementById('hist-sel-count')) document.getElementById('hist-sel-count').textContent = count;
+    }
+    deleteBtn.onclick = async () => {
+        if(!confirm('Delete selected?')) return;
+        state.loading = true;
+        try {
+            const sel = Array.from(document.querySelectorAll('.hist-checkbox:checked')).map(cb => ({ id: cb.dataset.id, table: cb.dataset.table }));
+            for (const i of sel) await db.from(i.table).delete().eq('id', i.id);
+            window.dispatchEvent(new Event('refresh-data'));
+        } catch(e) { showToast('Error'); } finally { state.loading = false; }
+    };
 }
 
 export async function editItem(id) {
     vibrate();
     const item = currentHistory.find(i => i.id === id);
     if (!item) return;
-
     const modal = document.getElementById('edit-modal-dynamic');
     const input = document.getElementById('edit-val');
-    const subtitle = document.getElementById('edit-subtitle');
-    const shiftFields = document.getElementById('edit-shift-fields');
-    const confirmBtn = document.getElementById('edit-confirm-btn');
-
-    subtitle.textContent = `${item.type} | ${item.date.toLocaleDateString()}`;
-    const isShift = item.table === 'finance_shifts';
-    
-    input.value = isShift ? item.data.income_app : item.amount;
-    shiftFields.classList.toggle('hidden', !isShift);
-    if(isShift) {
+    const btn = document.getElementById('edit-confirm-btn');
+    const isS = item.table === 'finance_shifts';
+    document.getElementById('edit-subtitle').textContent = `${item.type} | ${item.date.toLocaleDateString()}`;
+    input.value = isS ? item.data.income_app : item.amount;
+    document.getElementById('edit-shift-fields').classList.toggle('hidden', !isS);
+    if(isS) {
         document.getElementById('edit-tips').value = item.data.income_cash;
         document.getElementById('edit-private').value = item.data.income_private;
-        document.getElementById('edit-main-label').textContent = "Uber / App Pajamos ($)";
-    } else {
-        document.getElementById('edit-main-label').textContent = "Bendra suma ($)";
     }
-
     modal.classList.remove('hidden');
-
-    confirmBtn.onclick = async () => {
+    btn.onclick = async () => {
         state.loading = true;
         try {
-            let updateData = {};
-            if(isShift) {
-                updateData = {
-                    income_app: parseFloat(input.value || 0),
-                    income_cash: parseFloat(document.getElementById('edit-tips').value || 0),
-                    income_private: parseFloat(document.getElementById('edit-private').value || 0)
-                };
-            } else {
-                updateData = { amount: parseFloat(input.value || 0) };
-            }
-            const { error } = await db.from(item.table).update(updateData).eq('id', id);
-            if(error) throw error;
-            showToast('Išsaugota!', 'success');
+            let data = isS ? { income_app: parseFloat(input.value), income_cash: parseFloat(document.getElementById('edit-tips').value), income_private: parseFloat(document.getElementById('edit-private').value) } : { amount: parseFloat(input.value) };
+            await db.from(item.table).update(data).eq('id', id);
             closeModals();
             window.dispatchEvent(new Event('refresh-data'));
-        } catch(e) { showToast('Klaida DB', 'error'); } finally { state.loading = false; }
+        } catch(e) { showToast('DB Error'); } finally { state.loading = false; }
     };
-}
-
-export async function exportAI() {
-    vibrate();
-    state.loading = true;
-    try {
-        const { data: report } = await db.rpc('get_empire_report', { target_user_id: state.user.id });
-        navigator.clipboard.writeText(JSON.stringify(report, null, 2));
-        showToast('Nukopijuota!', 'success');
-    } catch(e) { showToast('Klaida', 'error'); } finally { state.loading = false; }
 }

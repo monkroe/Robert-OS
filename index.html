@@ -43,7 +43,14 @@
         <header class="global-header">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
-                <span class="font-bold uppercase tracking-widest text-xs">OS v1.1</span>
+                <div class="flex flex-col border-l border-white/10 ml-1 pl-3">
+                    <div class="flex gap-2 text-[10px] font-mono font-bold leading-none">
+                        <span class="text-teal-500 uppercase">Chi: <span id="clock-chi">--:--</span></span>
+                    </div>
+                    <div class="flex gap-2 text-[10px] font-mono font-bold leading-none mt-1">
+                        <span class="text-gray-500 uppercase">Ltu: <span id="clock-lt">--:--</span></span>
+                    </div>
+                </div>
             </div>
             <div class="flex gap-2">
                 <button onclick="openGarage()" class="header-btn text-teal-500 border border-teal-500/30 bg-teal-500/10"><i class="fa-solid fa-car"></i></button>
@@ -149,10 +156,18 @@
                 </select>
                 
                 <label class="label-xs ml-1">Start Odometer</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-odo" class="input-field mb-2" placeholder="123456">
+                <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-odo" class="input-field mb-4" placeholder="123456">
                 
-                <label class="label-xs ml-1">Daily Goal ($)</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-goal" class="input-field" placeholder="Optional">
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="label-xs ml-1">Tikslas ($)</label>
+                        <input type="number" id="start-money-target" class="input-field text-sm" placeholder="Pvz. 300">
+                    </div>
+                    <div>
+                        <label class="label-xs ml-1">Valandos (h)</label>
+                        <input type="number" id="start-time-target" class="input-field text-sm" placeholder="Pvz. 8">
+                    </div>
+                </div>
             </div>
             <button onclick="confirmStart()" class="btn-primary-os py-4 mb-3">CONFIRM</button>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
@@ -163,10 +178,20 @@
         <div class="modal-content animate-slideUp text-center">
             <h3 class="text-xl font-bold uppercase mb-4">End Shift</h3>
             <div class="text-left mb-4">
-                <label class="label-xs ml-1">End Odometer</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="end-odo" class="input-field mb-4">
-                <label class="label-xs ml-1">Total Earnings ($)</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="end-earn" class="input-field text-green-500">
+                <label class="label-xs ml-1 text-teal-500 font-bold">End Odometer</label>
+                <input type="number" inputmode="decimal" id="end-odo" class="input-field mb-4">
+                
+                <label class="label-xs ml-1 text-green-500 font-bold">Uber / App Income ($)</label>
+                <input type="number" inputmode="decimal" id="end-earn" class="input-field mb-4" placeholder="0.00">
+
+                <label class="label-xs ml-1">Vairavimo sąlygos</label>
+                <div class="grid grid-cols-5 gap-2 mb-4">
+                    <button onclick="state.currentWeather='sunny'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-yellow-500/20"><i class="fa-solid fa-sun text-yellow-500"></i></button>
+                    <button onclick="state.currentWeather='rain'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-blue-500/20"><i class="fa-solid fa-cloud-rain text-blue-400"></i></button>
+                    <button onclick="state.currentWeather='snow'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-white/20"><i class="fa-solid fa-snowflake"></i></button>
+                    <button onclick="state.currentWeather='ice'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-cyan-500/20"><i class="fa-solid fa-icicles text-cyan-300"></i></button>
+                    <button onclick="state.currentWeather='fog'" class="weather-btn p-2 rounded-lg border border-white/10 hover:bg-gray-500/20"><i class="fa-solid fa-smog text-gray-400"></i></button>
+                </div>
             </div>
             <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 mb-3">FINISH</button>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>

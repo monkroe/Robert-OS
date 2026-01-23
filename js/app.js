@@ -9,6 +9,10 @@ import * as UI from './modules/ui.js';
 // --- INIT ---
 async function init() {
     UI.applyTheme();
+    UI.updateDualClocks(); // Iškart parodome laiką v1.1.1
+    
+    // Atnaujiname pasaulio laikrodžius kas minutę
+    setInterval(() => UI.updateDualClocks(), 60000);
     
     const { data: { session } } = await db.auth.getSession();
     
@@ -18,7 +22,7 @@ async function init() {
         document.getElementById('app-content').classList.remove('hidden');
         
         await Garage.fetchFleet(); 
-        await refreshAll(); // <--- Čia automatiškai pasileis laikmatis
+        await refreshAll();
         setupRealtime();
     } else {
         document.getElementById('auth-screen').classList.remove('hidden');
@@ -33,43 +37,34 @@ async function init() {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
     });
+
+    // Pagauname UI pranešimą apie pamainos būseną
+    window.addEventListener('shiftStateChanged', (e) => {
+        if (e.detail) {
+            Shifts.startTimer();
+        } else {
+            Shifts.stopTimer();
+        }
+    });
 }
 
 // --- PAGRINDINĖ FUNKCIJA (KOMANDAVIMO CENTRAS) ---
 export async function refreshAll() {
-    // 1. Gauname pamainą iš DB (SU user_id FILTRU!)
     const { data: shift } = await db.from('finance_shifts')
         .select('*')
         .eq('status', 'active')
-        .eq('user_id', state.user.id) // <--- KRITINIS PATAISYMAS
+        .eq('user_id', state.user.id)
         .maybeSingle();
     
-    // 2. Įrašome į State
     state.activeShift = shift; 
 
-    // 3. TIESIOGINIS VALDYMAS
+    // Jei turime aktyvią pamainą, atnaujiname tikslus State'e
+    if (shift) {
+        state.targetMoney = shift.target_money || 0;
+        state.targetTime = shift.target_time || 12;
+    }
+
     UI.updateUI('activeShift');
-
-    if (shift) {
-        Shifts.startTimer();
-    } else {
-        Shifts.stopTimer();
-    }
-
-    // 4. Skaičiuojame finansus
-    const monthlyFixed = 2500; 
-    let vehicleCost = 0;
-    
-    if (shift) {
-        const v = state.fleet.find(f => f.id === shift.vehicle_id);
-        if (v) vehicleCost = v.operating_cost_weekly / 7;
-    } else if (state.fleet.length > 0) {
-        if (state.fleet[0].operating_cost_weekly) vehicleCost = state.fleet[0].operating_cost_weekly / 7;
-    }
-
-    state.dailyCost = (monthlyFixed / 30) + vehicleCost;
-    state.shiftEarnings = shift?.gross_earnings || 0; 
-    
     UI.updateGrindBar();
     Finance.refreshAudit();
 }

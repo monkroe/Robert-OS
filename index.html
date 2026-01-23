@@ -62,6 +62,7 @@
         <main class="container flex-1 overflow-y-auto pb-24 no-scrollbar">
             
             <section id="tab-cockpit" class="tab-content active space-y-4">
+                
                 <div>
                     <div class="flex justify-between items-end mb-1">
                         <span class="label-xs ml-1 text-red-400" id="grind-label">DIENOS PROGRESAS</span>
@@ -139,7 +140,7 @@
 
     <div id="start-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4 text-white">Pradėti pamainą</h3>
+            <h3 class="text-xl font-bold uppercase mb-4 text-white font-black">Pradėti pamainą</h3>
             <div class="text-left mb-4 space-y-4">
                 <div>
                     <label class="label-xs ml-1">Automobilis</label>
@@ -171,7 +172,7 @@
             <div class="text-left mb-4 space-y-4">
                 <div>
                     <label class="label-xs ml-1 text-teal-500 font-bold uppercase">Pabaigos rida</label>
-                    <input type="number" inputmode="decimal" id="end-odo" class="input-field text-white" placeholder="">
+                    <input type="number" inputmode="decimal" id="end-odo" class="input-field text-white">
                 </div>
                 <div>
                     <label class="label-xs ml-1 text-green-500 font-bold uppercase">Uber / App Pajamos ($)</label>
@@ -180,15 +181,15 @@
                 <div>
                     <label class="label-xs ml-1 uppercase text-gray-500">Vairavimo sąlygos</label>
                     <div class="grid grid-cols-5 gap-2 mt-1">
-                        <button onclick="state.currentWeather='sunny'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-sun text-yellow-500"></i></button>
-                        <button onclick="state.currentWeather='rain'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-cloud-rain text-blue-400"></i></button>
-                        <button onclick="state.currentWeather='snow'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-snowflake text-blue-200"></i></button>
-                        <button onclick="state.currentWeather='ice'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-icicles text-cyan-300"></i></button>
-                        <button onclick="state.currentWeather='fog'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-white/20')); this.classList.add('bg-white/20');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-smog text-gray-400"></i></button>
+                        <button onclick="state.currentWeather='sunny'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-teal-500','text-black')); this.classList.add('bg-teal-500','text-black');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-sun text-yellow-500"></i></button>
+                        <button onclick="state.currentWeather='rain'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-teal-500','text-black')); this.classList.add('bg-teal-500','text-black');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-cloud-rain text-blue-400"></i></button>
+                        <button onclick="state.currentWeather='snow'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-teal-500','text-black')); this.classList.add('bg-teal-500','text-black');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-snowflake text-blue-200"></i></button>
+                        <button onclick="state.currentWeather='ice'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-teal-500','text-black')); this.classList.add('bg-teal-500','text-black');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-icicles text-cyan-300"></i></button>
+                        <button onclick="state.currentWeather='fog'; vibrate(); this.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('bg-teal-500','text-black')); this.classList.add('bg-teal-500','text-black');" class="p-2 rounded-lg border border-white/10"><i class="fa-solid fa-smog text-gray-400"></i></button>
                     </div>
                 </div>
             </div>
-            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 mb-3 shadow-red-500/20">UŽDARYTI PAMAINĄ</button>
+            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 mb-3 shadow-red-500/20 font-black">UŽDARYTI PAMAINĄ</button>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full text-gray-400">Atšaukti</button>
         </div>
     </div>
@@ -216,25 +217,25 @@
             </div>
 
             <input type="hidden" id="tx-type" value="">
-            <button onclick="confirmTx()" class="btn-primary-os py-4 mb-3">IŠSAUGOTI</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full text-gray-400">Cancel</button>
+            <button onclick="confirmTx()" class="btn-primary-os py-4 mb-3 font-black">IŠSAUGOTI</button>
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full text-gray-400">Atšaukti</button>
         </div>
     </div>
 
     <div id="edit-modal-dynamic" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4 text-white">Redaguoti įrašą</h3>
+            <h3 class="text-xl font-bold uppercase mb-4 text-white font-black">Redaguoti įrašą</h3>
             <input type="number" id="edit-val" class="input-field text-2xl mb-6 text-center text-white">
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="document.getElementById('edit-modal-dynamic').classList.add('hidden')" class="btn-bento text-white">Atšaukti</button>
-                <button id="edit-confirm-btn" class="btn-primary-os">SAVE</button>
+                <button id="edit-confirm-btn" class="btn-primary-os font-black">IŠSAUGOTI</button>
             </div>
         </div>
     </div>
 
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4 text-teal-500">Garažas</h3>
+            <h3 class="text-xl font-bold uppercase mb-4 text-teal-500 font-black">Garažas</h3>
             <div class="text-left space-y-3 mb-6 border-b border-white/10 pb-6">
                 <input type="text" id="veh-name" class="input-field text-white" placeholder="Mašinos pavadinimas">
                 <div class="grid grid-cols-2 gap-2">
@@ -248,16 +249,16 @@
                     <div id="test-indicator" class="w-3 h-3 rounded-full bg-gray-700"></div>
                     <input type="hidden" id="veh-is-test" value="false">
                 </div>
-                <button onclick="saveVehicle()" class="btn-primary-os py-3 mt-2">PRIDĖTI Į GARAŽĄ</button>
+                <button onclick="saveVehicle()" class="btn-primary-os py-3 mt-2 font-black">PRIDĖTI Į GARAŽĄ</button>
             </div>
             <div id="garage-list" class="space-y-2 max-h-40 overflow-y-auto no-scrollbar"></div>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-4 w-full mt-2 text-gray-400">Uždaryti</button>
         </div>
     </div>
 
-    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold tracking-widest">SYNCING...</div>
+    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold tracking-widest uppercase">Syncing...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="js/app.js?v=1.1.1"></script>
+    <script type="module" src="js/app.js?v=1.1.2"></script>
 </body>
 </html>

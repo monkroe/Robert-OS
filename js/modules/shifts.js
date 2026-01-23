@@ -49,20 +49,17 @@ export async function confirmStart() {
     vibrate(20);
     const vid = document.getElementById('start-vehicle').value;
     const odo = document.getElementById('start-odo').value;
-    if(!vid || !odo) return showToast('Įveskite pradinę ridą!', 'error');
-    
+    if(!vid || !odo) return showToast('Įveskite duomenis!', 'error');
     state.loading = true;
     try {
         const { error } = await db.from('finance_shifts').insert({
-            vehicle_id: vid,
-            start_odo: parseInt(odo),
+            vehicle_id: vid, start_odo: parseInt(odo), status: 'active',
             target_money: parseFloat(document.getElementById('start-money-target').value || 0),
             target_time: parseFloat(document.getElementById('start-time-target').value || 12),
-            status: 'active',
             start_time: new Date().toISOString()
         });
         if(error) throw error;
-        showToast('Pamaina pradėta! 🚀', 'success');
+        showToast('🚀 Pamaina pradėta!', 'success');
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
@@ -70,12 +67,8 @@ export async function confirmStart() {
 
 export function openEndModal() { 
     vibrate();
-    // GRĄŽINTAS RIDOS SUFLERIS
     const odoInput = document.getElementById('end-odo');
-    if(state.activeShift && odoInput) {
-        odoInput.placeholder = `Pradėta su: ${state.activeShift.start_odo}`;
-        odoInput.value = ''; // Išvalom seną
-    }
+    if(state.activeShift) odoInput.placeholder = `Min: ${state.activeShift.start_odo} mi`;
     document.getElementById('end-modal').classList.remove('hidden'); 
 }
 
@@ -83,25 +76,17 @@ export async function confirmEnd() {
     vibrate(20);
     const odoEnd = parseInt(document.getElementById('end-odo').value);
     const appIncome = parseFloat(document.getElementById('end-earn').value || 0);
-    
     if(!odoEnd) return showToast('Įveskite pabaigos ridą!', 'error');
-    // SAUGIKLIS
-    if(odoEnd < state.activeShift.start_odo) {
-        return showToast(`Rida negali būti mažesnė nei ${state.activeShift.start_odo}!`, 'error');
-    }
+    if(odoEnd < state.activeShift.start_odo) return showToast(`Klaida! Rida < ${state.activeShift.start_odo}`, 'error');
 
     state.loading = true;
     try {
         const { error } = await db.from('finance_shifts').update({
-            end_odo: odoEnd,
-            income_app: (state.activeShift.income_app || 0) + appIncome,
-            weather: state.currentWeather,
-            end_time: new Date().toISOString(),
-            status: 'completed'
+            end_odo: odoEnd, income_app: (state.activeShift.income_app || 0) + appIncome,
+            weather: state.currentWeather, end_time: new Date().toISOString(), status: 'completed'
         }).eq('id', state.activeShift.id);
-        
         if(error) throw error;
-        showToast('Pamaina baigta 🏁', 'success');
+        showToast('🏁 Pamaina baigta!', 'success');
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
     } catch(e) { showToast(e.message, 'error'); } finally { state.loading = false; }
@@ -110,15 +95,21 @@ export async function confirmEnd() {
 export async function togglePause() {
     vibrate();
     if (!state.activeShift) return;
-    const isPaused = state.activeShift.status === 'paused';
-    const newStatus = isPaused ? 'active' : 'paused';
-    state.activeShift.status = newStatus;
+    const isP = state.activeShift.status === 'paused';
+    const newS = isP ? 'active' : 'paused';
+    state.activeShift.status = newS;
     updateUI('activeShift');
-    
     try {
-        await db.from('finance_shifts').update({ status: newStatus }).eq('id', state.activeShift.id);
-        showToast(isPaused ? 'Dirbame toliau ▶️' : 'Pertrauka ⏸️', 'info');
-        if (newStatus === 'active') startTimer();
+        await db.from('finance_shifts').update({ status: newS }).eq('id', state.activeShift.id);
+        showToast(isP ? '▶️ Darbas tęsiamas' : '⏸️ Pertrauka', 'info');
+        if (newS === 'active') startTimer();
         else updateTimerDisplay();
     } catch (e) { showToast('Klaida DB', 'error'); }
+}
+
+export function setWeather(w, btn) {
+    vibrate();
+    state.currentWeather = w;
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('bg-teal-500', 'text-black', 'border-teal-500'));
+    btn.classList.add('bg-teal-500', 'text-black', 'border-teal-500');
 }

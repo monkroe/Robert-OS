@@ -1,6 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS (ORCHESTRATOR)
-// Versija: 1.2
+// ROBERT OS - APP.JS (ORCHESTRATOR) v2.1
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -151,22 +150,35 @@ function setupRealtime() {
         .subscribe();
 }
 
+// ════════════════════════════════════════════════════════════════
+// GLOBAL WINDOW FUNCTIONS (FIXED)
+// ════════════════════════════════════════════════════════════════
+
+// Auth
 window.login = Auth.login;
 window.logout = Auth.logout;
+
+// Garage
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
 window.setVehType = Garage.setVehType;
 window.toggleTestMode = Garage.toggleTestMode;
+
+// Shifts
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
 window.confirmEnd = Shifts.confirmEnd;
-window.togglePause = Shifts.togglePause;
+window.togglePause = Shifts.togglePause;  // ✅ FIXED!
+
+// Finance
 window.openTxModal = Finance.openTxModal;
 window.setExpType = Finance.setExpType;
 window.confirmTx = Finance.confirmTx;
 window.exportAI = Finance.exportAI;
+
+// UI
 window.cycleTheme = UI.cycleTheme;
 window.switchTab = UI.switchTab;
 window.closeModals = function() {
@@ -174,6 +186,8 @@ window.closeModals = function() {
         el.classList.add('hidden');
     });
 };
+
+// Settings
 window.openSettings = Settings.openSettings;
 window.saveSettings = Settings.saveSettings;
 

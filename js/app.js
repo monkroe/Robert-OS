@@ -1,6 +1,9 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - APP.JS (ORCHESTRATOR)
-// Versija: 1.2 FINAL
+// Versija: 1.2
+// 
+// ATSAKOMYBĖ: Sistemos orkestravimas (Dirigentas)
+// NIEKADA neskaičiuoja - tik koordinuoja modulius
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -14,7 +17,7 @@ import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
 // ────────────────────────────────────────────────────────────────
-// INIT
+// INIT - Sistema paleidžiama
 // ────────────────────────────────────────────────────────────────
 
 async function init() {
@@ -27,40 +30,22 @@ async function init() {
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-content').classList.remove('hidden');
         
-        // 1. Settings (with error handling)
-        try {
-            await Settings.loadSettings();
-        } catch (error) {
-            console.warn('⚠️ Settings load failed, using defaults:', error);
-            state.userSettings = {
-                timezone_primary: 'America/Chicago',
-                timezone_secondary: 'Europe/Vilnius',
-                clock_position: 'cockpit',
-                monthly_fixed_expenses: 0,
-                weekly_rental_cost: 350,
-                rental_week_start_day: 2,
-                default_shift_target_hours: 12,
-                notifications_enabled: true,
-                compact_mode: false
-            };
-        }
+        // 1. Užkrauti settings (turi būti pirma)
+        await Settings.loadSettings();
         
-        // 2. Garage
-        try {
-            await Garage.fetchFleet();
-        } catch (error) {
-            console.warn('⚠️ Garage load failed:', error);
-        }
+        // 2. Užkrauti garažą
+        await Garage.fetchFleet();
         
-        // 3. Refresh
+        // 3. Užkrauti aktyvią pamainą ir atnaujinti UI
         await refreshAll();
         
-        // 4. Realtime
+        // 4. Įjungti realtime
         setupRealtime();
     } else {
         document.getElementById('auth-screen').classList.remove('hidden');
     }
     
+    // Event listeners
     window.addEventListener('refresh-data', () => {
         refreshAll();
     });
@@ -71,7 +56,7 @@ async function init() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// REFRESH ALL
+// REFRESH ALL - Pagrindinis atnaujinimas
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAll() {
@@ -97,16 +82,9 @@ export async function refreshAll() {
         
         await updateProgressBars();
         
-        // PATAISYMAS: Safe audit refresh
         const auditTab = document.getElementById('tab-audit');
         if (auditTab && !auditTab.classList.contains('hidden')) {
-            try {
-                if (Finance.refreshAudit) {
-                    await Finance.refreshAudit();
-                }
-            } catch (error) {
-                console.warn('⚠️ Audit refresh failed:', error);
-            }
+            Finance.refreshAudit();
         }
         
     } catch (error) {
@@ -163,3 +141,75 @@ async function updateProgressBars() {
         console.error('Error updating progress bars:', error);
     }
 }
+
+// ────────────────────────────────────────────────────────────────
+// REALTIME SETUP
+// ────────────────────────────────────────────────────────────────
+
+function setupRealtime() {
+    const userId = state.user.id;
+    
+    db.channel('user-channel')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public',
+            table: 'finance_shifts',
+            filter: `user_id=eq.${userId}`
+        }, () => refreshAll())
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public',
+            table: 'expenses',
+            filter: `user_id=eq.${userId}`
+        }, () => refreshAll())
+        .subscribe();
+}
+
+// ────────────────────────────────────────────────────────────────
+// EXPOSE TO WINDOW (Global funkcijos)
+// ────────────────────────────────────────────────────────────────
+
+// Auth
+window.login = Auth.login;
+window.logout = Auth.logout;
+
+// Garage
+window.openGarage = Garage.openGarage;
+window.saveVehicle = Garage.saveVehicle;
+window.deleteVehicle = Garage.deleteVehicle;
+window.setVehType = Garage.setVehType;
+window.toggleTestMode = Garage.toggleTestMode;
+
+// Shifts
+window.openStartModal = Shifts.openStartModal;
+window.confirmStart = Shifts.confirmStart;
+window.openEndModal = Shifts.openEndModal;
+window.confirmEnd = Shifts.confirmEnd;
+window.togglePause = Shifts.togglePause;
+
+// Finance
+window.openTxModal = Finance.openTxModal;
+window.setExpType = Finance.setExpType;
+window.confirmTx = Finance.confirmTx;
+window.exportAI = Finance.exportAI;
+
+// UI
+window.cycleTheme = UI.cycleTheme;
+window.switchTab = UI.switchTab;
+
+// Universal closeModals (PATAISYMAS)
+window.closeModals = function() {
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.classList.add('hidden');
+    });
+};
+
+// Settings
+window.openSettings = Settings.openSettings;
+window.saveSettings = Settings.saveSettings;
+
+// ────────────────────────────────────────────────────────────────
+// START
+// ────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', init);

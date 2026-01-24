@@ -397,14 +397,8 @@ input[type="checkbox"] {
 body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
-/* ════════ 1.7.1 PRO UI ANIMATIONS ════════ */
 
-/* Modal Overlay su Backdrop Blur */
-.modal-overlay {
-    background-color: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    transition: opacity 0.3s ease;
-}
+/* ════════ 1.7.1 PRO UI ANIMATIONS ════════ */
 
 /* Pulse Text (Laikmačiui per pauzę) */
 .pulse-text {
@@ -421,14 +415,11 @@ body {
 /* Log kortelės Dark Mode Fix */
 .dark .log-card {
     background-color: #111111 !important;
-    border-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-/* Toast Animacija */
-@keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-.toast-entry {
-    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Checkbox Accent Fix */
+.log-checkbox:checked {
+    background-color: #14b8a6; /* Teal-500 */
+    border-color: #14b8a6;
 }

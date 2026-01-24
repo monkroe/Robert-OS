@@ -30,7 +30,7 @@ async function init() {
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-content').classList.remove('hidden');
         
-        // 1. Užkrauti settings (turi būti pirma, nes reikia valiutos/tikslų)
+        // 1. Užkrauti settings (turi būti pirma)
         await Settings.loadSettings();
         
         // 2. Užkrauti garažą
@@ -56,39 +56,32 @@ async function init() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// REFRESH ALL - Pagrindinis atnaujinimas (PATAISYTA VERSIJA)
+// REFRESH ALL - Pagrindinis atnaujinimas
 // ────────────────────────────────────────────────────────────────
-// Tai yra "Command Center" - viską koordinuoja, nieko neskaičiuoja
 
 export async function refreshAll() {
     try {
-        // 1. Gauti bet kokią neužbaigtą pamainą (active ARBA paused)
-        // Optimizacija: Viena užklausa abiems statusams
         const { data: shift } = await db
             .from('finance_shifts')
             .select('*')
-            .in('status', ['active', 'paused']) // Abu statusai vienu metu
+            .in('status', ['active', 'paused'])
             .eq('user_id', state.user.id)
-            .order('start_time', { ascending: false }) // Imame naujausią
+            .order('start_time', { ascending: false })
             .limit(1)
             .maybeSingle();
         
         state.activeShift = shift;
         
-        // 2. Atnaujinti UI pagal shift būseną
         UI.updateUI('activeShift');
         
-        // 3. Valdyti laikmatį
         if (state.activeShift) {
             Shifts.startTimer();
         } else {
             Shifts.stopTimer();
         }
         
-        // 4. Atnaujinti progress bars (deleguojame į UI ir Costs)
         await updateProgressBars();
         
-        // 5. Atnaujinti istoriją (tik jei Audit tab matomas)
         const auditTab = document.getElementById('tab-audit');
         if (auditTab && !auditTab.classList.contains('hidden')) {
             Finance.refreshAudit();
@@ -102,11 +95,9 @@ export async function refreshAll() {
 // ────────────────────────────────────────────────────────────────
 // UPDATE PROGRESS BARS
 // ────────────────────────────────────────────────────────────────
-// Deleguoja skaičiavimus į Costs modulį
 
 async function updateProgressBars() {
     try {
-        // 1. RENTAL COVERAGE BAR (Savaitinis)
         const rentalProgress = await Costs.calculateWeeklyRentalProgress();
         
         const rentalBarEl = document.getElementById('rental-bar');
@@ -116,7 +107,6 @@ async function updateProgressBars() {
             rentalValEl.textContent = `$${rentalProgress.earned} / $${rentalProgress.target}`;
             rentalBarEl.style.width = `${rentalProgress.percentage}%`;
             
-            // Spalvos pagal procentą
             rentalBarEl.classList.remove('bg-red-500', 'bg-yellow-500', 'bg-green-500');
             if (rentalProgress.percentage < 70) {
                 rentalBarEl.classList.add('bg-red-500');
@@ -127,7 +117,6 @@ async function updateProgressBars() {
             }
         }
         
-        // 2. OLD GRIND BAR (Legacy - galima ištrinti vėliau arba palikti kaip dienos tikslą)
         const dailyCost = await Costs.calculateDailyCost();
         const shiftEarnings = Costs.calculateShiftEarnings();
         
@@ -143,7 +132,6 @@ async function updateProgressBars() {
             grindBarEl.style.width = `${pct}%`;
         }
         
-        // 3. Earnings widget (Cockpit)
         const earningsEl = document.getElementById('shift-earnings');
         if (earningsEl) {
             earningsEl.textContent = `$${Math.round(shiftEarnings)}`;
@@ -161,7 +149,6 @@ async function updateProgressBars() {
 function setupRealtime() {
     const userId = state.user.id;
     
-    // Klausytis tik šio vartotojo duomenų
     db.channel('user-channel')
         .on('postgres_changes', { 
             event: '*', 
@@ -181,7 +168,6 @@ function setupRealtime() {
 // ────────────────────────────────────────────────────────────────
 // EXPOSE TO WINDOW (Global funkcijos)
 // ────────────────────────────────────────────────────────────────
-// Kad veiktų HTML onclick="..."
 
 // Auth
 window.login = Auth.login;
@@ -209,8 +195,14 @@ window.exportAI = Finance.exportAI;
 
 // UI
 window.cycleTheme = UI.cycleTheme;
-window.closeModals = UI.closeModals;
 window.switchTab = UI.switchTab;
+
+// Universal closeModals (PATAISYMAS)
+window.closeModals = function() {
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.classList.add('hidden');
+    });
+};
 
 // Settings
 window.openSettings = Settings.openSettings;

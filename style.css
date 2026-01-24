@@ -397,3 +397,38 @@ input[type="checkbox"] {
 body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
+/* ════════ 1.7.1 PRO UI ANIMATIONS ════════ */
+
+/* Modal Overlay su Backdrop Blur */
+.modal-overlay {
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    transition: opacity 0.3s ease;
+}
+
+/* Pulse Text (Laikmačiui per pauzę) */
+.pulse-text {
+    animation: textPulse 1.5s infinite ease-in-out;
+    color: #fbbf24; /* Yellow-400 */
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+@keyframes textPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.98); }
+}
+
+/* Log kortelės Dark Mode Fix */
+.dark .log-card {
+    background-color: #111111 !important;
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Toast Animacija */
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+.toast-entry {
+    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

@@ -1,18 +1,18 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS v1.2 - STYLE ENGINE (HYBRID)                           */
+/* ROBERT OS v1.2 - STYLE ENGINE (HYBRID) - FINAL FIX              */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root {
     --bg-color: #000000;
     --card-bg: #111111;
-    --accent: #14b8a6; /* Teal-500 */
+    --accent: #14b8a6;
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
 }
 
 body {
     background-color: var(--bg-color);
-    color: white; /* Dark Mode First */
+    color: white;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -233,7 +233,20 @@ body {
 .exp-btn:active,
 .inc-btn:active { 
     transform: scale(0.95); 
-    box-shadow: 0 0 0 1px rgba(20,184,166,0.25), 0 4px 12px rgba(20,184,166,0.15);
+}
+
+/* ACTIVE TX TYPE – INCOME (GREEN) */
+.inc-btn.active {
+    background-color: rgba(34,197,94,0.15) !important;
+    color: #22c55e !important;
+    box-shadow: 0 0 0 1px rgba(34,197,94,0.35), 0 6px 16px rgba(34,197,94,0.25) !important;
+}
+
+/* ACTIVE TX TYPE – EXPENSE (RED) */
+.exp-btn.active {
+    background-color: rgba(239,68,68,0.15) !important;
+    color: #ef4444 !important;
+    box-shadow: 0 0 0 1px rgba(239,68,68,0.35), 0 6px 16px rgba(239,68,68,0.25) !important;
 }
 
 /* Progress Bars Glow */
@@ -251,7 +264,6 @@ body {
 }
 .veh-type-btn:active { 
     transform: scale(0.95); 
-    box-shadow: 0 0 0 1px rgba(20,184,166,0.25), 0 4px 12px rgba(20,184,166,0.15);
 }
 
 /* Settings Toggle Checkboxes */
@@ -318,12 +330,6 @@ input[type="checkbox"] {
     box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
 }
 
-:root:not(.dark) .weather-btn:active,
-:root:not(.dark) .exp-btn:active,
-:root:not(.dark) .inc-btn:active {
-    box-shadow: 0 0 0 1px rgba(20,184,166,0.25), 0 6px 16px rgba(20,184,166,0.15);
-}
-
 :root:not(.dark) .header-btn { 
     color: #6b7280; 
     background-color: white;
@@ -334,10 +340,16 @@ input[type="checkbox"] {
     box-shadow: 0 0 8px rgba(20,184,166,0.4);
 }
 
-/* Auth screen dark mode */
+/* Auth screen dark mode (FIXED) */
 #auth-screen .input-field {
-    background-color: #111827 !important;
+    background-color: #0b1220 !important;
     color: white !important;
+    border: 1px solid rgba(56,189,248,0.25) !important;
+}
+
+#auth-screen .input-field:focus {
+    border-color: rgba(56,189,248,0.6) !important;
+    box-shadow: 0 0 0 1px rgba(56,189,248,0.5) !important;
 }
 
 .hidden {

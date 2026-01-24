@@ -1,9 +1,6 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - APP.JS (ORCHESTRATOR)
 // Versija: 1.2
-// 
-// ATSAKOMYBĖ: Sistemos orkestravimas (Dirigentas)
-// NIEKADA neskaičiuoja - tik koordinuoja modulius
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -16,10 +13,6 @@ import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
-// ────────────────────────────────────────────────────────────────
-// INIT - Sistema paleidžiama
-// ────────────────────────────────────────────────────────────────
-
 async function init() {
     UI.applyTheme();
     
@@ -30,22 +23,30 @@ async function init() {
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-content').classList.remove('hidden');
         
-        // 1. Užkrauti settings (turi būti pirma)
-        await Settings.loadSettings();
+        try {
+            await Settings.loadSettings();
+        } catch (error) {
+            console.warn('Settings load failed, using defaults');
+            state.userSettings = {
+                timezone_primary: 'America/Chicago',
+                timezone_secondary: 'Europe/Vilnius',
+                clock_position: 'cockpit',
+                monthly_fixed_expenses: 0,
+                weekly_rental_cost: 350,
+                rental_week_start_day: 2,
+                default_shift_target_hours: 12,
+                notifications_enabled: true,
+                compact_mode: false
+            };
+        }
         
-        // 2. Užkrauti garažą
         await Garage.fetchFleet();
-        
-        // 3. Užkrauti aktyvią pamainą ir atnaujinti UI
         await refreshAll();
-        
-        // 4. Įjungti realtime
         setupRealtime();
     } else {
         document.getElementById('auth-screen').classList.remove('hidden');
     }
     
-    // Event listeners
     window.addEventListener('refresh-data', () => {
         refreshAll();
     });
@@ -54,10 +55,6 @@ async function init() {
         if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
     });
 }
-
-// ────────────────────────────────────────────────────────────────
-// REFRESH ALL - Pagrindinis atnaujinimas
-// ────────────────────────────────────────────────────────────────
 
 export async function refreshAll() {
     try {
@@ -71,7 +68,6 @@ export async function refreshAll() {
             .maybeSingle();
         
         state.activeShift = shift;
-        
         UI.updateUI('activeShift');
         
         if (state.activeShift) {
@@ -86,15 +82,10 @@ export async function refreshAll() {
         if (auditTab && !auditTab.classList.contains('hidden')) {
             Finance.refreshAudit();
         }
-        
     } catch (error) {
         console.error('Error in refreshAll:', error);
     }
 }
-
-// ────────────────────────────────────────────────────────────────
-// UPDATE PROGRESS BARS
-// ────────────────────────────────────────────────────────────────
 
 async function updateProgressBars() {
     try {
@@ -136,15 +127,10 @@ async function updateProgressBars() {
         if (earningsEl) {
             earningsEl.textContent = `$${Math.round(shiftEarnings)}`;
         }
-        
     } catch (error) {
         console.error('Error updating progress bars:', error);
     }
 }
-
-// ────────────────────────────────────────────────────────────────
-// REALTIME SETUP
-// ────────────────────────────────────────────────────────────────
 
 function setupRealtime() {
     const userId = state.user.id;
@@ -165,51 +151,30 @@ function setupRealtime() {
         .subscribe();
 }
 
-// ────────────────────────────────────────────────────────────────
-// EXPOSE TO WINDOW (Global funkcijos)
-// ────────────────────────────────────────────────────────────────
-
-// Auth
 window.login = Auth.login;
 window.logout = Auth.logout;
-
-// Garage
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
 window.setVehType = Garage.setVehType;
 window.toggleTestMode = Garage.toggleTestMode;
-
-// Shifts
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
 window.confirmEnd = Shifts.confirmEnd;
 window.togglePause = Shifts.togglePause;
-
-// Finance
 window.openTxModal = Finance.openTxModal;
 window.setExpType = Finance.setExpType;
 window.confirmTx = Finance.confirmTx;
 window.exportAI = Finance.exportAI;
-
-// UI
 window.cycleTheme = UI.cycleTheme;
 window.switchTab = UI.switchTab;
-
-// Universal closeModals (PATAISYMAS)
 window.closeModals = function() {
     document.querySelectorAll('.modal-overlay').forEach(el => {
         el.classList.add('hidden');
     });
 };
-
-// Settings
 window.openSettings = Settings.openSettings;
 window.saveSettings = Settings.saveSettings;
-
-// ────────────────────────────────────────────────────────────────
-// START
-// ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', init);

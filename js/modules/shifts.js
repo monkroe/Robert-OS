@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SHIFTS MODULE v2.1 (TIMER UI FIX + PAUSE)
+// ROBERT OS - SHIFTS MODULE v2.3 (WEATHER FIX)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -9,7 +9,7 @@ import { showToast, vibrate } from '../utils.js';
 let timerInterval = null;
 
 // ────────────────────────────────────────────────────────────────
-// TIMER LOGIC (PATAISYTA)
+// TIMER LOGIC
 // ────────────────────────────────────────────────────────────────
 
 export function startTimer() {
@@ -127,7 +127,7 @@ export async function confirmStart() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// END SHIFT
+// END SHIFT & WEATHER
 // ────────────────────────────────────────────────────────────────
 
 export function openEndModal() {
@@ -145,12 +145,28 @@ export function openEndModal() {
     if (endEarnInput) endEarnInput.value = '';
     if (weatherInput) weatherInput.value = '';
     
+    // Reset buttons visuals
     document.querySelectorAll('.weather-btn').forEach(btn => {
-        btn.classList.remove('bg-teal-500', 'border-teal-500', 'text-black');
-        btn.classList.add('opacity-50');
+         btn.className = 'weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 hover:opacity-100 transition-all';
     });
     
     window.openModal('end-modal');
+}
+
+// ✅ NAUJA: Šitos funkcijos trūko!
+export function selectWeather(type) {
+    vibrate();
+    document.getElementById('end-weather').value = type;
+
+    document.querySelectorAll('.weather-btn').forEach(btn => {
+        // Reset styles
+        btn.className = 'weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 transition-all';
+
+        // Highlight selected
+        if (btn.getAttribute('onclick').includes(type)) {
+            btn.className = 'weather-btn p-3 border border-teal-500 bg-teal-500/20 rounded-lg text-2xl shadow-[0_0_10px_rgba(20,184,166,0.3)] scale-110 transition-all';
+        }
+    });
 }
 
 export async function confirmEnd() {
@@ -191,7 +207,7 @@ export async function confirmEnd() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// PAUSE/RESUME (KRITINĖ FUNKCIJA)
+// PAUSE/RESUME
 // ────────────────────────────────────────────────────────────────
 
 export async function togglePause() {
@@ -201,11 +217,9 @@ export async function togglePause() {
     const isPaused = state.activeShift.status === 'paused';
     const newStatus = isPaused ? 'active' : 'paused';
     
-    // Optimistic UI update
     const oldStatus = state.activeShift.status;
     state.activeShift.status = newStatus;
     
-    // Update visuals immediately
     if (newStatus === 'paused') {
         stopTimer();
         const el = document.getElementById('shift-timer');
@@ -219,14 +233,12 @@ export async function togglePause() {
     
     updatePauseButton(newStatus);
     
-    // DB Update
     try {
         const { error } = await db.from('finance_shifts')
             .update({ status: newStatus })
             .eq('id', state.activeShift.id);
         
         if (error) {
-            // Rollback on error
             state.activeShift.status = oldStatus;
             if (oldStatus === 'paused') {
                 stopTimer();
@@ -261,4 +273,4 @@ function updatePauseButton(status) {
         btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
         btn.className = 'col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50 transition-all';
     }
-} 
+}

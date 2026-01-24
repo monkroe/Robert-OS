@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SHIFTS MODULE v2.3 (WEATHER FIX)
+// ROBERT OS - SHIFTS MODULE v2.4 (PAUSE NUMBERS FIX)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -13,17 +13,19 @@ let timerInterval = null;
 // ────────────────────────────────────────────────────────────────
 
 export function startTimer() {
-    stopTimer();
+    stopTimer(); // Išvalome seną intervalą
     
+    // Jei pauzė - parodome laiką, uždedame pulsavimą, bet NELEIDŽIAME intervalo
     if (state.activeShift?.status === 'paused') {
         const el = document.getElementById('shift-timer');
         if (el) {
-            el.textContent = "PAUSED";
-            el.classList.add('pulse-text');
+            updateTimerDisplay(); // Parodo skaičius
+            el.classList.add('pulse-text'); // Įjungia pulsavimą
         }
         return;
     }
     
+    // Jei aktyvi - rodome laiką ir paleidžiame tiksėjimą
     updateTimerDisplay();
     timerInterval = setInterval(updateTimerDisplay, 1000);
 }
@@ -33,9 +35,9 @@ export function stopTimer() {
         clearInterval(timerInterval);
         timerInterval = null;
     }
+    // SVARBU: Čia NEBENULINAME teksto, kad liktų skaičiai pauzės metu
     const el = document.getElementById('shift-timer');
     if (el) {
-        el.textContent = "00:00:00";
         el.classList.remove('pulse-text');
     }
 }
@@ -44,14 +46,7 @@ function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
     if (!state.activeShift || !el) return;
     
-    if (state.activeShift.status === 'paused') {
-        el.textContent = "PAUSED";
-        el.classList.add('pulse-text');
-        return;
-    } else {
-        el.classList.remove('pulse-text');
-    }
-    
+    // SKAIČIAVIMAS
     const start = new Date(state.activeShift.start_time).getTime();
     const now = Date.now();
     let diff = Math.floor((now - start) / 1000);
@@ -62,6 +57,13 @@ function updateTimerDisplay() {
     const s = String(diff % 60).padStart(2, '0');
     
     el.textContent = `${h}:${m}:${s}`;
+    
+    // Jei pauzė - užtikriname pulsavimą
+    if (state.activeShift.status === 'paused') {
+        el.classList.add('pulse-text');
+    } else {
+        el.classList.remove('pulse-text');
+    }
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -145,7 +147,6 @@ export function openEndModal() {
     if (endEarnInput) endEarnInput.value = '';
     if (weatherInput) weatherInput.value = '';
     
-    // Reset buttons visuals
     document.querySelectorAll('.weather-btn').forEach(btn => {
          btn.className = 'weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 hover:opacity-100 transition-all';
     });
@@ -153,16 +154,13 @@ export function openEndModal() {
     window.openModal('end-modal');
 }
 
-// ✅ NAUJA: Šitos funkcijos trūko!
 export function selectWeather(type) {
     vibrate();
-    document.getElementById('end-weather').value = type;
+    const input = document.getElementById('end-weather');
+    if (input) input.value = type;
 
     document.querySelectorAll('.weather-btn').forEach(btn => {
-        // Reset styles
         btn.className = 'weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 transition-all';
-
-        // Highlight selected
         if (btn.getAttribute('onclick').includes(type)) {
             btn.className = 'weather-btn p-3 border border-teal-500 bg-teal-500/20 rounded-lg text-2xl shadow-[0_0_10px_rgba(20,184,166,0.3)] scale-110 transition-all';
         }
@@ -195,6 +193,11 @@ export async function confirmEnd() {
 
         if (error) throw error;
 
+        // Išvalome laikmatį rankiniu būdu čia, nes stopTimer to nebedaro
+        stopTimer();
+        const el = document.getElementById('shift-timer');
+        if (el) el.textContent = "00:00:00";
+
         window.closeModals();
         window.dispatchEvent(new Event('refresh-data'));
         showToast('Pamaina baigta 🏁', 'success');
@@ -221,14 +224,11 @@ export async function togglePause() {
     state.activeShift.status = newStatus;
     
     if (newStatus === 'paused') {
-        stopTimer();
+        stopTimer(); // Sustabdo intervalą, bet tekstą palieka
         const el = document.getElementById('shift-timer');
-        if (el) {
-            el.textContent = "PAUSED";
-            el.classList.add('pulse-text');
-        }
+        if (el) el.classList.add('pulse-text');
     } else {
-        startTimer();
+        startTimer(); // Vėl paleidžia
     }
     
     updatePauseButton(newStatus);
@@ -239,14 +239,12 @@ export async function togglePause() {
             .eq('id', state.activeShift.id);
         
         if (error) {
+            // Revert on error
             state.activeShift.status = oldStatus;
             if (oldStatus === 'paused') {
                 stopTimer();
                 const el = document.getElementById('shift-timer');
-                if (el) {
-                    el.textContent = "PAUSED";
-                    el.classList.add('pulse-text');
-                }
+                if(el) el.classList.add('pulse-text');
             } else {
                 startTimer();
             }

@@ -1,16 +1,15 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - UI MODULE
-// Versija: 1.2
+// Versija: 1.3 (Architecture Fix: State-based Tabs)
 // 
 // ATSAKOMYBĖ: UI atvaizdavimas ir vartotojo sąsaja
-// Temos, modalai, tab'ai, progress bars, laikrodžiai
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
 import { vibrate, showToast } from '../utils.js';
 
 // ────────────────────────────────────────────────────────────────
-// THEME ENGINE (Original + Fixed)
+// THEME ENGINE
 // ────────────────────────────────────────────────────────────────
 
 let currentTheme = localStorage.getItem('theme') || 'auto';
@@ -74,7 +73,7 @@ export function updateUI(key) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT CONTROLS (Start/Pause/End mygtukai)
+// SHIFT CONTROLS
 // ────────────────────────────────────────────────────────────────
 
 function updateShiftControls() {
@@ -85,11 +84,11 @@ function updateShiftControls() {
     const activeControls = document.getElementById('active-controls');
     const btnPause = document.getElementById('btn-pause');
     
-    // Rodyti/slėpti mygtukus
+    // Čia vis dar naudojame hidden, nes tai elementų rodymas/slėpimas viduje, 
+    // o ne tab'ų sistema. Tai netrukdo CSS architektūrai.
     if (btnStart) btnStart.classList.toggle('hidden', hasShift);
     if (activeControls) activeControls.classList.toggle('hidden', !hasShift);
     
-    // Pause mygtuko tekstas ir spalva
     if (btnPause && hasShift) {
         if (isPaused) {
             btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
@@ -102,19 +101,16 @@ function updateShiftControls() {
         }
     }
     
-    // Pranešti apie būsenos pasikeitimą (suderinamumas su sena sistema)
     const event = new CustomEvent('shiftStateChanged', { detail: hasShift });
     window.dispatchEvent(event);
 }
 
 // ────────────────────────────────────────────────────────────────
-// PROGRESS BARS (Suderinamumas su App.js ir Costs)
+// PROGRESS BARS
 // ────────────────────────────────────────────────────────────────
 
-// Legacy funkcija (paliekame tuščią, nes app.js valdo bars)
 export function updateGrindBar() {}
 
-// Helperis iš app.js
 export function renderProgressBar(elementId, current, target, colors = {}) {
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -123,15 +119,15 @@ export function renderProgressBar(elementId, current, target, colors = {}) {
     
     el.style.width = `${percentage}%`;
     
-    // Glow effect (jei 100%)
     const glowEl = document.getElementById(elementId.replace('bar', 'glow'));
     if (glowEl) {
+        // Čia irgi hidden yra OK, nes tai vidinis UI elementas
         glowEl.classList.toggle('hidden', percentage < 100);
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// MODALS (Atidarymas/Uždarymas)
+// MODALS
 // ────────────────────────────────────────────────────────────────
 
 export function closeModals() {
@@ -150,32 +146,47 @@ export function openModal(modalId) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// TABS (Navigacija)
+// TABS (ARCHITECTURAL FIX APPLIED)
 // ────────────────────────────────────────────────────────────────
 
 export function switchTab(id) {
     vibrate();
-    
     state.currentTab = id;
     
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    // 1. Išjungiame visus tabus (nuimame .active)
+    // DĖMESIO: Nebenaudojame .hidden klasės tab'ams
+    document.querySelectorAll('.tab-content').forEach(el => {
+        el.classList.remove('active');
+    });
     
+    // 2. Aktyvuojame pasirinktą tabą
+    // CSS .tab-content.active { display: block } atliks savo darbą
     const tab = document.getElementById(`tab-${id}`);
-    if (tab) tab.classList.remove('hidden');
+    if (tab) {
+        tab.classList.add('active');
+    }
     
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    // 3. Atnaujiname navigacijos mygtukų stilių
+    document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.remove('active');
+    });
     
     const btn = document.getElementById(`btn-${id}`);
     if (btn) btn.classList.add('active');
     
-    // Jei Audit tab - atnaujinti istoriją
+    // 4. Trigger data refresh jei reikia
     if (id === 'audit') {
+        // Dabar, kai nebėra hidden konfliktų, DOM atsinaujina iškart,
+        // todėl nereikia setTimeout hack'ų, bet refresh vis tiek iškviečiame.
         window.dispatchEvent(new Event('refresh-data'));
     }
+    
+    // Scroll to top pagerina UX
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ────────────────────────────────────────────────────────────────
-// LAIKRODŽIAI (Laiko zonos)
+// CLOCKS
 // ────────────────────────────────────────────────────────────────
 
 let clockInterval = null;
@@ -221,7 +232,7 @@ function updateClocks() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// UTILS
+// UTILS EXPORT
 // ────────────────────────────────────────────────────────────────
 
 export { showToast } from '../utils.js';

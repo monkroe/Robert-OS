@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS (ORCHESTRATOR) v2.1
+// ROBERT OS - APP.JS (ORCHESTRATOR) v2.2 (FIXED OPENMODAL)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -151,7 +151,7 @@ function setupRealtime() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// GLOBAL WINDOW FUNCTIONS (FIXED)
+// GLOBAL WINDOW FUNCTIONS
 // ════════════════════════════════════════════════════════════════
 
 // Auth
@@ -170,7 +170,7 @@ window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
 window.confirmEnd = Shifts.confirmEnd;
-window.togglePause = Shifts.togglePause;  // ✅ FIXED!
+window.togglePause = Shifts.togglePause;
 
 // Finance
 window.openTxModal = Finance.openTxModal;
@@ -181,11 +181,8 @@ window.exportAI = Finance.exportAI;
 // UI
 window.cycleTheme = UI.cycleTheme;
 window.switchTab = UI.switchTab;
-window.closeModals = function() {
-    document.querySelectorAll('.modal-overlay').forEach(el => {
-        el.classList.add('hidden');
-    });
-};
+window.openModal = UI.openModal;   // ✅ ŠTAI SPRENDIMAS
+window.closeModals = UI.closeModals;
 
 // Settings
 window.openSettings = Settings.openSettings;

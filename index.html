@@ -208,6 +208,13 @@
             <h3 id="tx-title" class="text-xl font-bold uppercase mb-4">Transaction</h3>
             <input type="number" inputmode="decimal" pattern="[0-9]*" id="tx-amount" class="input-field text-3xl mb-4 text-center" placeholder="$0.00">
             
+            <div id="income-types" class="grid grid-cols-2 gap-2 mb-4 hidden">
+                <button onclick="setExpType('tips')" class="inc-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">💵 Tips</button>
+                <button onclick="setExpType('private')" class="inc-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">🚗 Private</button>
+                <button onclick="setExpType('bonus')" class="inc-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">🎁 Bonus</button>
+                <button onclick="setExpType('other')" class="inc-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">➕ Other</button>
+            </div>
+            
             <div id="expense-types" class="grid grid-cols-3 gap-2 mb-4 hidden">
                 <button onclick="setExpType('fuel')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">⛽ Fuel</button>
                 <button onclick="setExpType('food')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">🍔 Food</button>
@@ -216,7 +223,7 @@
                 <button onclick="setExpType('maintenance')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">🔧 Repair</button>
                 <button onclick="setExpType('other')" class="exp-btn p-2 border border-gray-700 rounded-lg text-xs font-bold uppercase hover:bg-teal-500/20">➕ Other</button>
             </div>
-            <input type="hidden" id="tx-type" value="other">
+            <input type="hidden" id="tx-type" value="tips">
 
             <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">
                 <div><label class="label-xs">Gallons</label><input type="number" inputmode="decimal" id="tx-gal" class="input-field text-sm"></div>
@@ -227,7 +234,6 @@
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
         </div>
     </div>
-
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center">
             <h3 class="text-xl font-bold uppercase mb-4 text-teal-500">Garage Management</h3>
@@ -359,8 +365,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="js/app.js?v=1.2"></script>
-    <!-- EMERGENCY DEBUG -->
-<script>
+    <script>
 window.addEventListener('error', function(e) {
     document.body.innerHTML = `
         <div style="padding: 20px; background: black; color: red; font-family: monospace; white-space: pre-wrap;">

@@ -358,7 +358,27 @@
     <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold">SYNCING...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="js/app.js?v=1.2.1"></script>
+    <script type="module" src="js/app.js?v=1.2"></script>
+    <!-- EMERGENCY DEBUG -->
+<script>
+window.addEventListener('error', function(e) {
+    document.body.innerHTML = `
+        <div style="padding: 20px; background: black; color: red; font-family: monospace; white-space: pre-wrap;">
+ERROR:
+${e.message}
+
+FILE: ${e.filename}
+LINE: ${e.lineno}:${e.colno}
+
+STACK:
+${e.error ? e.error.stack : 'N/A'}
+        </div>
+    `;
+});
+console.log('✅ Emergency handler loaded');
+</script>
+    
+    
     
     <script>
         function selectWeather(type) {

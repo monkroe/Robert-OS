@@ -120,7 +120,7 @@ async function saveExpense(amount, category) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT (ISTORIJA) - REFACTORED DESIGN
+// AUDIT (ISTORIJA) - DARK MODE FIXED + COMPACT FONT
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
@@ -146,9 +146,10 @@ export async function refreshAudit() {
         }
         
         listEl.innerHTML = shifts.map(shift => {
-            // DATE FORMATTING
             const start = new Date(shift.start_time);
             const dateStr = start.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
+            
+            // Laikas be sekundžių
             const startTimeStr = start.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
             
             let endTimeStr = '...';
@@ -164,18 +165,17 @@ export async function refreshAudit() {
                 const mins = Math.floor((diffMs % 3600000) / 60000);
                 durationStr = `${hours}h ${mins}m`;
                 
-                statusBadge = `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 uppercase">DONE</span>`;
+                statusBadge = `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-400 uppercase">DONE</span>`;
             } else {
                 statusBadge = `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-500 uppercase animate-pulse">ACTIVE</span>`;
             }
             
             const earnings = shift.gross_earnings || 0;
             
-            // CARD DESIGN:
-            // bg-white šviesiam, dark:bg-[#1a1a1a] tamsiam (kad nebūtų balta)
-            // Tekstas tamsus šviesiam, šviesus tamsiam.
+            // DARK MODE FIX: dark:!bg-[#111] (Force Dark Background)
+            // FONT FIX: font-bold tracking-tight (Compact Font)
             return `
-                <div class="group relative bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-gray-200 dark:border-white/5 shadow-sm flex items-center justify-between transition-colors">
+                <div class="group relative bg-white dark:!bg-[#111] rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm flex items-center justify-between transition-colors">
                     <div class="flex items-center gap-4">
                         <input type="checkbox" 
                                value="${shift.id}" 
@@ -184,18 +184,18 @@ export async function refreshAudit() {
                         
                         <div class="flex flex-col">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="text-xs font-bold text-gray-500 dark:text-gray-400">${dateStr}</span>
+                                <span class="text-xs font-bold text-gray-400">${dateStr}</span>
                                 ${statusBadge}
                             </div>
-                            <div class="font-mono text-sm font-bold text-gray-900 dark:text-gray-100">
-                                ${startTimeStr} - ${endTimeStr} <span class="text-xs text-gray-400 font-sans ml-1">(${durationStr})</span>
+                            <div class="text-sm font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                                ${startTimeStr} - ${endTimeStr} <span class="text-xs text-gray-400 font-normal ml-1">(${durationStr})</span>
                             </div>
                         </div>
                     </div>
                     
                     <div class="flex items-center gap-3">
                         <span class="text-lg font-bold text-green-600 dark:text-green-400">+$${earnings}</span>
-                        <button class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-400 hover:text-teal-500 transition-colors">
+                        <button class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-500 hover:text-teal-500 transition-colors">
                             <i class="fa-solid fa-pen text-xs"></i>
                         </button>
                     </div>
@@ -209,23 +209,17 @@ export async function refreshAudit() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SELECT ALL & DELETE LOGIC (CUSTOM MODAL)
+// SELECT ALL & DELETE LOGIC
 // ────────────────────────────────────────────────────────────────
 
-// 1. SELECT ALL
 window.toggleSelectAll = function() {
     vibrate();
     const master = document.getElementById('select-all-logs');
     const checkboxes = document.querySelectorAll('.log-checkbox');
-    
-    checkboxes.forEach(cb => {
-        cb.checked = master.checked;
-    });
-    
+    checkboxes.forEach(cb => cb.checked = master.checked);
     updateDeleteButton();
 };
 
-// 2. UPDATE UI
 window.updateDeleteButton = function() {
     const checked = document.querySelectorAll('.log-checkbox:checked');
     const btn = document.getElementById('btn-delete-logs');
@@ -245,7 +239,6 @@ window.updateDeleteButton = function() {
     }
 };
 
-// 3. OPEN CUSTOM MODAL (Request Delete)
 window.requestDelete = function() {
     vibrate();
     const checkboxes = document.querySelectorAll('.log-checkbox:checked');
@@ -256,7 +249,6 @@ window.requestDelete = function() {
     document.getElementById('delete-modal').classList.remove('hidden');
 };
 
-// 4. CONFIRM DELETE (Execute)
 window.confirmDelete = async function() {
     vibrate([20]);
     if (idsToDelete.length === 0) return;

@@ -67,8 +67,8 @@ body {
 
 .input-field {
     width: 100%;
-    background-color: #111827; /* gray-900 */
-    border: 1px solid #374151; /* gray-700 */
+    background-color: #111827;
+    border: 1px solid #374151;
     border-radius: 0.75rem;
     padding: 1rem;
     color: white; 
@@ -100,7 +100,7 @@ body {
     box-shadow: 0 0 20px rgba(20,184,166,0.4);
 }
 .btn-primary-os:hover {
-    background-color: #0d9488; /* teal-600 */
+    background-color: #0d9488;
     box-shadow: 0 0 30px rgba(20,184,166,0.6);
 }
 .btn-primary-os:active { 
@@ -115,7 +115,7 @@ body {
     align-items: center; 
     justify-content: center;
     transition: all 0.2s;
-    color: #9ca3af; /* gray-400 */
+    color: #9ca3af;
     border: 1px solid transparent;
     cursor: pointer;
 }
@@ -349,14 +349,25 @@ html:not(.dark) body {
     background-color: var(--bg-color);
 }
 
-/* HEADERIO PATAISYMAS */
 html:not(.dark) .global-header {
     background-color: rgba(255,255,255,0.95);
     border-bottom: 1px solid #e5e7eb;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-/* KORTELIŲ (BENTO) PATAISYMAS */
+html:not(.dark) .bottom-nav {
+    background-color: rgba(255,255,255,0.95);
+    border-top: 1px solid #e5e7eb;
+}
+
+html:not(.dark) .nav-item {
+    color: #6b7280;
+}
+
+html:not(.dark) .nav-item.active {
+    color: var(--accent);
+}
+
 html:not(.dark) .bento-card,
 html:not(.dark) .modal-content {
     background-color: var(--card-bg) !important;
@@ -365,7 +376,11 @@ html:not(.dark) .modal-content {
     color: #111827;
 }
 
-/* MYGTUKŲ PATAISYMAS */
+html:not(.dark) .val-timer,
+html:not(.dark) .val-lg {
+    color: #111827;
+}
+
 html:not(.dark) .header-btn {
     background-color: white;
     border: 1px solid #e5e7eb;
@@ -379,20 +394,18 @@ html:not(.dark) .btn-bento {
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-/* INPUT LAUKAI */
 html:not(.dark) .input-field {
     background-color: #ffffff;
     border: 1px solid #d1d5db;
     color: #000000;
 }
 
-/* IŠSKYRUS PROGRESS BARS */
 html:not(.dark) .bg-gray-800 {
     background-color: #e5e7eb !important;
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* PROGRESS BARS (NAUJAS - Žingsnis 1)                            */
+/* PROGRESS BARS                                                    */
 /* ════════════════════════════════════════════════════════════════ */
 
 .progress-container {
@@ -424,44 +437,23 @@ html:not(.dark) .bg-gray-800 {
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* WEATHER BUTTONS (End Shift Modal)                               */
+/* BUTTON STATES                                                    */
 /* ════════════════════════════════════════════════════════════════ */
 
-.weather-btn {
-    transition: all 0.2s;
-    cursor: pointer;
-}
-.weather-btn:active {
-    transform: scale(0.95);
-}
-
-/* ════════════════════════════════════════════════════════════════ */
-/* EXPENSE TYPE BUTTONS (Transaction Modal)                        */
-/* ════════════════════════════════════════════════════════════════ */
-
-.exp-btn {
-    transition: all 0.2s;
-    cursor: pointer;
-}
-.exp-btn:active {
-    transform: scale(0.95);
-}
-
-/* ════════════════════════════════════════════════════════════════ */
-/* VEHICLE TYPE BUTTONS (Garage Modal)                             */
-/* ════════════════════════════════════════════════════════════════ */
-
+.weather-btn,
+.exp-btn,
+.inc-btn,
 .veh-type-btn {
     transition: all 0.2s;
     cursor: pointer;
 }
+
+.weather-btn:active,
+.exp-btn:active,
+.inc-btn:active,
 .veh-type-btn:active {
     transform: scale(0.95);
 }
-
-/* ════════════════════════════════════════════════════════════════ */
-/* AUDIT HISTORY (Checkbox hover states)                           */
-/* ════════════════════════════════════════════════════════════════ */
 
 .hist-checkbox {
     cursor: pointer;
@@ -476,7 +468,7 @@ html:not(.dark) .bg-gray-800 {
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* AUTH SCREEN FORCE DARK (Pataisymas)                              */
+/* AUTH SCREEN FORCE DARK                                           */
 /* ════════════════════════════════════════════════════════════════ */
 
 #auth-screen .input-field {
@@ -494,28 +486,25 @@ html:not(.dark) .bg-gray-800 {
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* PRO UI POLISH (LIGHT MODE & ICONS)                               */
+/* LIGHT MODE BUTTON & MODAL POLISH                                 */
 /* ════════════════════════════════════════════════════════════════ */
 
-/* 1. Švelnesni mygtukai šviesioje temoje (nebe juodi rėmeliai) */
 html:not(.dark) .inc-btn,
 html:not(.dark) .exp-btn,
 html:not(.dark) .weather-btn,
 html:not(.dark) .veh-type-btn {
-    border-color: #e5e7eb !important; /* Švelniai pilka */
+    border-color: #e5e7eb !important;
     background-color: #ffffff;
     color: #4b5563;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Mažas šešėlis gyliui */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-/* Paspaudimo efektas šviesioje temoje */
 html:not(.dark) .inc-btn:hover,
 html:not(.dark) .exp-btn:hover {
     background-color: #f9fafb;
     border-color: #d1d5db !important;
 }
 
-/* 2. LOG / HISTORY PATAISYMAS (Kad nebūtų juodos kortelės baltame fone) */
 html:not(.dark) #audit-list > div {
     background-color: #ffffff !important;
     border: 1px solid #e5e7eb !important;
@@ -523,7 +512,6 @@ html:not(.dark) #audit-list > div {
     box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
 }
 
-/* Pataisome tekstą istorijos kortelėse (data, laikas) */
 html:not(.dark) #audit-list .text-gray-400 {
     color: #9ca3af !important;
 }
@@ -532,7 +520,6 @@ html:not(.dark) #audit-list .text-gray-500 {
     color: #6b7280 !important;
 }
 
-/* 3. Modalų antraštės šviesioje temoje */
 html:not(.dark) #tx-title, 
 html:not(.dark) h3 {
     color: #111827 !important;

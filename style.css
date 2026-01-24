@@ -1,11 +1,11 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS v1.2 - STYLE ENGINE (FIXED)                          */
+/* ROBERT OS v1.2 - STYLE ENGINE (CONSTITUTION ARCHITECTURE)       */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root {
     --bg-color: #000000;
     --card-bg: #111111;
-    --accent: #14b8a6;
+    --accent: #14b8a6; /* Teal-500 */
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
 }
@@ -19,7 +19,7 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* SAFE AREA HANDLING                                               */
+/* SAFE AREA HANDLING (iOS Notch Support)                          */
 /* ════════════════════════════════════════════════════════════════ */
 
 .global-header {
@@ -67,8 +67,8 @@ body {
 
 .input-field {
     width: 100%;
-    background-color: #111827;
-    border: 1px solid #374151;
+    background-color: #111827; /* gray-900 */
+    border: 1px solid #374151; /* gray-700 */
     border-radius: 0.75rem;
     padding: 1rem;
     color: white; 
@@ -100,7 +100,7 @@ body {
     box-shadow: 0 0 20px rgba(20,184,166,0.4);
 }
 .btn-primary-os:hover {
-    background-color: #0d9488;
+    background-color: #0d9488; /* teal-600 */
     box-shadow: 0 0 30px rgba(20,184,166,0.6);
 }
 .btn-primary-os:active { 
@@ -115,7 +115,7 @@ body {
     align-items: center; 
     justify-content: center;
     transition: all 0.2s;
-    color: #9ca3af;
+    color: #9ca3af; /* gray-400 */
     border: 1px solid transparent;
     cursor: pointer;
 }
@@ -298,15 +298,18 @@ body {
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
 }
 
-/* ════════════════════════════════════════════════════════════════ */
-/* TAB SYSTEM (CRITICAL FIX)                                        */
-/* ════════════════════════════════════════════════════════════════ */
-
-.tab-content {
-    display: none;
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
-.tab-content.active {
-    display: block;
+.animate-scaleIn {
+    animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ════════════════════════════════════════════════════════════════ */
@@ -322,7 +325,18 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* LIGHT MODE OVERRIDES                                             */
+/* TAB SYSTEM                                                       */
+/* ════════════════════════════════════════════════════════════════ */
+
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* LIGHT MODE OVERRIDES (Auto Theme Support)                       */
 /* ════════════════════════════════════════════════════════════════ */
 
 html:not(.dark) {
@@ -335,26 +349,14 @@ html:not(.dark) body {
     background-color: var(--bg-color);
 }
 
+/* HEADERIO PATAISYMAS */
 html:not(.dark) .global-header {
     background-color: rgba(255,255,255,0.95);
     border-bottom: 1px solid #e5e7eb;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-html:not(.dark) .bottom-nav {
-    background-color: rgba(255,255,255,0.95);
-    border-top: 1px solid #e5e7eb;
-    box-shadow: 0 -1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-
-html:not(.dark) .nav-item {
-    color: #6b7280;
-}
-
-html:not(.dark) .nav-item.active {
-    color: var(--accent);
-}
-
+/* KORTELIŲ (BENTO) PATAISYMAS */
 html:not(.dark) .bento-card,
 html:not(.dark) .modal-content {
     background-color: var(--card-bg) !important;
@@ -363,6 +365,7 @@ html:not(.dark) .modal-content {
     color: #111827;
 }
 
+/* MYGTUKŲ PATAISYMAS */
 html:not(.dark) .header-btn {
     background-color: white;
     border: 1px solid #e5e7eb;
@@ -376,51 +379,105 @@ html:not(.dark) .btn-bento {
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
+/* INPUT LAUKAI */
 html:not(.dark) .input-field {
     background-color: #ffffff;
     border: 1px solid #d1d5db;
     color: #000000;
 }
 
+/* IŠSKYRUS PROGRESS BARS */
 html:not(.dark) .bg-gray-800 {
     background-color: #e5e7eb !important;
 }
 
-html:not(.dark) .inc-btn,
-html:not(.dark) .exp-btn,
-html:not(.dark) .weather-btn,
-html:not(.dark) .veh-type-btn {
-    border-color: #e5e7eb !important;
-    background-color: #ffffff;
-    color: #4b5563;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+/* ════════════════════════════════════════════════════════════════ */
+/* PROGRESS BARS (NAUJAS - Žingsnis 1)                            */
+/* ════════════════════════════════════════════════════════════════ */
+
+.progress-container {
+    position: relative;
+    width: 100%;
+    height: 0.5rem;
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 9999px;
+    overflow: hidden;
 }
 
-html:not(.dark) .inc-btn:hover,
-html:not(.dark) .exp-btn:hover {
-    background-color: #f9fafb;
-    border-color: #d1d5db !important;
+.progress-bar {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
 }
 
-html:not(.dark) #audit-list > div {
-    background-color: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
-    color: #1f2937 !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+.progress-bar .glow {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s infinite;
 }
 
-html:not(.dark) #audit-list .text-gray-400 {
-    color: #9ca3af !important;
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
 }
 
-html:not(.dark) #audit-list .text-gray-500 {
-    color: #6b7280 !important;
+/* ════════════════════════════════════════════════════════════════ */
+/* WEATHER BUTTONS (End Shift Modal)                               */
+/* ════════════════════════════════════════════════════════════════ */
+
+.weather-btn {
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.weather-btn:active {
+    transform: scale(0.95);
 }
 
-html:not(.dark) #tx-title, 
-html:not(.dark) h3 {
-    color: #111827 !important;
+/* ════════════════════════════════════════════════════════════════ */
+/* EXPENSE TYPE BUTTONS (Transaction Modal)                        */
+/* ════════════════════════════════════════════════════════════════ */
+
+.exp-btn {
+    transition: all 0.2s;
+    cursor: pointer;
 }
+.exp-btn:active {
+    transform: scale(0.95);
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* VEHICLE TYPE BUTTONS (Garage Modal)                             */
+/* ════════════════════════════════════════════════════════════════ */
+
+.veh-type-btn {
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.veh-type-btn:active {
+    transform: scale(0.95);
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* AUDIT HISTORY (Checkbox hover states)                           */
+/* ════════════════════════════════════════════════════════════════ */
+
+.hist-checkbox {
+    cursor: pointer;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* UTILITY CLASSES                                                  */
+/* ════════════════════════════════════════════════════════════════ */
+
+.hidden {
+    display: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* AUTH SCREEN FORCE DARK (Pataisymas)                              */
+/* ════════════════════════════════════════════════════════════════ */
 
 #auth-screen .input-field {
     background-color: #111827 !important;
@@ -437,48 +494,46 @@ html:not(.dark) h3 {
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* UTILITY CLASSES                                                  */
+/* PRO UI POLISH (LIGHT MODE & ICONS)                               */
 /* ════════════════════════════════════════════════════════════════ */
 
-.hidden {
-    display: none !important;
+/* 1. Švelnesni mygtukai šviesioje temoje (nebe juodi rėmeliai) */
+html:not(.dark) .inc-btn,
+html:not(.dark) .exp-btn,
+html:not(.dark) .weather-btn,
+html:not(.dark) .veh-type-btn {
+    border-color: #e5e7eb !important; /* Švelniai pilka */
+    background-color: #ffffff;
+    color: #4b5563;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Mažas šešėlis gyliui */
 }
 
-.weather-btn,
-.exp-btn,
-.inc-btn,
-.veh-type-btn {
-    transition: all 0.2s;
-    cursor: pointer;
+/* Paspaudimo efektas šviesioje temoje */
+html:not(.dark) .inc-btn:hover,
+html:not(.dark) .exp-btn:hover {
+    background-color: #f9fafb;
+    border-color: #d1d5db !important;
 }
 
-.weather-btn:active,
-.exp-btn:active,
-.inc-btn:active,
-.veh-type-btn:active {
-    transform: scale(0.95);
+/* 2. LOG / HISTORY PATAISYMAS (Kad nebūtų juodos kortelės baltame fone) */
+html:not(.dark) #audit-list > div {
+    background-color: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    color: #1f2937 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
 }
-```
 
----
-
-## ✅ KAS PATAISYTA
-
-**1. Tab system (eilutės 321-327):**
-```css
-.tab-content {
-    display: none;
+/* Pataisome tekstą istorijos kortelėse (data, laikas) */
+html:not(.dark) #audit-list .text-gray-400 {
+    color: #9ca3af !important;
 }
-.tab-content.active {
-    display: block;
-}
-```
 
-**2. Bottom nav šviesioje temoje (eilutės 391-399):**
-```css
-html:not(.dark) .nav-item {
-    color: #6b7280;
+html:not(.dark) #audit-list .text-gray-500 {
+    color: #6b7280 !important;
 }
-html:not(.dark) .nav-item.active {
-    color: var(--accent);
+
+/* 3. Modalų antraštės šviesioje temoje */
+html:not(.dark) #tx-title, 
+html:not(.dark) h3 {
+    color: #111827 !important;
 }

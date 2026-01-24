@@ -1,15 +1,14 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE
-// Versija: 1.3 (Architecture Fix: State-based Tabs)
-// 
-// ATSAKOMYBĖ: UI atvaizdavimas ir vartotojo sąsaja
+// ROBERT OS - UI MODULE v1.7 “PRO UI” (STABLE)
+// Versija: 1.7
+// Patobulinimai: Smooth animations, Glow effects, Tab fade/slide, Real-time clocks
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
 import { vibrate, showToast } from '../utils.js';
 
 // ────────────────────────────────────────────────────────────────
-// THEME ENGINE
+// THEME ENGINE 2.0
 // ────────────────────────────────────────────────────────────────
 
 let currentTheme = localStorage.getItem('theme') || 'auto';
@@ -29,13 +28,15 @@ export function applyTheme() {
         isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
 
-    if (isDark) {
-        html.classList.add('dark');
-        metaThemeColor?.setAttribute('content', '#000000');
-    } else {
-        html.classList.remove('dark');
-        metaThemeColor?.setAttribute('content', '#f3f4f6');
-    }
+    // Toggle class
+    if (isDark) html.classList.add('dark');
+    else html.classList.remove('dark');
+
+    // Meta update
+    metaThemeColor?.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
+    
+    // Smooth transition enforcement
+    html.style.transition = 'background-color 0.5s ease, color 0.3s ease';
 
     if (themeBtn) {
         let iconClass = 'fa-circle-half-stroke';
@@ -47,7 +48,6 @@ export function applyTheme() {
 
 export function cycleTheme() {
     vibrate();
-    
     if (currentTheme === 'auto') currentTheme = 'dark';
     else if (currentTheme === 'dark') currentTheme = 'light';
     else currentTheme = 'auto';
@@ -58,7 +58,7 @@ export function cycleTheme() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// UI UPDATES (Reaguoja į state pasikeitimus)
+// UI UPDATES
 // ────────────────────────────────────────────────────────────────
 
 export function updateUI(key) {
@@ -73,7 +73,7 @@ export function updateUI(key) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT CONTROLS
+// SHIFT CONTROLS WITH ANIMATIONS
 // ────────────────────────────────────────────────────────────────
 
 function updateShiftControls() {
@@ -83,57 +83,68 @@ function updateShiftControls() {
     const btnStart = document.getElementById('btn-start');
     const activeControls = document.getElementById('active-controls');
     const btnPause = document.getElementById('btn-pause');
-    
-    // Čia vis dar naudojame hidden, nes tai elementų rodymas/slėpimas viduje, 
-    // o ne tab'ų sistema. Tai netrukdo CSS architektūrai.
+
+    // Hidden naudojame elementų rodymui/slėpimui
     if (btnStart) btnStart.classList.toggle('hidden', hasShift);
     if (activeControls) activeControls.classList.toggle('hidden', !hasShift);
-    
+
     if (btnPause && hasShift) {
+        // Reset classes
+        btnPause.className = 'col-span-1 btn-bento transition-all duration-300';
+        
         if (isPaused) {
             btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
-            btnPause.classList.remove('bg-yellow-500/10', 'text-yellow-500', 'border-yellow-500/50');
-            btnPause.classList.add('bg-green-500/10', 'text-green-500', 'border-green-500/50');
+            btnPause.classList.add('bg-green-500/10', 'text-green-500', 'border-green-500/50', 'pulse-animation');
         } else {
             btnPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
-            btnPause.classList.remove('bg-green-500/10', 'text-green-500', 'border-green-500/50');
             btnPause.classList.add('bg-yellow-500/10', 'text-yellow-500', 'border-yellow-500/50');
+            // Remove pulse when running normally (optional) or keep it
         }
     }
-    
-    const event = new CustomEvent('shiftStateChanged', { detail: hasShift });
-    window.dispatchEvent(event);
+
+    window.dispatchEvent(new CustomEvent('shiftStateChanged', { detail: hasShift }));
 }
 
 // ────────────────────────────────────────────────────────────────
-// PROGRESS BARS
+// PROGRESS BARS WITH SMOOTH ANIMATION
 // ────────────────────────────────────────────────────────────────
 
+// SVARBU: Paliekame šią funkciją dėl suderinamumo su app.js
 export function updateGrindBar() {}
 
 export function renderProgressBar(elementId, current, target, colors = {}) {
     const el = document.getElementById(elementId);
     if (!el) return;
-    
+
     const percentage = target > 0 ? Math.min((current / target) * 100, 100) : 0;
     
+    // JS transition control
+    el.style.transition = 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
     el.style.width = `${percentage}%`;
-    
+
     const glowEl = document.getElementById(elementId.replace('bar', 'glow'));
     if (glowEl) {
-        // Čia irgi hidden yra OK, nes tai vidinis UI elementas
         glowEl.classList.toggle('hidden', percentage < 100);
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// MODALS
+// MODALS WITH FADE & SCALE
 // ────────────────────────────────────────────────────────────────
 
 export function closeModals() {
     vibrate();
     document.querySelectorAll('.modal-overlay').forEach(el => {
-        el.classList.add('hidden');
+        if (!el.classList.contains('hidden')) {
+            el.classList.add('fade-out');
+            el.classList.remove('fade-in');
+            
+            // Palaukiame kol animacija baigsis prieš paslepiant
+            setTimeout(() => {
+                el.classList.add('hidden');
+                el.classList.remove('fade-out');
+            }, 200);
+        }
     });
 }
 
@@ -141,52 +152,45 @@ export function openModal(modalId) {
     vibrate();
     const modal = document.getElementById(modalId);
     if (modal) {
-        modal.classList.remove('hidden');
+        modal.classList.remove('hidden', 'fade-out');
+        modal.classList.add('fade-in');
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// TABS (ARCHITECTURAL FIX APPLIED)
+// TABS WITH FADE/SLIDE TRANSITION
 // ────────────────────────────────────────────────────────────────
 
 export function switchTab(id) {
     vibrate();
     state.currentTab = id;
-    
-    // 1. Išjungiame visus tabus (nuimame .active)
-    // DĖMESIO: Nebenaudojame .hidden klasės tab'ams
+
+    // 1. Reset Tabs
     document.querySelectorAll('.tab-content').forEach(el => {
-        el.classList.remove('active');
+        el.classList.remove('active', 'fade-in');
     });
-    
-    // 2. Aktyvuojame pasirinktą tabą
-    // CSS .tab-content.active { display: block } atliks savo darbą
+
+    // 2. Activate Tab with Animation
     const tab = document.getElementById(`tab-${id}`);
     if (tab) {
-        tab.classList.add('active');
+        tab.classList.add('active', 'fade-in');
     }
-    
-    // 3. Atnaujiname navigacijos mygtukų stilių
-    document.querySelectorAll('.nav-item').forEach(el => {
-        el.classList.remove('active');
-    });
-    
+
+    // 3. Update Nav
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const btn = document.getElementById(`btn-${id}`);
     if (btn) btn.classList.add('active');
-    
-    // 4. Trigger data refresh jei reikia
+
+    // 4. Data Refresh
     if (id === 'audit') {
-        // Dabar, kai nebėra hidden konfliktų, DOM atsinaujina iškart,
-        // todėl nereikia setTimeout hack'ų, bet refresh vis tiek iškviečiame.
         window.dispatchEvent(new Event('refresh-data'));
     }
     
-    // Scroll to top pagerina UX
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ────────────────────────────────────────────────────────────────
-// CLOCKS
+// CLOCKS WITH SMOOTH UPDATES
 // ────────────────────────────────────────────────────────────────
 
 let clockInterval = null;
@@ -207,36 +211,32 @@ export function stopClocks() {
 function updateClocks() {
     const settings = state.userSettings;
     if (!settings) return;
-    
+
     try {
         const primaryTZ = settings.timezone_primary || 'America/Chicago';
         const secondaryTZ = settings.timezone_secondary || 'Europe/Vilnius';
-        
-        const primaryTime = new Date().toLocaleTimeString('en-US', {
-            timeZone: primaryTZ, hour: '2-digit', minute: '2-digit', hour12: false
+
+        const primaryTime = new Date().toLocaleTimeString('en-US', { 
+            timeZone: primaryTZ, hour: '2-digit', minute: '2-digit', hour12: false 
         });
-        
-        const secondaryTime = new Date().toLocaleTimeString('en-US', {
-            timeZone: secondaryTZ, hour: '2-digit', minute: '2-digit', hour12: false
+        const secondaryTime = new Date().toLocaleTimeString('en-US', { 
+            timeZone: secondaryTZ, hour: '2-digit', minute: '2-digit', hour12: false 
         });
-        
+
         const primaryEl = document.getElementById('clock-primary');
         const secondaryEl = document.getElementById('clock-secondary');
-        
+
         if (primaryEl) primaryEl.textContent = primaryTime;
         if (secondaryEl) secondaryEl.textContent = secondaryTime;
-        
+
     } catch (error) {
         console.warn('Clock update failed:', error);
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// UTILS EXPORT
+// UTILS
 // ────────────────────────────────────────────────────────────────
 
 export { showToast } from '../utils.js';
-
-export function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+export function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }

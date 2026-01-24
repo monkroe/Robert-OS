@@ -273,4 +273,4 @@ window.confirmDelete = async function() {
 export async function exportAI() {
     vibrate();
     showToast('AI Export - Coming Soon', 'info');
-}
+};

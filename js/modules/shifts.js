@@ -261,3 +261,4 @@ function updatePauseButton(status) {
         btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
         btn.className = 'col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50 transition-all';
     }
+} 

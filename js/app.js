@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS (ORCHESTRATOR) v2.2 (FIXED OPENMODAL)
+// ROBERT OS - APP.JS (ORCHESTRATOR) v2.3 (FINAL STABLE)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -171,6 +171,7 @@ window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
 window.confirmEnd = Shifts.confirmEnd;
 window.togglePause = Shifts.togglePause;
+window.selectWeather = Shifts.selectWeather; // ✅ SUTVARKYTA
 
 // Finance
 window.openTxModal = Finance.openTxModal;
@@ -181,11 +182,17 @@ window.exportAI = Finance.exportAI;
 // UI
 window.cycleTheme = UI.cycleTheme;
 window.switchTab = UI.switchTab;
-window.openModal = UI.openModal;   // ✅ ŠTAI SPRENDIMAS
+window.openModal = UI.openModal;     // ✅ SUTVARKYTA
 window.closeModals = UI.closeModals;
 
 // Settings
 window.openSettings = Settings.openSettings;
 window.saveSettings = Settings.saveSettings;
+
+// Logika delete (perkelta iš finance jei reikia globaliai, bet paprastai finance turi savo window functions)
+window.toggleSelectAll = Finance.toggleSelectAll || window.toggleSelectAll;
+window.requestDelete = Finance.requestDelete || window.requestDelete; 
+window.confirmDelete = Finance.confirmDelete || window.confirmDelete;
+window.updateDeleteButton = Finance.updateDeleteButton || window.updateDeleteButton;
 
 document.addEventListener('DOMContentLoaded', init);

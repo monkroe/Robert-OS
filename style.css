@@ -1,11 +1,11 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS v1.2 - STYLE ENGINE (CONSTITUTION ARCHITECTURE)       */
+/* ROBERT OS v1.2 - STYLE ENGINE (FIXED)                          */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root {
     --bg-color: #000000;
     --card-bg: #111111;
-    --accent: #14b8a6; /* Teal-500 */
+    --accent: #14b8a6;
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
 }
@@ -19,7 +19,7 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* SAFE AREA HANDLING (iOS Notch Support)                          */
+/* SAFE AREA HANDLING                                               */
 /* ════════════════════════════════════════════════════════════════ */
 
 .global-header {
@@ -81,6 +81,9 @@ body {
     border-color: var(--accent);
     box-shadow: 0 0 0 2px rgba(20,184,166,0.2);
 }
+.input-field::placeholder {
+    color: #6b7280;
+}
 
 .btn-primary-os {
     width: 100%;
@@ -88,11 +91,40 @@ body {
     color: black;
     font-weight: 900;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
     border-radius: 0.75rem;
     padding: 1rem;
     border: none;
     cursor: pointer;
-    box-shadow: 0 0 20px rgba(20,184,166,0.3);
+    transition: all 0.2s;
+    box-shadow: 0 0 20px rgba(20,184,166,0.4);
+}
+.btn-primary-os:hover {
+    background-color: #0d9488;
+    box-shadow: 0 0 30px rgba(20,184,166,0.6);
+}
+.btn-primary-os:active { 
+    transform: scale(0.98); 
+}
+
+.header-btn {
+    width: 2.5rem; 
+    height: 2.5rem;
+    border-radius: 0.625rem;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    transition: all 0.2s;
+    color: #9ca3af;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+.header-btn:hover { 
+    color: white; 
+    background-color: rgba(255,255,255,0.05);
+}
+.header-btn:active {
+    transform: scale(0.95);
 }
 
 .nav-item {
@@ -107,41 +139,186 @@ body {
     text-transform: uppercase;
     background: none; 
     border: none;
+    cursor: pointer;
+    transition: all 0.2s;
 }
-.nav-item.active { color: var(--accent); }
-.nav-item i { font-size: 1.25rem; }
+.nav-item:active {
+    transform: scale(0.95);
+}
+.nav-item.active { 
+    color: var(--accent); 
+}
+.nav-item i { 
+    font-size: 1.25rem; 
+}
 
 /* ════════════════════════════════════════════════════════════════ */
-/* BENTO GRID & CARDS                                               */
+/* BENTO GRID                                                       */
 /* ════════════════════════════════════════════════════════════════ */
 
-.bento-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
 
 .bento-card {
     background-color: #111;
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 1.25rem;
+    display: flex; 
+    flex-direction: column;
     padding: 1.25rem;
+    position: relative;
+    transition: all 0.2s;
     color: white;
 }
-
-.val-timer { font-size: 3rem; font-weight: 900; font-family: monospace; }
-.val-lg { font-size: 1.875rem; font-weight: 700; }
-.label-xs { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; }
+.bento-card.clickable {
+    cursor: pointer;
+}
+.bento-card.clickable:hover {
+    border-color: rgba(20,184,166,0.3);
+    background-color: rgba(255,255,255,0.02);
+}
+.bento-card.clickable:active {
+    background-color: rgba(255,255,255,0.05);
+    border-color: rgba(20,184,166,0.5);
+    transform: scale(0.98);
+}
 
 /* ════════════════════════════════════════════════════════════════ */
-/* HISTORY (LOGS) STYLING                                           */
+/* TYPOGRAPHY                                                       */
 /* ════════════════════════════════════════════════════════════════ */
 
-#audit-list > div {
-    background-color: #111;
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 1rem;
-    padding: 1rem;
-    margin-bottom: 0.5rem;
+.val-timer { 
+    font-size: 3rem; 
+    line-height: 1; 
+    font-weight: 900; 
+    letter-spacing: -0.05em; 
+    font-feature-settings: "tnum"; 
+    font-variant-numeric: tabular-nums;
+    color: white; 
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+.val-lg { 
+    font-size: 1.875rem; 
+    line-height: 2.25rem; 
+    font-weight: 700; 
+    color: white;
+    font-feature-settings: "tnum";
+}
+
+.label-xs { 
+    font-size: 10px; 
+    font-weight: 700; 
+    color: #6b7280; 
+    text-transform: uppercase; 
+    letter-spacing: 0.05em; 
+}
+
+.btn-bento {
+    border-radius: 0.875rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    transition: all 0.2s;
+    cursor: pointer;
+    background: transparent;
+}
+.btn-bento:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+.btn-bento:active {
+    transform: scale(0.95);
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* MODALS                                                           */
+/* ════════════════════════════════════════════════════════════════ */
+
+.modal-overlay {
+    position: fixed; 
+    inset: 0;
+    z-index: 100;
+    background-color: rgba(0,0,0,0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    align-items: flex-end; 
+    justify-content: center;
+}
+@media (min-width: 640px) { 
+    .modal-overlay { 
+        align-items: center; 
+        padding: 1rem; 
+    } 
+}
+
+.modal-content {
+    background-color: #111;
+    width: 100%;
+    max-width: 28rem;
+    border-top-left-radius: 1.5rem; 
+    border-top-right-radius: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding: 1.5rem;
+    padding-bottom: max(1.5rem, var(--safe-bottom));
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    color: white;
+}
+@media (min-width: 640px) { 
+    .modal-content { 
+        border-radius: 1.5rem; 
+        border: 1px solid rgba(255,255,255,0.1); 
+    } 
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* ANIMATIONS                                                       */
+/* ════════════════════════════════════════════════════════════════ */
+
+@keyframes slideUp { 
+    from { 
+        opacity: 0; 
+        transform: translateY(20px); 
+    } 
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    } 
+}
+.animate-slideUp { 
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* TAB SYSTEM (CRITICAL FIX)                                        */
+/* ════════════════════════════════════════════════════════════════ */
+
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* SCROLLBAR HIDING                                                 */
+/* ════════════════════════════════════════════════════════════════ */
+
+.no-scrollbar::-webkit-scrollbar { 
+    display: none; 
+}
+.no-scrollbar { 
+    -ms-overflow-style: none; 
+    scrollbar-width: none; 
 }
 
 /* ════════════════════════════════════════════════════════════════ */
@@ -153,55 +330,155 @@ html:not(.dark) {
     --card-bg: #ffffff;
 }
 
-html:not(.dark) body { color: #1f2937; background-color: var(--bg-color); }
+html:not(.dark) body {
+    color: #1f2937;
+    background-color: var(--bg-color);
+}
 
-html:not(.dark) .global-header,
+html:not(.dark) .global-header {
+    background-color: rgba(255,255,255,0.95);
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
 html:not(.dark) .bottom-nav {
     background-color: rgba(255,255,255,0.95);
-    border-color: #e5e7eb;
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 -1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+html:not(.dark) .nav-item {
+    color: #6b7280;
+}
+
+html:not(.dark) .nav-item.active {
+    color: var(--accent);
 }
 
 html:not(.dark) .bento-card,
-html:not(.dark) .modal-content,
-html:not(.dark) #audit-list > div {
-    background-color: #ffffff !important;
+html:not(.dark) .modal-content {
+    background-color: var(--card-bg) !important;
     border: 1px solid #e5e7eb !important;
-    color: #111827 !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    color: #111827;
 }
 
-html:not(.dark) .input-field { background-color: #ffffff; border-color: #d1d5db; color: #000; }
+html:not(.dark) .header-btn {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    color: #4b5563;
+}
 
-html:not(.dark) .label-xs,
-html:not(.dark) .text-gray-400,
-html:not(.dark) .text-gray-500 { color: #6b7280 !important; }
+html:not(.dark) .btn-bento {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
 
-html:not(.dark) .val-timer,
-html:not(.dark) .val-lg { color: #111827; }
+html:not(.dark) .input-field {
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #000000;
+}
 
-/* ════════════════════════════════════════════════════════════════ */
-/* MODAL FIXES                                                      */
-/* ════════════════════════════════════════════════════════════════ */
+html:not(.dark) .bg-gray-800 {
+    background-color: #e5e7eb !important;
+}
 
 html:not(.dark) .inc-btn,
 html:not(.dark) .exp-btn,
 html:not(.dark) .weather-btn,
-html:not(.dark) .btn-bento {
-    background-color: #ffffff;
+html:not(.dark) .veh-type-btn {
     border-color: #e5e7eb !important;
-    color: #374151;
+    background-color: #ffffff;
+    color: #4b5563;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-#auth-screen .input-field { background-color: #111827 !important; color: white !important; }
+html:not(.dark) .inc-btn:hover,
+html:not(.dark) .exp-btn:hover {
+    background-color: #f9fafb;
+    border-color: #d1d5db !important;
+}
+
+html:not(.dark) #audit-list > div {
+    background-color: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    color: #1f2937 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+}
+
+html:not(.dark) #audit-list .text-gray-400 {
+    color: #9ca3af !important;
+}
+
+html:not(.dark) #audit-list .text-gray-500 {
+    color: #6b7280 !important;
+}
+
+html:not(.dark) #tx-title, 
+html:not(.dark) h3 {
+    color: #111827 !important;
+}
+
+#auth-screen .input-field {
+    background-color: #111827 !important;
+    color: white !important;
+    border: 1px solid #374151 !important;
+}
+
+#auth-screen .input-field::placeholder {
+    color: #6b7280 !important;
+}
+
+#auth-screen .btn-primary-os {
+    box-shadow: 0 0 15px rgba(20,184,166,0.3) !important;
+}
 
 /* ════════════════════════════════════════════════════════════════ */
-/* SYSTEM CLASSES                                                   */
+/* UTILITY CLASSES                                                  */
 /* ════════════════════════════════════════════════════════════════ */
 
-.hidden { display: none !important; }
+.hidden {
+    display: none !important;
+}
 
-/* Pašaliname tab-content display:none, nes naudojame .hidden */
-.tab-content { width: 100%; }
+.weather-btn,
+.exp-btn,
+.inc-btn,
+.veh-type-btn {
+    transition: all 0.2s;
+    cursor: pointer;
+}
 
-@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.animate-slideUp { animation: slideUp 0.3s ease-out; }
+.weather-btn:active,
+.exp-btn:active,
+.inc-btn:active,
+.veh-type-btn:active {
+    transform: scale(0.95);
+}
+```
+
+---
+
+## ✅ KAS PATAISYTA
+
+**1. Tab system (eilutės 321-327):**
+```css
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+```
+
+**2. Bottom nav šviesioje temoje (eilutės 391-399):**
+```css
+html:not(.dark) .nav-item {
+    color: #6b7280;
+}
+html:not(.dark) .nav-item.active {
+    color: var(--accent);
+}

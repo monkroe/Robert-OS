@@ -120,7 +120,7 @@ async function saveExpense(amount, category) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT (ISTORIJA) - DARK MODE FIXED + SELECT ALL
+// AUDIT (ISTORIJA) - REFACTORED DESIGN
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
@@ -138,7 +138,7 @@ export async function refreshAudit() {
         const selectAllBox = document.getElementById('select-all-logs');
         if (selectAllBox) selectAllBox.checked = false;
         
-        updateDeleteButton(); // Reset UI
+        updateDeleteButton();
         
         if (!shifts || shifts.length === 0) {
             listEl.innerHTML = '<div class="text-center py-10 opacity-50 text-sm">Nėra istorijos</div>';
@@ -146,28 +146,50 @@ export async function refreshAudit() {
         }
         
         listEl.innerHTML = shifts.map(shift => {
-            const date = new Date(shift.start_time);
-            const dateStr = date.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
-            const timeStr = date.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
-            const earnings = shift.gross_earnings || 0;
-            const type = shift.status === 'completed' ? 'SHIFT' : 'ACTIVE';
+            // DATE FORMATTING
+            const start = new Date(shift.start_time);
+            const dateStr = start.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
+            const startTimeStr = start.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
             
-            // DARK MODE FIX: Naudojame labai specifines spalvas
-            // Light: bg-white, text-gray-900
-            // Dark: bg-[#111111] (beveik juoda), text-white, border-white/10
+            let endTimeStr = '...';
+            let durationStr = 'Active';
+            let statusBadge = '';
+            
+            if (shift.end_time) {
+                const end = new Date(shift.end_time);
+                endTimeStr = end.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+                
+                const diffMs = end - start;
+                const hours = Math.floor(diffMs / 3600000);
+                const mins = Math.floor((diffMs % 3600000) / 60000);
+                durationStr = `${hours}h ${mins}m`;
+                
+                statusBadge = `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 uppercase">DONE</span>`;
+            } else {
+                statusBadge = `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-500 uppercase animate-pulse">ACTIVE</span>`;
+            }
+            
+            const earnings = shift.gross_earnings || 0;
+            
+            // CARD DESIGN:
+            // bg-white šviesiam, dark:bg-[#1a1a1a] tamsiam (kad nebūtų balta)
+            // Tekstas tamsus šviesiam, šviesus tamsiam.
             return `
-                <div class="group relative bg-white dark:bg-[#111111] rounded-xl p-4 border border-gray-200 dark:border-white/10 shadow-sm flex items-center justify-between transition-colors">
+                <div class="group relative bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-gray-200 dark:border-white/5 shadow-sm flex items-center justify-between transition-colors">
                     <div class="flex items-center gap-4">
                         <input type="checkbox" 
                                value="${shift.id}" 
                                onchange="window.updateDeleteButton()" 
                                class="log-checkbox w-5 h-5 rounded border-gray-300 text-teal-500 focus:ring-teal-500 bg-gray-100 dark:bg-gray-800 dark:border-gray-600 cursor-pointer">
                         
-                        <div>
-                            <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">
-                                ${date.getFullYear()}-${dateStr} • ${timeStr}
-                            </p>
-                            <p class="font-black text-gray-900 dark:text-white text-lg tracking-tight">${type}</p>
+                        <div class="flex flex-col">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs font-bold text-gray-500 dark:text-gray-400">${dateStr}</span>
+                                ${statusBadge}
+                            </div>
+                            <div class="font-mono text-sm font-bold text-gray-900 dark:text-gray-100">
+                                ${startTimeStr} - ${endTimeStr} <span class="text-xs text-gray-400 font-sans ml-1">(${durationStr})</span>
+                            </div>
                         </div>
                     </div>
                     
@@ -217,7 +239,6 @@ window.updateDeleteButton = function() {
         btn.classList.add('hidden');
     }
 
-    // Jei atžymėjome vieną ranka, master turi atsžymėti
     const all = document.querySelectorAll('.log-checkbox');
     if (master && all.length > 0) {
         master.checked = (checked.length === all.length);
@@ -230,35 +251,26 @@ window.requestDelete = function() {
     const checkboxes = document.querySelectorAll('.log-checkbox:checked');
     if (checkboxes.length === 0) return;
     
-    // Išsaugome ID į globalų kintamąjį, kad modalas žinotų ką trinti
     idsToDelete = Array.from(checkboxes).map(cb => cb.value);
-    
-    // Atnaujiname modal tekstą
     document.getElementById('del-modal-count').textContent = idsToDelete.length;
-    
-    // Atidarome modalą
     document.getElementById('delete-modal').classList.remove('hidden');
 };
 
 // 4. CONFIRM DELETE (Execute)
 window.confirmDelete = async function() {
     vibrate([20]);
-    
     if (idsToDelete.length === 0) return;
     
     state.loading = true;
     try {
         await db.from('expenses').delete().in('shift_id', idsToDelete);
         const { error } = await db.from('finance_shifts').delete().in('id', idsToDelete);
-        
         if (error) throw error;
         
         showToast(`${idsToDelete.length} logs deleted`, 'success');
-        
         closeModals();
-        idsToDelete = []; // Išvalome
-        refreshAudit();   // Perkrauname sąrašą
-        
+        idsToDelete = [];
+        refreshAudit();
     } catch (error) {
         console.error('Delete error:', error);
         showToast(error.message, 'error');

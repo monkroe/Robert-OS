@@ -47,15 +47,15 @@ export function openTxModal(type) {
     modal.classList.remove('hidden');
 }
 
-export function setExpType(type) {
+export function setExpType(type, el) {
     vibrate();
     document.getElementById('tx-type').value = type;
     
     document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => {
-        btn.classList.remove('bg-teal-500', 'text-black', 'border-teal-500');
+        btn.classList.remove('active');
     });
     
-    event.currentTarget.classList.add('bg-teal-500', 'text-black', 'border-teal-500');
+    el.classList.add('active');
     
     const fuelFields = document.getElementById('fuel-fields');
     if (fuelFields) {

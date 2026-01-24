@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="lt">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
@@ -126,24 +127,55 @@
                 </div>
             </section>
 
-            <section id="tab-audit" class="tab-content hidden space-y-4">
+            <section id="tab-audit" class="tab-content space-y-4">
                 <div class="flex justify-between items-center px-1">
-                    <h2 class="font-bold uppercase tracking-tight">History</h2>
-                    <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/20 text-purple-400 px-3 py-1.5 rounded-lg border border-purple-500/30 flex items-center gap-2">
+                    <h2 class="font-bold uppercase tracking-tight text-lg">History</h2>
+                    <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/20 text-purple-400 px-3 py-1.5 rounded-lg border border-purple-500/30 flex items-center gap-2 active:scale-95 transition-transform">
                         <i class="fa-solid fa-robot"></i> EXPORT
                     </button>
                 </div>
-                <div id="audit-list" class="space-y-2 pb-20"></div>
+                <div id="audit-list" class="space-y-2 pb-24">
+                    <div class="text-center py-10 opacity-50"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</div>
+                </div>
             </section>
 
-            <section id="tab-runway" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Runway</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
+            <section id="tab-runway" class="tab-content space-y-4 animate-slideUp">
+                <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
+                    <div class="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-4 text-teal-500 text-2xl shadow-[0_0_15px_rgba(20,184,166,0.2)]">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <h2 class="text-2xl font-black uppercase tracking-tight">Runway</h2>
+                    <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Finansinis planavimas ir prognozės</p>
+                    <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
+                        <span class="text-xs font-bold font-mono text-teal-400">COMING SOON v1.3</span>
+                    </div>
+                </div>
             </section>
-            <section id="tab-future" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Goals</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
+
+            <section id="tab-future" class="tab-content space-y-4 animate-slideUp">
+                <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
+                    <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4 text-blue-500 text-2xl shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                        <i class="fa-solid fa-bullseye"></i>
+                    </div>
+                    <h2 class="text-2xl font-black uppercase tracking-tight">Goals</h2>
+                    <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Tikslų sekimas ir pasiekimai</p>
+                    <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
+                        <span class="text-xs font-bold font-mono text-blue-400">COMING SOON v1.3</span>
+                    </div>
+                </div>
             </section>
-            <section id="tab-vault" class="tab-content hidden space-y-4">
-                <div class="bento-card text-center py-10"><h2 class="text-2xl font-bold">Vault</h2><p class="text-xs opacity-50 mt-2">Coming Soon</p></div>
+
+            <section id="tab-vault" class="tab-content space-y-4 animate-slideUp">
+                <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
+                    <div class="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mb-4 text-yellow-500 text-2xl shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                        <i class="fa-solid fa-vault"></i>
+                    </div>
+                    <h2 class="text-2xl font-black uppercase tracking-tight">Vault</h2>
+                    <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Dokumentų saugykla ir archyvas</p>
+                    <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
+                        <span class="text-xs font-bold font-mono text-yellow-400">COMING SOON v1.3</span>
+                    </div>
+                </div>
             </section>
 
         </main>
@@ -208,50 +240,50 @@
             <input type="number" inputmode="decimal" pattern="[0-9]*" id="tx-amount" class="input-field text-3xl mb-4 text-center" placeholder="$0.00">
             
             <div id="income-types" class="grid grid-cols-2 gap-3 mb-6 hidden">
-    <button onclick="setExpType('tips', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-hand-holding-dollar text-xl text-teal-500 group-hover:scale-110 transition-transform"></i>
-        <span>Tips</span>
-    </button>
-    <button onclick="setExpType('private', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-car-side text-xl text-blue-400 group-hover:scale-110 transition-transform"></i>
-        <span>Private</span>
-    </button>
-    <button onclick="setExpType('bonus', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-award text-xl text-yellow-400 group-hover:scale-110 transition-transform"></i>
-        <span>Bonus</span>
-    </button>
-    <button onclick="setExpType('other', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-plus text-xl text-gray-400 group-hover:text-white transition-transform"></i>
-        <span>Other</span>
-    </button>
-</div>
+                <button onclick="setExpType('tips', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-hand-holding-dollar text-xl text-teal-500 group-hover:scale-110 transition-transform"></i>
+                    <span>Tips</span>
+                </button>
+                <button onclick="setExpType('private', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-car-side text-xl text-blue-400 group-hover:scale-110 transition-transform"></i>
+                    <span>Private</span>
+                </button>
+                <button onclick="setExpType('bonus', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-award text-xl text-yellow-400 group-hover:scale-110 transition-transform"></i>
+                    <span>Bonus</span>
+                </button>
+                <button onclick="setExpType('other', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-plus text-xl text-gray-400 group-hover:text-white transition-transform"></i>
+                    <span>Other</span>
+                </button>
+            </div>
 
-<div id="expense-types" class="grid grid-cols-3 gap-2 mb-6 hidden">
-    <button onclick="setExpType('fuel', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-gas-pump text-lg text-red-500 group-hover:scale-110 transition-transform"></i>
-        <span>Fuel</span>
-    </button>
-    <button onclick="setExpType('food', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-utensils text-lg text-orange-400 group-hover:scale-110 transition-transform"></i>
-        <span>Food</span>
-    </button>
-    <button onclick="setExpType('tolls', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-road-barrier text-lg text-yellow-500 group-hover:scale-110 transition-transform"></i>
-        <span>Tolls</span>
-    </button>
-    <button onclick="setExpType('parking', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-square-parking text-lg text-blue-400 group-hover:scale-110 transition-transform"></i>
-        <span>Parking</span>
-    </button>
-    <button onclick="setExpType('maintenance', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-wrench text-lg text-gray-400 group-hover:scale-110 transition-transform"></i>
-        <span>Repair</span>
-    </button>
-    <button onclick="setExpType('other', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-        <i class="fa-solid fa-ellipsis text-lg text-gray-500 group-hover:scale-110 transition-transform"></i>
-        <span>Other</span>
-    </button>
-</div>
+            <div id="expense-types" class="grid grid-cols-3 gap-2 mb-6 hidden">
+                <button onclick="setExpType('fuel', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-gas-pump text-lg text-red-500 group-hover:scale-110 transition-transform"></i>
+                    <span>Fuel</span>
+                </button>
+                <button onclick="setExpType('food', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-utensils text-lg text-orange-400 group-hover:scale-110 transition-transform"></i>
+                    <span>Food</span>
+                </button>
+                <button onclick="setExpType('tolls', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-road-barrier text-lg text-yellow-500 group-hover:scale-110 transition-transform"></i>
+                    <span>Tolls</span>
+                </button>
+                <button onclick="setExpType('parking', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-square-parking text-lg text-blue-400 group-hover:scale-110 transition-transform"></i>
+                    <span>Parking</span>
+                </button>
+                <button onclick="setExpType('maintenance', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-wrench text-lg text-gray-400 group-hover:scale-110 transition-transform"></i>
+                    <span>Repair</span>
+                </button>
+                <button onclick="setExpType('other', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
+                    <i class="fa-solid fa-ellipsis text-lg text-gray-500 group-hover:scale-110 transition-transform"></i>
+                    <span>Other</span>
+                </button>
+            </div>
             <input type="hidden" id="tx-type" value="tips">
 
             <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">

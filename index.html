@@ -17,7 +17,7 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=1.6">
+    <link rel="stylesheet" href="style.css?v=1.7">
 </head>
 
 <body class="antialiased selection:bg-teal-500 selection:text-black">
@@ -43,7 +43,7 @@
         <header class="global-header">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
-                <span class="font-bold uppercase tracking-widest text-xs">OS v1.2</span>
+                <span class="font-bold uppercase tracking-widest text-xs">OS v1.5</span>
             </div>
             <div class="flex gap-2">
                 <button onclick="openGarage()" class="header-btn text-teal-500 border border-teal-500/30 bg-teal-500/10">
@@ -129,14 +129,20 @@
 
             <section id="tab-audit" class="tab-content space-y-4">
                 <div class="flex justify-between items-center px-1">
-                    <h2 class="font-bold uppercase tracking-tight text-lg">History</h2>
+                    <div class="flex items-center gap-3">
+                        <div class="relative flex items-center h-full">
+                            <input type="checkbox" id="select-all-logs" onchange="toggleSelectAll()" 
+                                class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-teal-500 focus:ring-offset-0 focus:ring-0 cursor-pointer">
+                        </div>
+                        <h2 class="font-bold uppercase tracking-tight text-lg">History</h2>
+                    </div>
                     
                     <div class="flex gap-2">
-                        <button id="btn-delete-logs" onclick="deleteLogs()" class="hidden text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
-                            <i class="fa-solid fa-trash"></i> DELETE (<span id="delete-count">0</span>)
+                        <button id="btn-delete-logs" onclick="requestDelete()" class="hidden text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
+                            <i class="fa-solid fa-trash"></i> <span id="delete-count">0</span>
                         </button>
 
-                        <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
+                        <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/30 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
                             <i class="fa-solid fa-robot"></i> EXPORT
                         </button>
                     </div>
@@ -145,7 +151,7 @@
                 <div id="audit-list" class="space-y-2 pb-24">
                     <div class="text-center py-10 opacity-50"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</div>
                 </div>
-             </section>
+            </section>
 
             <section id="tab-runway" class="tab-content space-y-4 animate-slideUp">
                 <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
@@ -428,6 +434,24 @@
             
             <button onclick="saveSettings()" class="btn-primary-os py-4 mb-3">SAVE SETTINGS</button>
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+        </div>
+    </div>
+
+    <div id="delete-modal" class="modal-overlay hidden">
+        <div class="modal-content animate-slideUp text-center border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.2)]">
+            <div class="w-16 h-16 mx-auto bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500 text-3xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-xl font-black uppercase mb-2 text-white">Delete Logs?</h3>
+            <p class="text-sm text-gray-400 mb-6">
+                Are you sure you want to delete <span id="del-modal-count" class="text-red-500 font-bold">0</span> records?
+                <br>This action cannot be undone.
+            </p>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="closeModals()" class="py-3 rounded-xl font-bold text-gray-400 bg-gray-800 border border-gray-700 hover:bg-gray-700 active:scale-95 transition-transform">CANCEL</button>
+                <button onclick="confirmDelete()" class="py-3 rounded-xl font-bold text-black bg-red-500 hover:bg-red-400 shadow-lg shadow-red-500/20 active:scale-95 transition-transform">DELETE</button>
+            </div>
         </div>
     </div>
 

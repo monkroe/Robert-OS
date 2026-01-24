@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - FINANCE MODULE v1.2 (INCOME FIX)
+// ROBERT OS - FINANCE MODULE v1.2 (INCOME CATEGORIES)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -20,6 +20,7 @@ export function openTxModal(type) {
     const title = document.getElementById('tx-title');
     const amountInput = document.getElementById('tx-amount');
     const expenseTypes = document.getElementById('expense-types');
+    const incomeTypes = document.getElementById('income-types');
     const fuelFields = document.getElementById('fuel-fields');
     
     if (!modal || !title || !amountInput) return;
@@ -27,17 +28,19 @@ export function openTxModal(type) {
     if (type === 'in') {
         title.textContent = 'PAJAMOS';
         if (expenseTypes) expenseTypes.classList.add('hidden');
+        if (incomeTypes) incomeTypes.classList.remove('hidden');
         if (fuelFields) fuelFields.classList.add('hidden');
     } else {
         title.textContent = 'IŠLAIDOS';
         if (expenseTypes) expenseTypes.classList.remove('hidden');
+        if (incomeTypes) incomeTypes.classList.add('hidden');
         if (fuelFields) fuelFields.classList.add('hidden');
     }
     
     amountInput.value = '';
-    document.getElementById('tx-type').value = 'other';
+    document.getElementById('tx-type').value = 'tips';
     
-    document.querySelectorAll('.exp-btn').forEach(btn => {
+    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => {
         btn.classList.remove('bg-teal-500', 'text-black', 'border-teal-500');
     });
     
@@ -48,7 +51,7 @@ export function setExpType(type) {
     vibrate();
     document.getElementById('tx-type').value = type;
     
-    document.querySelectorAll('.exp-btn').forEach(btn => {
+    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => {
         btn.classList.remove('bg-teal-500', 'text-black', 'border-teal-500');
     });
     
@@ -68,16 +71,21 @@ export async function confirmTx() {
     vibrate([20]);
     
     const amount = parseFloat(document.getElementById('tx-amount').value);
+    const category = document.getElementById('tx-type').value;
     
     if (!amount || amount <= 0) {
         return showToast('Įvesk sumą', 'error');
     }
     
+    if (!category || category === '') {
+        return showToast('Pasirink kategoriją', 'error');
+    }
+    
     try {
         if (currentTxType === 'in') {
-            await saveIncome(amount);
+            await saveIncome(amount, category);
         } else {
-            await saveExpense(amount);
+            await saveExpense(amount, category);
         }
         
         closeModals();
@@ -93,7 +101,7 @@ export async function confirmTx() {
 // INCOME (PAJAMOS) - VEIKIA BE AKTYVIOS PAMAINOS
 // ────────────────────────────────────────────────────────────────
 
-async function saveIncome(amount) {
+async function saveIncome(amount, category) {
     const shiftId = state.activeShift?.id || null;
     
     const { error } = await db.from('expenses').insert({
@@ -101,7 +109,7 @@ async function saveIncome(amount) {
         shift_id: shiftId,
         vehicle_id: state.activeShift?.vehicle_id || null,
         type: 'income',
-        category: 'tips',
+        category: category,
         amount: amount,
         created_at: new Date().toISOString()
     });
@@ -122,16 +130,15 @@ async function saveIncome(amount) {
         }
     }
     
-    showToast(`+$${amount.toFixed(2)} 💰`, 'success');
+    const emoji = getCategoryEmoji(category);
+    showToast(`+$${amount.toFixed(2)} ${emoji}`, 'success');
 }
 
 // ────────────────────────────────────────────────────────────────
 // EXPENSE (IŠLAIDOS)
 // ────────────────────────────────────────────────────────────────
 
-async function saveExpense(amount) {
-    const type = document.getElementById('tx-type').value;
-    
+async function saveExpense(amount, category) {
     if (!state.activeShift) {
         return showToast('Pradėk pamainą pirma!', 'error');
     }
@@ -141,12 +148,12 @@ async function saveExpense(amount) {
         shift_id: state.activeShift.id,
         vehicle_id: state.activeShift.vehicle_id,
         type: 'expense',
-        category: type,
+        category: category,
         amount: amount,
         created_at: new Date().toISOString()
     };
     
-    if (type === 'fuel') {
+    if (category === 'fuel') {
         const gallons = document.getElementById('tx-gal').value;
         const odometer = document.getElementById('tx-odo').value;
         
@@ -225,6 +232,20 @@ export async function refreshAudit() {
 export async function exportAI() {
     vibrate();
     showToast('AI Export - Coming Soon', 'info');
+}
+
+// ────────────────────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────────────────────
+
+function getCategoryEmoji(category) {
+    const emojis = {
+        tips: '💵',
+        private: '🚗',
+        bonus: '🎁',
+        other: '💰'
+    };
+    return emojis[category] || '💰';
 }
 
 function closeModals() {

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - FINANCE MODULE v2.2 (AI EXPORT ADDED)
+// ROBERT OS - FINANCE MODULE v2.3 (STABLE)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -198,7 +198,7 @@ export async function refreshAudit() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// DELETE LOGIC
+// DELETE LOGIC (Global via Window)
 // ────────────────────────────────────────────────────────────────
 
 window.toggleSelectAll = function() {
@@ -263,16 +263,11 @@ window.confirmDelete = async function() {
     }
 };
 
-// ────────────────────────────────────────────────────────────────
-// AI EXPORT (JSON for Claude/ChatGPT)
-// ────────────────────────────────────────────────────────────────
-
 export async function exportAI() {
     vibrate();
     state.loading = true;
     
     try {
-        // Kviesti DB funkciją (RPC)
         const { data, error } = await db.rpc('export_for_ai_assistant', {
             p_user_id: state.user.id,
             p_days_back: 30
@@ -280,10 +275,8 @@ export async function exportAI() {
         
         if (error) throw error;
         
-        // Kopijuoti į clipboard
         await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
         
-        // Įrašyti export istoriją
         await db.from('export_history').insert({
             user_id: state.user.id,
             export_type: 'ai_assistant',

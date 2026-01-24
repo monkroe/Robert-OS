@@ -1,17 +1,10 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SHIFTS MODULE
-// Versija: 1.2
-// 
-// ATSAKOMYBĖ: Pamainos valdymas (Start/End/Pause)
-// Timer logika, modalai, validacija
+// ROBERT OS - SHIFTS MODULE v1.2 FIXED
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
-
-// PATAISYMAS: Šalinama cirkuliarine importą
-// import { closeModals, updateUI } from './ui.js'; ← PAŠALINTA
 
 let timerInterval = null;
 
@@ -20,22 +13,17 @@ let timerInterval = null;
 // ────────────────────────────────────────────────────────────────
 
 export function startTimer() {
-    stopTimer(); // Išvalyti seną intervalą
+    stopTimer();
     
-    // Jei pamaina paused, nerodyti tiksinčio laiko
     if (state.activeShift?.status === 'paused') {
         const el = document.getElementById('shift-timer');
         if (el) el.textContent = "PAUSED";
         return;
     }
     
-    updateTimerDisplay(); // Pirmas update iškart
+    updateTimerDisplay();
     timerInterval = setInterval(updateTimerDisplay, 1000);
 }
-
-// ────────────────────────────────────────────────────────────────
-// LAIKMATIS - STOP
-// ────────────────────────────────────────────────────────────────
 
 export function stopTimer() {
     if (timerInterval) {
@@ -46,15 +34,10 @@ export function stopTimer() {
     if (el) el.textContent = "00:00:00";
 }
 
-// ────────────────────────────────────────────────────────────────
-// LAIKMATIS - UPDATE DISPLAY
-// ────────────────────────────────────────────────────────────────
-
 function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
     if (!state.activeShift || !el) return;
     
-    // Jei paused, nerodyti tiksinčio laiko
     if (state.activeShift.status === 'paused') {
         el.textContent = "PAUSED";
         return;
@@ -73,13 +56,12 @@ function updateTimerDisplay() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// START MODAL - Atidarymas
+// START MODAL
 // ────────────────────────────────────────────────────────────────
 
 export function openStartModal() {
     vibrate();
     
-    // Patikrinti ar nėra aktyvios pamainos
     if (state.activeShift) {
         return showToast('Jau turi aktyvią pamainą!', 'error');
     }
@@ -91,21 +73,16 @@ export function openStartModal() {
         sel.innerHTML = '<option value="">Garažas tuščias!</option>';
     } else {
         sel.innerHTML = state.fleet
-            .filter(v => v.is_active) // Tik aktyvūs automobiliai
+            .filter(v => v.is_active)
             .map(v => `<option value="${v.id}">${v.name}${v.is_test ? ' 🧪' : ''}</option>`)
             .join('');
     }
     
-    // Išvalyti laukus
     document.getElementById('start-odo').value = '';
     document.getElementById('start-goal').value = state.userSettings?.default_shift_target_hours || 12;
     
     document.getElementById('start-modal').classList.remove('hidden');
 }
-
-// ────────────────────────────────────────────────────────────────
-// START MODAL - Patvirtinimas
-// ────────────────────────────────────────────────────────────────
 
 export async function confirmStart() {
     vibrate([20]);
@@ -114,13 +91,38 @@ export async function confirmStart() {
     const odo = document.getElementById('start-odo').value;
     const goal = document.getElementById('start-goal').value;
     
-    // Validacija
     if (!vid) return showToast('Pasirink mašiną', 'error');
     if (!odo) return showToast('Įvesk ridą', 'error');
     
     const startOdo = parseInt(odo);
     if (isNaN(startOdo) || startOdo < 0) {
         return showToast('Neteisinga rida', 'error');
+    }
+    
+    // ODOMETER VALIDATION: Patikrina ar rida >= paskutinės pamainos end_odo
+    try {
+        const { data: lastShift, error: checkError } = await db
+            .from('finance_shifts')
+            .select('end_odo, end_time')
+            .eq('vehicle_id', vid)
+            .eq('user_id', state.user.id)
+            .not('end_odo', 'is', null)
+            .order('end_time', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        
+        if (checkError) throw checkError;
+        
+        if (lastShift && lastShift.end_odo) {
+            if (startOdo < lastShift.end_odo) {
+                return showToast(
+                    `Rida negali būti mažesnė nei ${lastShift.end_odo} (paskutinė pamainos pabaiga)`,
+                    'error'
+                );
+            }
+        }
+    } catch (error) {
+        console.error('Odometer validation error:', error);
     }
     
     state.loading = true;
@@ -137,7 +139,7 @@ export async function confirmStart() {
         
         if (error) throw error;
         
-        closeModals(); // PATAISYMAS: Tiesioginis kvietimas
+        closeModals();
         window.dispatchEvent(new Event('refresh-data'));
         showToast('Pamaina pradėta 🚀', 'success');
         
@@ -150,7 +152,7 @@ export async function confirmStart() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// END MODAL - Atidarymas
+// END MODAL
 // ────────────────────────────────────────────────────────────────
 
 export function openEndModal() {
@@ -160,7 +162,6 @@ export function openEndModal() {
         return showToast('Nėra aktyvios pamainos', 'error');
     }
     
-    // Išvalyti laukus
     const endOdoInput = document.getElementById('end-odo');
     const endEarnInput = document.getElementById('end-earn');
     const weatherInput = document.getElementById('end-weather');
@@ -173,7 +174,6 @@ export function openEndModal() {
     if (endEarnInput) endEarnInput.value = '';
     if (weatherInput) weatherInput.value = '';
     
-    // Išvalyti weather selector highlight
     document.querySelectorAll('.weather-btn').forEach(btn => {
         btn.classList.remove('bg-teal-500', 'border-teal-500', 'text-black');
         btn.classList.add('opacity-50');
@@ -182,10 +182,6 @@ export function openEndModal() {
     document.getElementById('end-modal').classList.remove('hidden');
 }
 
-// ────────────────────────────────────────────────────────────────
-// END MODAL - Patvirtinimas
-// ────────────────────────────────────────────────────────────────
-
 export async function confirmEnd() {
     vibrate([20]);
     
@@ -193,7 +189,6 @@ export async function confirmEnd() {
     const earn = document.getElementById('end-earn').value;
     const weather = document.getElementById('end-weather').value;
     
-    // Validacija
     if (!odoInput) return showToast('Įvesk ridą', 'error');
     
     const endOdo = parseInt(odoInput);
@@ -220,7 +215,7 @@ export async function confirmEnd() {
         
         if (error) throw error;
         
-        closeModals(); // PATAISYMAS: Tiesioginis kvietimas
+        closeModals();
         window.dispatchEvent(new Event('refresh-data'));
         showToast('Pamaina baigta 🏁', 'success');
         
@@ -244,11 +239,9 @@ export async function togglePause() {
     const isPaused = state.activeShift.status === 'paused';
     const newStatus = isPaused ? 'active' : 'paused';
     
-    // Optimistinis UI update
     const oldStatus = state.activeShift.status;
     state.activeShift.status = newStatus;
     
-    // Atnaujinti laikmatį
     if (newStatus === 'paused') {
         stopTimer();
         const el = document.getElementById('shift-timer');
@@ -257,17 +250,14 @@ export async function togglePause() {
         startTimer();
     }
     
-    // Atnaujinti mygtuko išvaizdą (be UI importo)
     updatePauseButton(newStatus);
     
-    // Išsaugoti DB
     try {
         const { error } = await db.from('finance_shifts')
             .update({ status: newStatus })
             .eq('id', state.activeShift.id);
         
         if (error) {
-            // Rollback jei klaida
             state.activeShift.status = oldStatus;
             if (oldStatus === 'paused') {
                 stopTimer();
@@ -286,30 +276,20 @@ export async function togglePause() {
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// HELPER: Update Pause Button (be UI importo)
-// ────────────────────────────────────────────────────────────────
-
 function updatePauseButton(status) {
     const btn = document.getElementById('btn-pause');
     if (!btn) return;
     
     if (status === 'paused') {
-        // Resume mygtukas
         btn.innerHTML = '<i class="fa-solid fa-play"></i>';
         btn.classList.remove('bg-yellow-500/10', 'text-yellow-500', 'border-yellow-500/50');
         btn.classList.add('bg-green-500/10', 'text-green-500', 'border-green-500/50');
     } else {
-        // Pause mygtukas
         btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
         btn.classList.remove('bg-green-500/10', 'text-green-500', 'border-green-500/50');
         btn.classList.add('bg-yellow-500/10', 'text-yellow-500', 'border-yellow-500/50');
     }
 }
-
-// ────────────────────────────────────────────────────────────────
-// HELPER: Close Modals (be UI importo)
-// ────────────────────────────────────────────────────────────────
 
 function closeModals() {
     vibrate();

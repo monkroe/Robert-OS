@@ -232,26 +232,3 @@ function closeModals() {
         el.classList.add('hidden');
     });
 }
-```
-
----
-
-## ✅ KAS PASIKEITĖ?
-
-**Eilutės 86-117 - `saveIncome()` funkcija:**
-
-```javascript
-async function saveIncome(amount) {
-    const shiftId = state.activeShift?.id || null; // ← GALI BŪTI NULL
-    
-    const { error } = await db.from('expenses').insert({
-        user_id: state.user.id,
-        shift_id: shiftId, // ← NULL jei nėra aktyvios pamainos
-        // ...
-    });
-    
-    // Jei yra shift - pridėti prie gross_earnings
-    if (shiftId) {
-        // ... atnaujinti shift
-    }
-}

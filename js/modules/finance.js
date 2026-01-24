@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - FINANCE MODULE v2.1 (LOGS UI FIX)
+// ROBERT OS - FINANCE MODULE v2.2 (AI EXPORT ADDED)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -61,7 +61,7 @@ export async function confirmTx() {
         if (currentTxType === 'in') await saveIncome(amount, category);
         else await saveExpense(amount, category);
 
-        window.closeModals(); // Naudojame globalią UI funkciją
+        window.closeModals();
         window.dispatchEvent(new Event('refresh-data'));
     } catch (error) {
         console.error('Tx Error:', error);
@@ -81,7 +81,6 @@ async function saveIncome(amount, category) {
     if (error) throw error;
 
     if (shiftId) {
-        // Atnaujiname pamainos bendrą uždarbį (cache)
         const { data: shift } = await db.from('finance_shifts').select('gross_earnings').eq('id', shiftId).single();
         if (shift) {
             await db.from('finance_shifts').update({ gross_earnings: (shift.gross_earnings || 0) + amount }).eq('id', shiftId);
@@ -114,7 +113,7 @@ async function saveExpense(amount, category) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT / LOGS (PATAISYTA VERSIJA)
+// AUDIT / LOGS
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
@@ -164,7 +163,6 @@ export async function refreshAudit() {
             
             const earnings = shift.gross_earnings || 0;
             
-            // FIX: Naudojama .log-card klasė CSS taisyklėms
             return `
                 <div class="log-card group relative bg-white rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm flex items-center justify-between transition-all">
                     <div class="flex items-center gap-4">
@@ -200,7 +198,7 @@ export async function refreshAudit() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// DELETE LOGIC (WINDOW FUNCTIONS)
+// DELETE LOGIC
 // ────────────────────────────────────────────────────────────────
 
 window.toggleSelectAll = function() {
@@ -248,7 +246,6 @@ window.confirmDelete = async function() {
     if (idsToDelete.length === 0) return;
     
     try {
-        // Cascade delete: Pirmiausia išlaidos, tada pamainos
         await db.from('expenses').delete().in('shift_id', idsToDelete);
         const { error } = await db.from('finance_shifts').delete().in('id', idsToDelete);
         
@@ -258,7 +255,7 @@ window.confirmDelete = async function() {
         window.closeModals();
         idsToDelete = [];
         refreshAudit();
-        window.dispatchEvent(new Event('refresh-data')); // Atnaujina ir dashboard statistiką
+        window.dispatchEvent(new Event('refresh-data'));
         
     } catch (error) {
         console.error('Delete error:', error);
@@ -267,10 +264,40 @@ window.confirmDelete = async function() {
 };
 
 // ────────────────────────────────────────────────────────────────
-// UTILS
+// AI EXPORT (JSON for Claude/ChatGPT)
 // ────────────────────────────────────────────────────────────────
 
 export async function exportAI() {
     vibrate();
-    showToast('AI Export - Coming Soon', 'info');
-};
+    state.loading = true;
+    
+    try {
+        // Kviesti DB funkciją (RPC)
+        const { data, error } = await db.rpc('export_for_ai_assistant', {
+            p_user_id: state.user.id,
+            p_days_back: 30
+        });
+        
+        if (error) throw error;
+        
+        // Kopijuoti į clipboard
+        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+        
+        // Įrašyti export istoriją
+        await db.from('export_history').insert({
+            user_id: state.user.id,
+            export_type: 'ai_assistant',
+            file_format: 'json',
+            date_range_start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            date_range_end: new Date().toISOString().split('T')[0]
+        });
+        
+        showToast('✅ Nukopijuota į Clipboard!', 'success');
+        
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast('Klaida eksportuojant', 'error');
+    } finally {
+        state.loading = false;
+    }
+}

@@ -76,54 +76,6 @@ if (typeof window !== 'undefined') {
 // START SHIFT (With Auto-fill Odometer)
 // ────────────────────────────────────────────────────────────────
 
-export function openStartModal() {
-    vibrate();
-    if (state.activeShift) return showToast('Jau turi aktyvią pamainą!', 'error');
-    
-    const sel = document.getElementById('start-vehicle');
-    if (!sel) return;
-    
-    if (state.fleet.length === 0) {
-        sel.innerHTML = '<option value="">Garažas tuščias!</option>';
-    } else {
-        sel.innerHTML = state.fleet
-            .filter(v => v.is_active)
-            .map(v => {
-                const odoInfo = v.last_odo ? ` (Rida: ${v.last_odo})` : '';
-                return `<option value="${v.id}" data-odo="${v.last_odo || 0}">${v.name}${v.is_test ? ' 🧪' : ''}${odoInfo}</option>`;
-            })
-            .join('');
-    }
-    
-    // ✅ 1. Auto-fill first vehicle odometer
-    const firstVehicle = state.fleet.find(v => v.is_active);
-    const odoInput = document.getElementById('start-odo');
-    if (odoInput) {
-        odoInput.value = firstVehicle?.last_odo || '';
-    }
-    
-    // ✅ 2. Dynamic update on vehicle change
-    // Remove old listener first
-    const oldListener = sel._odoUpdateListener;
-    if (oldListener) {
-        sel.removeEventListener('change', oldListener);
-    }
-    
-    const newListener = function(e) {
-        const selectedVehicle = state.fleet.find(v => v.id === e.target.value);
-        if (odoInput) {
-            odoInput.value = selectedVehicle?.last_odo || '';
-        }
-    };
-    
-    sel.addEventListener('change', newListener);
-    sel._odoUpdateListener = newListener; // Track for cleanup
-    
-    document.getElementById('start-goal').value = state.userSettings?.default_shift_target_hours || 12;
-    
-    window.openModal('start-modal');
-}
-
 export async function confirmStart() {
     vibrate([20]);
     const vid = document.getElementById('start-vehicle').value;
@@ -132,16 +84,42 @@ export async function confirmStart() {
 
     if (!vid) return showToast('Pasirink mašiną', 'error');
     if (!odoInput) return showToast('Įvesk ridą', 'error');
-    
+
     const odo = parseInt(odoInput);
     if (isNaN(odo) || odo < 0) return showToast('Neteisinga rida', 'error');
 
-    // ✅ Validation: check against vehicle.last_odo
-    const vehicle = state.fleet.find(v => v.id === vid);
-    if (vehicle && vehicle.last_odo && odo < vehicle.last_odo) {
-        return showToast(`KLAIDA: Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
+    // 1. Get last shift for this user + vehicle (completed or active)
+    const { data: lastShifts, error: lastShiftError } = await db
+        .from('finance_shifts')
+        .select('end_odo')
+        .eq('user_id', state.user.id)
+        .eq('vehicle_id', vid)
+        .order('start_time', { ascending: false })
+        .limit(1);
+
+    if (lastShiftError) {
+        console.error('Failed to fetch last shift:', lastShiftError);
+        return showToast('Nepavyko patikrinti ankstesnės pamainos', 'error');
     }
 
+    const lastEndOdo = lastShifts?.[0]?.end_odo ?? null;
+
+    // 2. If there was a previous shift, start_odo must be >= end_odo
+    if (lastEndOdo !== null && odo < lastEndOdo) {
+        return showToast(
+            `KLAIDA: Rida negali būti mažesnė nei ankstesnės pamainos pabaiga (${lastEndOdo})`,
+            'error'
+        );
+    }
+
+    // 3. Additional check against vehicle.last_odo (optional extra safety)
+    const vehicle = state.fleet.find(v => v.id === vid);
+    if (vehicle && vehicle.last_odo && odo < vehicle.last_odo) {
+        vibrate([50, 50, 50]); // Triple vibration for error
+        return showToast(`❌ Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
+    }
+
+    // 4. All checks passed – create new shift
     state.loading = true;
     try {
         const { error } = await db.from('finance_shifts').insert({
@@ -158,11 +136,11 @@ export async function confirmStart() {
         window.closeModals();
         window.dispatchEvent(new Event('refresh-data'));
         showToast('Pamaina pradėta 🚀', 'success');
-        
-    } catch (e) { 
-        showToast(e.message, 'error'); 
-    } finally { 
-        state.loading = false; 
+
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        state.loading = false;
     }
 }
 

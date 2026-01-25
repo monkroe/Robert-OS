@@ -1,5 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SHIFTS MODULE 1.7.0 (PAUSE NUMBERS FIX)
+// ROBERT OS - SHIFTS MODULE v1.5.0
+// Shift Management with Odometer Auto-fill & Vehicle Update
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -13,19 +14,17 @@ let timerInterval = null;
 // ────────────────────────────────────────────────────────────────
 
 export function startTimer() {
-    stopTimer(); // Išvalome seną intervalą
+    stopTimer();
     
-    // Jei pauzė - parodome laiką, uždedame pulsavimą, bet NELEIDŽIAME intervalo
     if (state.activeShift?.status === 'paused') {
         const el = document.getElementById('shift-timer');
         if (el) {
-            updateTimerDisplay(); // Parodo skaičius
-            el.classList.add('pulse-text'); // Įjungia pulsavimą
+            updateTimerDisplay();
+            el.classList.add('pulse-text');
         }
         return;
     }
     
-    // Jei aktyvi - rodome laiką ir paleidžiame tiksėjimą
     updateTimerDisplay();
     timerInterval = setInterval(updateTimerDisplay, 1000);
 }
@@ -35,7 +34,6 @@ export function stopTimer() {
         clearInterval(timerInterval);
         timerInterval = null;
     }
-    // SVARBU: Čia NEBENULINAME teksto, kad liktų skaičiai pauzės metu
     const el = document.getElementById('shift-timer');
     if (el) {
         el.classList.remove('pulse-text');
@@ -46,7 +44,6 @@ function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
     if (!state.activeShift || !el) return;
     
-    // SKAIČIAVIMAS
     const start = new Date(state.activeShift.start_time).getTime();
     const now = Date.now();
     let diff = Math.floor((now - start) / 1000);
@@ -58,7 +55,6 @@ function updateTimerDisplay() {
     
     el.textContent = `${h}:${m}:${s}`;
     
-    // Jei pauzė - užtikriname pulsavimą
     if (state.activeShift.status === 'paused') {
         el.classList.add('pulse-text');
     } else {
@@ -66,8 +62,18 @@ function updateTimerDisplay() {
     }
 }
 
+// Cleanup on page unload
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    });
+}
+
 // ────────────────────────────────────────────────────────────────
-// START SHIFT
+// START SHIFT (With Auto-fill Odometer)
 // ────────────────────────────────────────────────────────────────
 
 export function openStartModal() {
@@ -82,11 +88,37 @@ export function openStartModal() {
     } else {
         sel.innerHTML = state.fleet
             .filter(v => v.is_active)
-            .map(v => `<option value="${v.id}">${v.name}${v.is_test ? ' 🧪' : ''}</option>`)
+            .map(v => {
+                const odoInfo = v.last_odo ? ` (Rida: ${v.last_odo})` : '';
+                return `<option value="${v.id}" data-odo="${v.last_odo || 0}">${v.name}${v.is_test ? ' 🧪' : ''}${odoInfo}</option>`;
+            })
             .join('');
     }
     
-    document.getElementById('start-odo').value = '';
+    // ✅ 1. Auto-fill first vehicle odometer
+    const firstVehicle = state.fleet.find(v => v.is_active);
+    const odoInput = document.getElementById('start-odo');
+    if (odoInput) {
+        odoInput.value = firstVehicle?.last_odo || '';
+    }
+    
+    // ✅ 2. Dynamic update on vehicle change
+    // Remove old listener first
+    const oldListener = sel._odoUpdateListener;
+    if (oldListener) {
+        sel.removeEventListener('change', oldListener);
+    }
+    
+    const newListener = function(e) {
+        const selectedVehicle = state.fleet.find(v => v.id === e.target.value);
+        if (odoInput) {
+            odoInput.value = selectedVehicle?.last_odo || '';
+        }
+    };
+    
+    sel.addEventListener('change', newListener);
+    sel._odoUpdateListener = newListener; // Track for cleanup
+    
     document.getElementById('start-goal').value = state.userSettings?.default_shift_target_hours || 12;
     
     window.openModal('start-modal');
@@ -103,6 +135,12 @@ export async function confirmStart() {
     
     const odo = parseInt(odoInput);
     if (isNaN(odo) || odo < 0) return showToast('Neteisinga rida', 'error');
+
+    // ✅ Validation: check against vehicle.last_odo
+    const vehicle = state.fleet.find(v => v.id === vid);
+    if (vehicle && vehicle.last_odo && odo < vehicle.last_odo) {
+        return showToast(`KLAIDA: Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
+    }
 
     state.loading = true;
     try {
@@ -129,7 +167,7 @@ export async function confirmStart() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// END SHIFT & WEATHER
+// END SHIFT (With Vehicle Last_Odo Update)
 // ────────────────────────────────────────────────────────────────
 
 export function openEndModal() {
@@ -183,7 +221,8 @@ export async function confirmEnd() {
 
     state.loading = true;
     try {
-        const { error } = await db.from('finance_shifts').update({
+        // 1. Update shift
+        const { error: shiftError } = await db.from('finance_shifts').update({
             end_odo: odo,
             end_time: new Date().toISOString(),
             gross_earnings: earn ? parseFloat(earn) : 0,
@@ -191,9 +230,18 @@ export async function confirmEnd() {
             status: 'completed'
         }).eq('id', state.activeShift.id);
 
-        if (error) throw error;
+        if (shiftError) throw shiftError;
 
-        // Išvalome laikmatį rankiniu būdu čia, nes stopTimer to nebedaro
+        // 2. ✅ Update vehicle.last_odo
+        const { error: vehError } = await db.from('vehicles').update({
+            last_odo: odo
+        }).eq('id', state.activeShift.vehicle_id);
+
+        if (vehError) {
+            console.warn('Failed to update vehicle odometer:', vehError);
+            // Don't throw - shift is already ended
+        }
+
         stopTimer();
         const el = document.getElementById('shift-timer');
         if (el) el.textContent = "00:00:00";
@@ -224,11 +272,11 @@ export async function togglePause() {
     state.activeShift.status = newStatus;
     
     if (newStatus === 'paused') {
-        stopTimer(); // Sustabdo intervalą, bet tekstą palieka
+        stopTimer();
         const el = document.getElementById('shift-timer');
         if (el) el.classList.add('pulse-text');
     } else {
-        startTimer(); // Vėl paleidžia
+        startTimer();
     }
     
     updatePauseButton(newStatus);
@@ -239,7 +287,6 @@ export async function togglePause() {
             .eq('id', state.activeShift.id);
         
         if (error) {
-            // Revert on error
             state.activeShift.status = oldStatus;
             if (oldStatus === 'paused') {
                 stopTimer();

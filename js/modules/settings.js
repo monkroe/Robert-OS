@@ -1,10 +1,14 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SETTINGS MODULE v1.6.0 (FINAL - CLEAN)
+// ROBERT OS - SETTINGS MODULE v1.6.0 (FINAL)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
+
+// ────────────────────────────────────────────────────────────────
+// LOAD & SYNC
+// ────────────────────────────────────────────────────────────────
 
 export async function loadSettings() {
     try {
@@ -52,6 +56,10 @@ async function createDefaultSettings() {
         console.error('Error creating defaults:', error);
     }
 }
+
+// ────────────────────────────────────────────────────────────────
+// UI INTERACTIONS
+// ────────────────────────────────────────────────────────────────
 
 export async function openSettings() {
     vibrate();
@@ -113,6 +121,10 @@ export async function saveSettings() {
         state.loading = false;
     }
 }
+
+// ────────────────────────────────────────────────────────────────
+// UTILS
+// ────────────────────────────────────────────────────────────────
 
 function getVal(id) {
     return document.getElementById(id)?.value;

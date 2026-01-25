@@ -1,5 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS (ORCHESTRATOR) 1.7.0 (FINAL STABLE)
+// ROBERT OS - APP.JS v1.5.0 (ORCHESTRATOR)
+// Main Application Controller with Memory Leak Prevention
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -11,6 +12,16 @@ import * as Finance from './modules/finance.js';
 import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
+
+// ────────────────────────────────────────────────────────────────
+// REALTIME CHANNEL TRACKING (Memory Leak Prevention)
+// ────────────────────────────────────────────────────────────────
+
+let realtimeChannel = null;
+
+// ────────────────────────────────────────────────────────────────
+// INITIALIZATION
+// ────────────────────────────────────────────────────────────────
 
 async function init() {
     UI.applyTheme();
@@ -55,6 +66,10 @@ async function init() {
     });
 }
 
+// ────────────────────────────────────────────────────────────────
+// DATA REFRESH
+// ────────────────────────────────────────────────────────────────
+
 export async function refreshAll() {
     try {
         const { data: shift } = await db
@@ -85,6 +100,10 @@ export async function refreshAll() {
         console.error('Error in refreshAll:', error);
     }
 }
+
+// ────────────────────────────────────────────────────────────────
+// PROGRESS BARS UPDATE
+// ────────────────────────────────────────────────────────────────
 
 async function updateProgressBars() {
     try {
@@ -131,28 +150,59 @@ async function updateProgressBars() {
     }
 }
 
+// ────────────────────────────────────────────────────────────────
+// REALTIME SUBSCRIPTIONS (With Cleanup)
+// ────────────────────────────────────────────────────────────────
+
 function setupRealtime() {
+    // Cleanup existing channel first
+    if (realtimeChannel) {
+        console.log('🧹 Cleaning up existing realtime channel');
+        realtimeChannel.unsubscribe();
+        realtimeChannel = null;
+    }
+    
     const userId = state.user.id;
     
-    db.channel('user-channel')
+    console.log('📡 Setting up realtime channel for user:', userId);
+    
+    realtimeChannel = db.channel('user-channel')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public',
             table: 'finance_shifts',
             filter: `user_id=eq.${userId}`
-        }, () => refreshAll())
+        }, () => {
+            console.log('🔄 Realtime: finance_shifts changed');
+            refreshAll();
+        })
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public',
             table: 'expenses',
             filter: `user_id=eq.${userId}`
-        }, () => refreshAll())
+        }, () => {
+            console.log('🔄 Realtime: expenses changed');
+            refreshAll();
+        })
         .subscribe();
 }
 
-// ════════════════════════════════════════════════════════════════
+// ────────────────────────────────────────────────────────────────
+// CLEANUP (Called from auth.js on logout)
+// ────────────────────────────────────────────────────────────────
+
+export function cleanupRealtime() {
+    if (realtimeChannel) {
+        console.log('🧹 Unsubscribing from realtime channel');
+        realtimeChannel.unsubscribe();
+        realtimeChannel = null;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
 // GLOBAL WINDOW FUNCTIONS
-// ════════════════════════════════════════════════════════════════
+// ────────────────────────────────────────────────────────────────
 
 // Auth
 window.login = Auth.login;
@@ -171,7 +221,7 @@ window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
 window.confirmEnd = Shifts.confirmEnd;
 window.togglePause = Shifts.togglePause;
-window.selectWeather = Shifts.selectWeather; // ✅ SUTVARKYTA
+window.selectWeather = Shifts.selectWeather;
 
 // Finance
 window.openTxModal = Finance.openTxModal;
@@ -182,17 +232,24 @@ window.exportAI = Finance.exportAI;
 // UI
 window.cycleTheme = UI.cycleTheme;
 window.switchTab = UI.switchTab;
-window.openModal = UI.openModal;     // ✅ SUTVARKYTA
+window.openModal = UI.openModal;
 window.closeModals = UI.closeModals;
 
 // Settings
 window.openSettings = Settings.openSettings;
 window.saveSettings = Settings.saveSettings;
 
-// Logika delete (perkelta iš finance jei reikia globaliai, bet paprastai finance turi savo window functions)
+// Finance Delete Logic
 window.toggleSelectAll = Finance.toggleSelectAll || window.toggleSelectAll;
 window.requestDelete = Finance.requestDelete || window.requestDelete; 
 window.confirmDelete = Finance.confirmDelete || window.confirmDelete;
 window.updateDeleteButton = Finance.updateDeleteButton || window.updateDeleteButton;
+
+// Cleanup Functions (for logout)
+window.cleanupRealtime = cleanupRealtime;
+
+// ────────────────────────────────────────────────────────────────
+// START APPLICATION
+// ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', init);

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - GARAGE MODULE v1.5.0
-// Fleet Management with XSS Protection
+// ROBERT OS - GARAGE MODULE v1.5.0 (FINAL)
+// Fleet Management with XSS Protection & Custom Delete Modal
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -32,9 +32,7 @@ export async function fetchFleet() {
         
         if (error) throw error;
         
-        // Filter only active (not deleted), include TEST
         state.fleet = (data || []).filter(v => v.is_active === true);
-        
         console.log(`🚗 Loaded ${state.fleet.length} vehicles`);
         
     } catch (error) {
@@ -51,12 +49,10 @@ export async function fetchFleet() {
 export function openGarage() {
     vibrate();
     
-    // Reset form
     document.getElementById('veh-name').value = '';
     document.getElementById('veh-cost').value = '';
     setVehType('rental');
     
-    // Reset Test Mode
     document.getElementById('veh-is-test').value = 'false';
     updateTestUI(false);
 
@@ -65,7 +61,7 @@ export function openGarage() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// TEST MODE Toggle
+// TEST MODE
 // ────────────────────────────────────────────────────────────────
 
 export function toggleTestMode() {
@@ -91,7 +87,7 @@ function updateTestUI(isActive) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// RENDER GARAGE LIST (With XSS Protection)
+// RENDER LIST
 // ────────────────────────────────────────────────────────────────
 
 export function renderGarageList() {
@@ -104,7 +100,6 @@ export function renderGarageList() {
     }
 
     list.innerHTML = state.fleet.map(v => {
-        // ✅ XSS Protection
         const safeName = escapeHtml(v.name);
         const safeType = escapeHtml(v.type);
         const safeCost = escapeHtml(v.operating_cost_weekly || 0);
@@ -139,7 +134,7 @@ export function renderGarageList() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SAVE VEHICLE
+// SAVE VEHICLE (With Icons in Toast)
 // ────────────────────────────────────────────────────────────────
 
 export async function saveVehicle() {
@@ -164,9 +159,8 @@ export async function saveVehicle() {
         
         if (error) throw error;
         
-        showToast(isTest ? '🧪 Testinis automobilis sukurtas' : 'Automobilis pridėtas!', 'success');
+        showToast(isTest ? '🚖 Testinis automobilis sukurtas' : '🚘 Automobilis pridėtas!', 'success');
         
-        // Clear form
         document.getElementById('veh-name').value = '';
         document.getElementById('veh-cost').value = '';
         document.getElementById('veh-is-test').value = 'false';
@@ -183,58 +177,83 @@ export async function saveVehicle() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// DELETE VEHICLE
+// DELETE VEHICLE (With Custom Modal)
 // ────────────────────────────────────────────────────────────────
+
+let pendingDeleteId = null;
 
 export async function deleteVehicle(id) {
     vibrate([20]);
     const vehicle = state.fleet.find(v => v.id === id);
+    if (!vehicle) return;
+    
     const isTest = vehicle?.is_test;
-
-    // TEST MODE - Full delete with cascade
-    if (isTest) {
-        if (!confirm('🧪 Tai TESTINIS automobilis. Ištrinti jį ir visus susijusius duomenis?')) return;
+    pendingDeleteId = id;
+    
+    const confirmModal = document.getElementById('delete-vehicle-modal');
+    if (confirmModal) {
+        const titleEl = confirmModal.querySelector('#delete-vehicle-title');
+        const messageEl = confirmModal.querySelector('#delete-vehicle-message');
+        const iconEl = confirmModal.querySelector('#delete-vehicle-icon');
         
-        state.loading = true;
-        try {
-            // Cascade delete
+        if (isTest) {
+            if (titleEl) titleEl.textContent = 'Ištrinti Testinį Auto?';
+            if (messageEl) messageEl.innerHTML = `Automobilis <strong>${escapeHtml(vehicle.name)}</strong> yra testinis.<br>Bus ištrinti visi susiję duomenys.`;
+            if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-flask"></i>';
+        } else {
+            if (titleEl) titleEl.textContent = 'Pašalinti Automobilį?';
+            if (messageEl) messageEl.innerHTML = `Ar tikrai norite pašalinti <strong>${escapeHtml(vehicle.name)}</strong>?<br>Jei turi istoriją - bus archyvuotas.`;
+            if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-car"></i>';
+        }
+        
+        confirmModal.classList.remove('hidden');
+    } else {
+        // Fallback
+        if (!confirm(isTest ? 'Ištrinti testinį?' : 'Pašalinti automobilį?')) {
+            pendingDeleteId = null;
+            return;
+        }
+        await executeDelete(id, isTest);
+    }
+}
+
+export async function confirmDeleteVehicle() {
+    if (!pendingDeleteId) return;
+    
+    const vehicle = state.fleet.find(v => v.id === pendingDeleteId);
+    const isTest = vehicle?.is_test;
+    
+    window.closeModals();
+    await executeDelete(pendingDeleteId, isTest);
+    pendingDeleteId = null;
+}
+
+export function cancelDeleteVehicle() {
+    vibrate();
+    pendingDeleteId = null;
+    window.closeModals();
+}
+
+async function executeDelete(id, isTest) {
+    state.loading = true;
+    try {
+        if (isTest) {
             await db.from('expenses').delete().eq('vehicle_id', id);
             await db.from('finance_shifts').delete().eq('vehicle_id', id);
             await db.from('vehicles').delete().eq('id', id);
             
-            showToast('Testiniai duomenys išvalyti 🧹', 'success');
-            await fetchFleet();
-            renderGarageList();
-            
-        } catch(e) { 
-            showToast(e.message, 'error'); 
-        } finally { 
-            state.loading = false; 
-        }
-        return;
-    }
-
-    // REAL VEHICLE - Archive only
-    if (!confirm('Ar norite pašalinti šį automobilį?')) return;
-    
-    state.loading = true;
-    try {
-        const { error } = await db.from('vehicles').delete().eq('id', id);
-        
-        if (error) {
-            if (error.code === '23503') { 
-                if (confirm('⚠️ Automobilis turi istoriją. ARCHYVUOTI?')) {
-                    await db.from('vehicles').update({ is_active: false }).eq('id', id);
-                    showToast('Automobilis archyvuotas', 'success');
-                } else { 
-                    state.loading = false; 
-                    return; 
-                }
-            } else { 
-                throw error; 
-            }
+            showToast('🧹 Testiniai duomenys išvalyti', 'success');
         } else {
-            showToast('Automobilis ištrintas', 'success');
+            const { error } = await db.from('vehicles').delete().eq('id', id);
+            
+            if (error && error.code === '23503') {
+                await db.from('vehicles').update({ is_active: false }).eq('id', id);
+                showToast('📦 Automobilis archyvuotas', 'success');
+            } else if (error) {
+                throw error;
+            } else {
+                showToast('🗑️ Automobilis ištrintas', 'success');
+            }
         }
         
         await fetchFleet();

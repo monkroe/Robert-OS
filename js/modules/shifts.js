@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SHIFTS MODULE v1.5.0
-// Shift Management with Odometer Auto-fill & Vehicle Update
+// ROBERT OS - SHIFTS MODULE v1.5.0 (FINAL)
+// Shift Management with True Odometer Validation
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -95,15 +95,14 @@ export function openStartModal() {
             .join('');
     }
     
-    // ✅ 1. Auto-fill first vehicle odometer
+    // Auto-fill first vehicle odometer
     const firstVehicle = state.fleet.find(v => v.is_active);
     const odoInput = document.getElementById('start-odo');
     if (odoInput) {
         odoInput.value = firstVehicle?.last_odo || '';
     }
     
-    // ✅ 2. Dynamic update on vehicle change
-    // Remove old listener first
+    // Dynamic update on vehicle change
     const oldListener = sel._odoUpdateListener;
     if (oldListener) {
         sel.removeEventListener('change', oldListener);
@@ -117,7 +116,7 @@ export function openStartModal() {
     };
     
     sel.addEventListener('change', newListener);
-    sel._odoUpdateListener = newListener; // Track for cleanup
+    sel._odoUpdateListener = newListener;
     
     document.getElementById('start-goal').value = state.userSettings?.default_shift_target_hours || 12;
     
@@ -136,14 +135,40 @@ export async function confirmStart() {
     const odo = parseInt(odoInput);
     if (isNaN(odo) || odo < 0) return showToast('Neteisinga rida', 'error');
 
-    // ✅ Validation: check against vehicle.last_odo
-    const vehicle = state.fleet.find(v => v.id === vid);
-    if (vehicle && vehicle.last_odo && odo < vehicle.last_odo) {
-        return showToast(`KLAIDA: Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
-    }
-
     state.loading = true;
     try {
+        // ✅ TIKROJI VALIDACIJA: Gauti paskutinę ŠITO AUTO pamainą
+        const { data: lastShift, error: shiftError } = await db
+            .from('finance_shifts')
+            .select('end_odo')
+            .eq('user_id', state.user.id)
+            .eq('vehicle_id', vid)
+            .eq('status', 'completed')
+            .not('end_odo', 'is', null)
+            .order('end_time', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        
+        if (shiftError && shiftError.code !== 'PGRST116') {
+            throw shiftError;
+        }
+        
+        // Jei yra paskutinė pamaina - tikrinti prieš jos end_odo
+        if (lastShift && lastShift.end_odo) {
+            if (odo < lastShift.end_odo) {
+                vibrate([50, 50, 50]);
+                return showToast(`❌ Rida negali būti mažesnė nei ${lastShift.end_odo} (paskutinė pamaina)`, 'error');
+            }
+        }
+        
+        // Papildomas patikrinimas prieš vehicle.last_odo (jei skiriasi)
+        const vehicle = state.fleet.find(v => v.id === vid);
+        if (vehicle && vehicle.last_odo && odo < vehicle.last_odo) {
+            vibrate([50, 50, 50]);
+            return showToast(`❌ Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
+        }
+
+        // Viskas OK - kuriame pamainą
         const { error } = await db.from('finance_shifts').insert({
             user_id: state.user.id,
             vehicle_id: vid,
@@ -232,14 +257,13 @@ export async function confirmEnd() {
 
         if (shiftError) throw shiftError;
 
-        // 2. ✅ Update vehicle.last_odo
+        // 2. ✅ Update vehicle.last_odo (KRITINIS!)
         const { error: vehError } = await db.from('vehicles').update({
             last_odo: odo
         }).eq('id', state.activeShift.vehicle_id);
 
         if (vehError) {
             console.warn('Failed to update vehicle odometer:', vehError);
-            // Don't throw - shift is already ended
         }
 
         stopTimer();
@@ -247,6 +271,12 @@ export async function confirmEnd() {
         if (el) el.textContent = "00:00:00";
 
         window.closeModals();
+        
+        // Refresh fleet data (kritinis - atnaujina vehicle.last_odo cache)
+        if (window.Garage && window.Garage.fetchFleet) {
+            await window.Garage.fetchFleet();
+        }
+        
         window.dispatchEvent(new Event('refresh-data'));
         showToast('Pamaina baigta 🏁', 'success');
 

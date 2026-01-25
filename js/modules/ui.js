@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE v2.0 (PURE EXPORTS)
+// ROBERT OS - UI MODULE v1.7.0 (PURE EXPORTS)
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';

@@ -13,20 +13,19 @@
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png">
 
-    <title>ROBERT OS</title>
+    <title>ROBERT OS PRO</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=1.3">
+    <link rel="stylesheet" href="style.css?v=1.7">
 
     <script>
     window.onerror = function(message, source, lineno, colno, error) {
-        // Rodo klaidą kaip pranešimą
-        alert("🚨 KLAIDA:\n" + message + "\n\nFailas: " + source + "\nEilutė: " + lineno);
+        // Rodo klaidą kaip pranešimą (jokių alert)
+        console.error("🚨 KLAIDA:", message, source, lineno);
         return false;
     };
-</script>
-
+    </script>
 </head>
 
 <body class="antialiased selection:bg-teal-500 selection:text-black">
@@ -52,9 +51,14 @@
         <header class="global-header">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
-                <span class="font-bold uppercase tracking-widest text-xs">OS v1.5</span>
+                <span class="font-bold uppercase tracking-widest text-xs">OS v1.7</span>
             </div>
             <div class="flex gap-2">
+                <div id="header-clocks" class="hidden flex-col items-end justify-center mr-2 text-[10px] font-mono leading-tight text-gray-400">
+                    <span id="clock-primary-header"></span>
+                    <span id="clock-secondary-header"></span>
+                </div>
+
                 <button onclick="openGarage()" class="header-btn text-teal-500 border border-teal-500/30 bg-teal-500/10">
                     <i class="fa-solid fa-car"></i>
                 </button>
@@ -74,6 +78,11 @@
             
             <section id="tab-cockpit" class="tab-content active space-y-4">
                 
+                <div id="cockpit-clocks" class="flex justify-between px-1 mb-[-0.5rem]">
+                    <span id="clock-primary" class="text-xs font-mono font-bold text-gray-400"></span>
+                    <span id="clock-secondary" class="text-xs font-mono font-bold text-gray-500"></span>
+                </div>
+
                 <div>
                     <div class="flex justify-between items-end mb-1">
                         <span class="label-xs ml-1 text-teal-400">RENTAL COVERAGE</span>
@@ -98,7 +107,10 @@
 
                 <div class="bento-grid">
                     <div class="bento-card col-span-2 text-center py-6 relative overflow-hidden group">
-                        <div class="absolute inset-0 bg-gradient-to-b from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div id="shift-weather" class="absolute inset-0 pointer-events-none z-0 transition-opacity duration-1000"></div>
+                        
+                        <div class="absolute inset-0 bg-gradient-to-b from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-0"></div>
+                        
                         <span class="label-xs relative z-10">Active Session</span>
                         <h2 id="shift-timer" class="val-timer my-2 relative z-10">00:00:00</h2>
                         
@@ -243,12 +255,27 @@
                 <input type="number" inputmode="decimal" pattern="[0-9]*" id="end-earn" class="input-field text-green-500 mb-4">
 
                 <label class="label-xs ml-1 block mb-2">Driving Conditions</label>
-                <div class="grid grid-cols-5 gap-2 mb-4">
-                    <button type="button" onclick="selectWeather('sunny')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-yellow-500/20 hover:border-yellow-500/50">☀️</button>
-                    <button type="button" onclick="selectWeather('rain')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-blue-500/20 hover:border-blue-500/50">🌧️</button>
-                    <button type="button" onclick="selectWeather('snow')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-cyan-500/20 hover:border-cyan-500/50">❄️</button>
-                    <button type="button" onclick="selectWeather('ice')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-purple-500/20 hover:border-purple-500/50">🧊</button>
-                    <button type="button" onclick="selectWeather('fog')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-gray-500/20 hover:border-gray-500/50">🌫️</button>
+                
+                <div class="grid grid-cols-5 gap-2 mb-4 relative">
+                    <button type="button" onclick="selectWeather('sunny')" class="weather-btn p-3 border border-gray-700 rounded-lg hover:bg-yellow-500/20 transition-all flex items-center justify-center">
+                        <i class="fa-solid fa-sun animate-spin-slow text-yellow-400 text-2xl"></i>
+                    </button>
+                    <button type="button" onclick="selectWeather('rain')" class="weather-btn p-3 border border-gray-700 rounded-lg hover:bg-blue-500/20 transition-all flex items-center justify-center relative overflow-hidden">
+                        <i class="fa-solid fa-cloud-showers-heavy text-blue-400 text-2xl"></i>
+                        <div class="absolute inset-0 rain-drops pointer-events-none"></div>
+                    </button>
+                    <button type="button" onclick="selectWeather('snow')" class="weather-btn p-3 border border-gray-700 rounded-lg hover:bg-cyan-500/20 transition-all flex items-center justify-center relative overflow-hidden">
+                        <i class="fa-solid fa-snowflake text-cyan-400 text-2xl"></i>
+                        <div class="absolute inset-0 snow-fall pointer-events-none"></div>
+                    </button>
+                    <button type="button" onclick="selectWeather('ice')" class="weather-btn p-3 border border-gray-700 rounded-lg hover:bg-purple-500/20 transition-all flex items-center justify-center relative overflow-hidden">
+                        <i class="fa-solid fa-icicles text-purple-400 text-2xl"></i>
+                        <div class="absolute inset-0 ice-overlay pointer-events-none"></div>
+                    </button>
+                    <button type="button" onclick="selectWeather('fog')" class="weather-btn p-3 border border-gray-700 rounded-lg hover:bg-gray-500/20 transition-all flex items-center justify-center relative overflow-hidden">
+                        <i class="fa-solid fa-smog text-gray-400 text-2xl"></i>
+                        <div class="absolute inset-0 fog-overlay pointer-events-none"></div>
+                    </button>
                 </div>
                 <input type="hidden" id="end-weather" value="">
             </div>
@@ -325,30 +352,18 @@
             
             <div class="text-left space-y-3 mb-6 border-b border-gray-800 pb-6">
                 <p class="text-[10px] font-bold text-gray-500 uppercase">Add New</p>
-                
-                <div>
-                    <input type="text" id="veh-name" class="input-field" placeholder="Vehicle Name (e.g. Kia Forte)">
-                </div>
-
+                <div><input type="text" id="veh-name" class="input-field" placeholder="Vehicle Name (e.g. Kia Forte)"></div>
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn btn-bento bg-teal-500 text-black border-teal-500">RENTAL</button>
                     <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn btn-bento opacity-50">OWNED</button>
                 </div>
                 <input type="hidden" id="veh-type" value="rental">
-
-                <div>
-                    <input type="number" inputmode="decimal" pattern="[0-9]*" id="veh-cost" class="input-field border-teal-500/50" placeholder="Weekly Cost ($)" step="0.01">
-                </div>
-
+                <div><input type="number" inputmode="decimal" pattern="[0-9]*" id="veh-cost" class="input-field border-teal-500/50" placeholder="Weekly Cost ($)" step="0.01"></div>
                 <div onclick="toggleTestMode()" id="btn-test-mode" class="cursor-pointer border border-gray-700 rounded-lg p-3 flex items-center justify-between opacity-60 hover:opacity-100 transition-all">
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-flask text-yellow-400"></i>
-                        <span class="text-xs font-bold uppercase text-gray-400">Test Mode</span>
-                    </div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-flask text-yellow-400"></i><span class="text-xs font-bold uppercase text-gray-400">Test Mode</span></div>
                     <div id="test-indicator" class="w-3 h-3 rounded-full bg-gray-700"></div>
                     <input type="hidden" id="veh-is-test" value="false">
                 </div>
-
                 <button onclick="saveVehicle()" class="btn-primary-os py-3 mt-2">ADD TO FLEET</button>
             </div>
 
@@ -356,7 +371,6 @@
                 <p class="text-[10px] font-bold text-gray-500 uppercase mb-2">Your Fleet</p>
                 <div id="garage-list" class="space-y-2 max-h-40 overflow-y-auto"></div>
             </div>
-
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-4 w-full mt-2">Close</button>
         </div>
     </div>
@@ -369,19 +383,24 @@
                 <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">Time Zones</p>
                 
                 <label class="label-xs ml-1">Primary Timezone</label>
-                <select id="settings-tz-primary" class="input-field text-sm mb-3">
+                <select id="settings-tz-primary" class="input-field text-sm mb-3 text-gray-300">
+                    <option value="" class="text-gray-500">-- Disabled --</option>
                     <option value="America/Chicago">🇺🇸 Chicago (CST/CDT)</option>
                     <option value="America/New_York">🇺🇸 New York (EST/EDT)</option>
                     <option value="America/Los_Angeles">🇺🇸 Los Angeles (PST/PDT)</option>
                     <option value="America/Denver">🇺🇸 Denver (MST/MDT)</option>
+                    <option value="Europe/Vilnius">🇱🇹 Vilnius (EET/EEST)</option>
+                    <option value="Europe/London">🇬🇧 London (GMT/BST)</option>
                 </select>
                 
                 <label class="label-xs ml-1">Secondary Timezone</label>
-                <select id="settings-tz-secondary" class="input-field text-sm mb-3">
+                <select id="settings-tz-secondary" class="input-field text-sm mb-3 text-gray-300">
+                    <option value="" class="text-gray-500">-- Disabled --</option>
                     <option value="Europe/Vilnius">🇱🇹 Vilnius (EET/EEST)</option>
                     <option value="Europe/London">🇬🇧 London (GMT/BST)</option>
                     <option value="Europe/Paris">🇫🇷 Paris (CET/CEST)</option>
                     <option value="Asia/Tokyo">🇯🇵 Tokyo (JST)</option>
+                    <option value="America/Chicago">🇺🇸 Chicago (CST/CDT)</option>
                 </select>
                 
                 <label class="label-xs ml-1">Clock Position</label>
@@ -395,13 +414,10 @@
             
             <div class="text-left mb-6 border-b border-gray-800 pb-6">
                 <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">Financials</p>
-                
                 <label class="label-xs ml-1">Monthly Fixed Expenses ($)</label>
                 <input type="number" inputmode="decimal" id="settings-fixed-expenses" class="input-field mb-3" placeholder="0">
-                
                 <label class="label-xs ml-1">Weekly Rental Cost ($)</label>
                 <input type="number" inputmode="decimal" id="settings-rental-cost" class="input-field mb-3" placeholder="0">
-                
                 <label class="label-xs ml-1">Rental Week Starts On</label>
                 <select id="settings-rental-start-day" class="input-field text-sm">
                     <option value="1">Monday</option>
@@ -416,10 +432,8 @@
             
             <div class="text-left mb-6 border-b border-gray-800 pb-6">
                 <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">Work</p>
-                
                 <label class="label-xs ml-1">Default Shift Target (hours)</label>
                 <input type="number" inputmode="decimal" id="settings-shift-target" class="input-field mb-3" placeholder="12">
-                
                 <label class="flex items-center gap-3 cursor-pointer p-3 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors">
                     <input type="checkbox" id="settings-notifications" class="w-5 h-5 rounded accent-teal-500">
                     <div>
@@ -431,7 +445,6 @@
             
             <div class="text-left mb-6">
                 <p class="text-[10px] font-bold text-gray-500 uppercase mb-3">Interface</p>
-                
                 <label class="flex items-center gap-3 cursor-pointer p-3 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors">
                     <input type="checkbox" id="settings-compact-mode" class="w-5 h-5 rounded accent-teal-500">
                     <div>
@@ -456,7 +469,6 @@
                 Are you sure you want to delete <span id="del-modal-count" class="text-red-500 font-bold">0</span> records?
                 <br>This action cannot be undone.
             </p>
-            
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="closeModals()" class="py-3 rounded-xl font-bold text-gray-400 bg-gray-800 border border-gray-700 hover:bg-gray-700 active:scale-95 transition-transform">CANCEL</button>
                 <button onclick="confirmDelete()" class="py-3 rounded-xl font-bold text-black bg-red-500 hover:bg-red-400 shadow-lg shadow-red-500/20 active:scale-95 transition-transform">DELETE</button>
@@ -467,7 +479,7 @@
     <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold">SYNCING...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="js/app.js?v=1.21"></script>
+    <script type="module" src="js/app.js?v=1.7"></script>
     
     <script>
         if ('serviceWorker' in navigator) {

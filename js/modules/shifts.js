@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SHIFTS MODULE v2.4 (PAUSE NUMBERS FIX)
+// ROBERT OS - SHIFTS MODULE v2.5 (ODO LOGIC FIX)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -13,19 +13,18 @@ let timerInterval = null;
 // ────────────────────────────────────────────────────────────────
 
 export function startTimer() {
-    stopTimer(); // Išvalome seną intervalą
+    stopTimer();
     
     // Jei pauzė - parodome laiką, uždedame pulsavimą, bet NELEIDŽIAME intervalo
     if (state.activeShift?.status === 'paused') {
         const el = document.getElementById('shift-timer');
         if (el) {
-            updateTimerDisplay(); // Parodo skaičius
-            el.classList.add('pulse-text'); // Įjungia pulsavimą
+            updateTimerDisplay(); 
+            el.classList.add('pulse-text'); 
         }
         return;
     }
     
-    // Jei aktyvi - rodome laiką ir paleidžiame tiksėjimą
     updateTimerDisplay();
     timerInterval = setInterval(updateTimerDisplay, 1000);
 }
@@ -35,7 +34,6 @@ export function stopTimer() {
         clearInterval(timerInterval);
         timerInterval = null;
     }
-    // SVARBU: Čia NEBENULINAME teksto, kad liktų skaičiai pauzės metu
     const el = document.getElementById('shift-timer');
     if (el) {
         el.classList.remove('pulse-text');
@@ -46,7 +44,6 @@ function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
     if (!state.activeShift || !el) return;
     
-    // SKAIČIAVIMAS
     const start = new Date(state.activeShift.start_time).getTime();
     const now = Date.now();
     let diff = Math.floor((now - start) / 1000);
@@ -58,7 +55,6 @@ function updateTimerDisplay() {
     
     el.textContent = `${h}:${m}:${s}`;
     
-    // Jei pauzė - užtikriname pulsavimą
     if (state.activeShift.status === 'paused') {
         el.classList.add('pulse-text');
     } else {
@@ -82,11 +78,17 @@ export function openStartModal() {
     } else {
         sel.innerHTML = state.fleet
             .filter(v => v.is_active)
-            .map(v => `<option value="${v.id}">${v.name}${v.is_test ? ' 🧪' : ''}</option>`)
+            .map(v => {
+                // Rodo paskutinę ridą pasirinkime, kad vartotojui būtų lengviau
+                const odoInfo = v.last_odo ? ` (Rida: ${v.last_odo})` : '';
+                return `<option value="${v.id}" data-odo="${v.last_odo || 0}">${v.name}${v.is_test ? ' 🧪' : ''}${odoInfo}</option>`;
+            })
             .join('');
     }
     
-    document.getElementById('start-odo').value = '';
+    // Auto-fill odometer if possible (optional UX improvement)
+    const firstOdo = state.fleet.find(v => v.is_active)?.last_odo;
+    document.getElementById('start-odo').value = firstOdo || '';
     document.getElementById('start-goal').value = state.userSettings?.default_shift_target_hours || 12;
     
     window.openModal('start-modal');
@@ -103,6 +105,13 @@ export async function confirmStart() {
     
     const odo = parseInt(odoInput);
     if (isNaN(odo) || odo < 0) return showToast('Neteisinga rida', 'error');
+
+    // 🔴 LOGIC FIX: Tikriname ar rida ne mažesnė už buvusią
+    const vehicle = state.fleet.find(v => v.id === vid);
+    if (vehicle && vehicle.last_odo && odo < vehicle.last_odo) {
+        // Leisti išimtį testiniams automobiliams, jei reikia, bet geriau blokuoti visus
+        return showToast(`KLAIDA: Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
+    }
 
     state.loading = true;
     try {
@@ -142,11 +151,13 @@ export function openEndModal() {
     
     if (endOdoInput) {
         endOdoInput.value = '';
+        // Čia jau buvo gera logika (Min: start_odo), ji lieka
         endOdoInput.placeholder = `Min: ${state.activeShift.start_odo}`;
     }
     if (endEarnInput) endEarnInput.value = '';
     if (weatherInput) weatherInput.value = '';
     
+    // Reset weather buttons
     document.querySelectorAll('.weather-btn').forEach(btn => {
          btn.className = 'weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 hover:opacity-100 transition-all';
     });
@@ -162,6 +173,8 @@ export function selectWeather(type) {
     document.querySelectorAll('.weather-btn').forEach(btn => {
         btn.className = 'weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 transition-all';
         if (btn.getAttribute('onclick').includes(type)) {
+            // Čia bus vėliau prijungtas tavo naujas CSS stilius (border colors)
+            // Kol kas paliekame bazinį teal highlight
             btn.className = 'weather-btn p-3 border border-teal-500 bg-teal-500/20 rounded-lg text-2xl shadow-[0_0_10px_rgba(20,184,166,0.3)] scale-110 transition-all';
         }
     });
@@ -179,6 +192,7 @@ export async function confirmEnd() {
     const startOdo = state.activeShift.start_odo;
     
     if (isNaN(odo)) return showToast('Neteisinga rida', 'error');
+    // Čia jau yra apsauga, kad End Odo >= Start Odo
     if (odo < startOdo) return showToast(`Rida negali būti mažesnė nei ${startOdo}`, 'error');
 
     state.loading = true;
@@ -193,7 +207,6 @@ export async function confirmEnd() {
 
         if (error) throw error;
 
-        // Išvalome laikmatį rankiniu būdu čia, nes stopTimer to nebedaro
         stopTimer();
         const el = document.getElementById('shift-timer');
         if (el) el.textContent = "00:00:00";
@@ -224,11 +237,11 @@ export async function togglePause() {
     state.activeShift.status = newStatus;
     
     if (newStatus === 'paused') {
-        stopTimer(); // Sustabdo intervalą, bet tekstą palieka
+        stopTimer();
         const el = document.getElementById('shift-timer');
         if (el) el.classList.add('pulse-text');
     } else {
-        startTimer(); // Vėl paleidžia
+        startTimer();
     }
     
     updatePauseButton(newStatus);
@@ -239,7 +252,6 @@ export async function togglePause() {
             .eq('id', state.activeShift.id);
         
         if (error) {
-            // Revert on error
             state.activeShift.status = oldStatus;
             if (oldStatus === 'paused') {
                 stopTimer();

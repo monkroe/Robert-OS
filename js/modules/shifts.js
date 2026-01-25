@@ -125,6 +125,7 @@ export function openStartModal() {
 }
 
 export async function confirmStart() {
+export async function confirmStart() {
     vibrate([20]);
     const vid = document.getElementById('start-vehicle').value;
     const odoInput = document.getElementById('start-odo').value;
@@ -136,10 +137,13 @@ export async function confirmStart() {
     const odo = parseInt(odoInput);
     if (isNaN(odo) || odo < 0) return showToast('Neteisinga rida', 'error');
 
-    // ✅ Validation: check against vehicle.last_odo
+    // ✅ STRICT VALIDATION: Always check against last_odo
     const vehicle = state.fleet.find(v => v.id === vid);
-    if (vehicle && vehicle.last_odo && odo < vehicle.last_odo) {
-        return showToast(`KLAIDA: Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
+    if (vehicle && vehicle.last_odo) {
+        if (odo < vehicle.last_odo) {
+            vibrate([50, 50, 50]); // Error vibration
+            return showToast(`❌ Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
+        }
     }
 
     state.loading = true;

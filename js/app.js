@@ -211,8 +211,7 @@ window.logout = Auth.logout;
 // Garage
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
-window.deleteVehicle = 
-Garage.deleteVehicle;
+window.deleteVehicle = Garage.deleteVehicle;
 window.confirmDeleteVehicle = Garage.confirmDeleteVehicle;  // ✅ NAUJAS
 window.cancelDeleteVehicle = Garage.cancelDeleteVehicle;    // ✅ NAUJAS
 window.setVehType = Garage.setVehType;

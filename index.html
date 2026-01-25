@@ -17,10 +17,10 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=1.5.2">
+    <link rel="stylesheet" href="style.css?v=1.6.0">
 </head>
 
-<body class="antialiased selection:bg-teal-500 selection:text-black">
+<body class="antialiased selection:bg-teal-500 selection:text-black bg-black text-gray-100">
 
     <div id="toast-container" class="fixed top-4 left-4 right-4 z-[2000] flex flex-col gap-2 pointer-events-none"></div>
 
@@ -43,7 +43,7 @@
         <header class="global-header">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
-                <span class="font-bold uppercase tracking-widest text-xs">OS 1.5</span>
+                <span class="font-bold uppercase tracking-widest text-xs">OS 1.6</span>
             </div>
             <div class="flex gap-2">
                 <button onclick="openGarage()" class="header-btn text-teal-500 border border-teal-500/30 bg-teal-500/10">
@@ -330,13 +330,33 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn btn-bento bg-teal-500 text-black border-teal-500">🚖 BANDOMASIS</button>
-                    <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn btn-bento opacity-50">🚘 NUOSAVAS</button>
+                    <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn btn-bento bg-teal-500 text-black border-teal-500">RENTAL</button>
+                    <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn btn-bento opacity-50">OWNED</button>
                 </div>
                 <input type="hidden" id="veh-type" value="rental">
 
+                <div id="rental-fields" class="space-y-3">
+                    <div>
+                        <label class="label-xs ml-1">Rental Start Date (optional)</label>
+                        <input type="date" id="veh-rental-start" class="input-field">
+                    </div>
+                </div>
+
                 <div>
-                    <input type="number" inputmode="decimal" pattern="[0-9]*" id="veh-cost" class="input-field border-teal-500/50" placeholder="Weekly Cost ($)" step="0.01">
+                    <input type="number" inputmode="decimal" id="veh-cost" class="input-field border-teal-500/50" placeholder="Weekly Cost ($)" step="0.01">
+                </div>
+
+                <div>
+                    <input type="number" inputmode="decimal" id="veh-carwash" class="input-field" placeholder="Car Wash Membership ($/month, optional)" step="0.01">
+                </div>
+
+                <div onclick="toggleTestMode()" id="btn-test-mode" class="cursor-pointer border border-gray-700 rounded-lg p-3 flex items-center justify-between opacity-60 hover:opacity-100 transition-all">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-flask text-yellow-400"></i>
+                        <span class="text-xs font-bold uppercase text-gray-400">Test Drive</span>
+                    </div>
+                    <div id="test-indicator" class="w-3 h-3 rounded-full bg-gray-700"></div>
+                    <input type="hidden" id="veh-is-test" value="false">
                 </div>
 
                 <button onclick="saveVehicle()" class="btn-primary-os py-3 mt-2">ADD TO FLEET</button>
@@ -388,9 +408,6 @@
                 
                 <label class="label-xs ml-1">Monthly Fixed Expenses ($)</label>
                 <input type="number" inputmode="decimal" id="settings-fixed-expenses" class="input-field mb-3" placeholder="0">
-                
-                <label class="label-xs ml-1">Weekly Rental Cost ($)</label>
-                <input type="number" inputmode="decimal" id="settings-rental-cost" class="input-field mb-3" placeholder="0">
                 
                 <label class="label-xs ml-1">Rental Week Starts On</label>
                 <select id="settings-rental-start-day" class="input-field text-sm">
@@ -474,7 +491,7 @@
     <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-white font-mono font-bold">SYNCING...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="js/app.js?v=1.21"></script>
+    <script type="module" src="js/app.js?v=1.6.0"></script>
     
     <script>
         if ('serviceWorker' in navigator) {

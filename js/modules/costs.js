@@ -1,13 +1,13 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - COSTS MODULE v1.5.0
-// Financial Calculations with Timezone Awareness
+// ROBERT OS - COSTS MODULE v1.6.0 (FINAL)
+// Logic: Vehicle First > No Global Rental Cost
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
 import { state } from '../state.js';
 
 // ────────────────────────────────────────────────────────────────
-// TIMEZONE-AWARE DATE UTILITIES
+// TIMEZONE UTILS (IMPROVED)
 // ────────────────────────────────────────────────────────────────
 
 function getTimezoneDate(timezone = 'America/Chicago') {
@@ -45,34 +45,79 @@ function getDayOfWeek(timezone = 'America/Chicago') {
 }
 
 // ────────────────────────────────────────────────────────────────
+// DAILY COST TARGET
+// ────────────────────────────────────────────────────────────────
+
+export async function calculateDailyCost() {
+    try {
+        // 1. Global fixed expenses (phone, spotify, etc.)
+        const monthlyFixed = state.userSettings?.monthly_fixed_expenses || 0;
+        const dailyFixed = monthlyFixed / 30;
+        
+        // 2. Vehicle costs (rental + car wash) - PER ACTIVE VEHICLE
+        let dailyVehicle = 0;
+        let dailyCarwash = 0;
+        
+        const activeVehId = state.activeShift?.vehicle_id;
+        
+        if (activeVehId) {
+            const vehicle = state.fleet.find(v => v.id === activeVehId);
+            
+            if (vehicle) {
+                // Weekly rental cost / 7
+                const weeklyCost = vehicle.operating_cost_weekly || 0;
+                dailyVehicle = weeklyCost / 7;
+                
+                // Monthly car wash / 30
+                const monthlyWash = vehicle.carwash_monthly_cost || 0;
+                dailyCarwash = monthlyWash / 30;
+            }
+        }
+        
+        const totalDaily = dailyFixed + dailyVehicle + dailyCarwash;
+        
+        return Math.round(totalDaily);
+        
+    } catch (error) {
+        console.error('Error calculating daily cost:', error);
+        return 0;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
 // WEEKLY RENTAL PROGRESS
 // ────────────────────────────────────────────────────────────────
 
 export async function calculateWeeklyRentalProgress() {
     try {
         const timezone = state.userSettings?.timezone_primary || 'America/Chicago';
-        const rentalWeekStartDay = state.userSettings?.rental_week_start_day || 2; // Tuesday default
-        const weeklyRentalCost = state.userSettings?.weekly_rental_cost || 350;
+        const rentalWeekStartDay = state.userSettings?.rental_week_start_day || 2;
         
-        // Get current day in user's timezone
+        // Get active vehicle's rental cost
+        const activeVehId = state.activeShift?.vehicle_id;
+        let targetAmount = 0;
+        
+        if (activeVehId) {
+            const vehicle = state.fleet.find(v => v.id === activeVehId);
+            targetAmount = vehicle?.operating_cost_weekly || 0;
+        }
+        
+        if (targetAmount === 0) return { earned: 0, target: 0, percentage: 0 };
+
+        // Calculate week start
         const currentDayOfWeek = getDayOfWeek(timezone);
-        
-        // Calculate days since week start
         let daysSinceStart = currentDayOfWeek - rentalWeekStartDay;
         if (daysSinceStart < 0) daysSinceStart += 7;
         
-        // Get start of rental week in user's timezone
         const nowInTz = getTimezoneDate(timezone);
         const weekStart = new Date(nowInTz);
         weekStart.setDate(weekStart.getDate() - daysSinceStart);
         weekStart.setHours(0, 0, 0, 0);
         
-        // Get end of rental week
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 7);
-        weekEnd.setHours(23, 59, 59, 999);
         
-        // Query earnings for this rental week
+        // Query earnings for this week
         const { data: shifts, error } = await db
             .from('finance_shifts')
             .select('gross_earnings')
@@ -84,87 +129,46 @@ export async function calculateWeeklyRentalProgress() {
         if (error) throw error;
         
         const earned = shifts?.reduce((sum, s) => sum + (s.gross_earnings || 0), 0) || 0;
-        const percentage = weeklyRentalCost > 0 ? Math.min((earned / weeklyRentalCost) * 100, 100) : 0;
+        const percentage = Math.min((earned / targetAmount) * 100, 100);
         
         return {
             earned: Math.round(earned),
-            target: Math.round(weeklyRentalCost),
+            target: Math.round(targetAmount),
             percentage: Math.round(percentage)
         };
         
     } catch (error) {
-        console.error('Error calculating rental progress:', error);
+        console.error('Rental progress error:', error);
         return { earned: 0, target: 0, percentage: 0 };
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// DAILY COST TARGET
-// ────────────────────────────────────────────────────────────────
-
-export async function calculateDailyCost() {
-    try {
-        const timezone = state.userSettings?.timezone_primary || 'America/Chicago';
-        const monthlyFixed = state.userSettings?.monthly_fixed_expenses || 0;
-        const weeklyRental = state.userSettings?.weekly_rental_cost || 350;
-        
-        // Daily breakdown
-        const dailyFixed = monthlyFixed / 30;
-        const dailyRental = weeklyRental / 7;
-        
-        // Get vehicle operating costs for active shift
-        let vehicleWeeklyCost = 0;
-        if (state.activeShift && state.activeShift.vehicle_id) {
-            const vehicle = state.fleet.find(v => v.id === state.activeShift.vehicle_id);
-            vehicleWeeklyCost = vehicle?.operating_cost_weekly || 0;
-        }
-        const dailyVehicle = vehicleWeeklyCost / 7;
-        
-        const totalDaily = dailyFixed + dailyRental + dailyVehicle;
-        
-        return Math.round(totalDaily);
-        
-    } catch (error) {
-        console.error('Error calculating daily cost:', error);
-        return 0;
-    }
-}
-
-// ────────────────────────────────────────────────────────────────
-// SHIFT EARNINGS (Current/Active Shift)
+// SHIFT EARNINGS
 // ────────────────────────────────────────────────────────────────
 
 export function calculateShiftEarnings() {
-    try {
-        if (!state.activeShift) return 0;
-        
-        // Current shift gross earnings (if any)
-        const gross = state.activeShift.gross_earnings || 0;
-        
-        return Math.round(gross);
-        
-    } catch (error) {
-        console.error('Error calculating shift earnings:', error);
-        return 0;
-    }
+    if (!state.activeShift) return 0;
+    return Math.round(state.activeShift.gross_earnings || 0);
 }
 
 // ────────────────────────────────────────────────────────────────
-// MONTHLY RUNWAY (Future Feature)
+// FUTURE: RUNWAY CALCULATION
 // ────────────────────────────────────────────────────────────────
 
 export async function calculateRunway() {
     try {
-        // Get total liquid assets (bank accounts, cash, etc.)
-        // This would come from a future 'accounts' table
-        const liquidAssets = 0; // Placeholder
-        
-        // Get monthly burn rate
+        const liquidAssets = 0; // Future: from accounts table
         const monthlyFixed = state.userSettings?.monthly_fixed_expenses || 0;
-        const weeklyRental = state.userSettings?.weekly_rental_cost || 350;
-        const monthlyRental = (weeklyRental / 7) * 30;
         
-        const monthlyBurn = monthlyFixed + monthlyRental;
+        // Average vehicle costs across fleet
+        let avgMonthlyVehicle = 0;
+        if (state.fleet.length > 0) {
+            const totalWeekly = state.fleet.reduce((sum, v) => sum + (v.operating_cost_weekly || 0), 0);
+            avgMonthlyVehicle = (totalWeekly / state.fleet.length / 7) * 30;
+        }
+        
+        const monthlyBurn = monthlyFixed + avgMonthlyVehicle;
         
         if (monthlyBurn === 0) return 0;
         
@@ -176,40 +180,4 @@ export async function calculateRunway() {
         console.error('Error calculating runway:', error);
         return 0;
     }
-}
-
-// ────────────────────────────────────────────────────────────────
-// UTILITIES
-// ────────────────────────────────────────────────────────────────
-
-// Get start of day in user's timezone
-export function getStartOfDay(date = new Date(), timezone = 'America/Chicago') {
-    const d = getTimezoneDate(timezone);
-    d.setHours(0, 0, 0, 0);
-    return d;
-}
-
-// Get end of day in user's timezone
-export function getEndOfDay(date = new Date(), timezone = 'America/Chicago') {
-    const d = getTimezoneDate(timezone);
-    d.setHours(23, 59, 59, 999);
-    return d;
-}
-
-// Check if date is in current week
-export function isCurrentWeek(date, weekStartDay = 2, timezone = 'America/Chicago') {
-    const currentDayOfWeek = getDayOfWeek(timezone);
-    let daysSinceStart = currentDayOfWeek - weekStartDay;
-    if (daysSinceStart < 0) daysSinceStart += 7;
-    
-    const nowInTz = getTimezoneDate(timezone);
-    const weekStart = new Date(nowInTz);
-    weekStart.setDate(weekStart.getDate() - daysSinceStart);
-    weekStart.setHours(0, 0, 0, 0);
-    
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    
-    const checkDate = new Date(date);
-    return checkDate >= weekStart && checkDate < weekEnd;
 }

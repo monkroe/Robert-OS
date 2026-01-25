@@ -41,7 +41,7 @@ export const showToast = (msg, type = 'info') => {
     
     // Create toast element
     const toast = document.createElement('div');
-    const color = type === 'error' ? 'bg-red-500' : type === 'info' ? 'bg-blue-500' : 'bg-teal-500';
+    const color = type === 'error' ? 'bg-red-500' : 'bg-teal-500'; // ✅ PATAISYTA
     const icon = type === 'error' ? 'triangle-exclamation' : type === 'info' ? 'info-circle' : 'check';
     
     toast.className = `${color} text-black px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-bold animate-slideUp pointer-events-auto`;

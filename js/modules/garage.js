@@ -242,7 +242,7 @@ async function executeDelete(id, isTest) {
             await db.from('finance_shifts').delete().eq('vehicle_id', id);
             await db.from('vehicles').delete().eq('id', id);
             
-            showToast('🧹 Testiniai duomenys išvalyti', 'success');
+            showToast('🧹 Bandomieji duomenys išvalyti', 'success');
         } else {
             const { error } = await db.from('vehicles').delete().eq('id', id);
             

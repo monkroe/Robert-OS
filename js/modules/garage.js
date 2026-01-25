@@ -197,11 +197,11 @@ export async function deleteVehicle(id) {
         const iconEl = confirmModal.querySelector('#delete-vehicle-icon');
         
         if (isTest) {
-            if (titleEl) titleEl.textContent = 'Ištrinti Testinį Auto?';
-            if (messageEl) messageEl.innerHTML = `Automobilis <strong>${escapeHtml(vehicle.name)}</strong> yra testinis.<br>Bus ištrinti visi susiję duomenys.`;
+            if (titleEl) titleEl.textContent = 'Pašalinti bandomąjį automobilį?';
+            if (messageEl) messageEl.innerHTML = `Automobilis <strong>${escapeHtml(vehicle.name)}</strong> yra bandomasis.<br>Bus ištrinti visi susiję duomenys.`;
             if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-flask"></i>';
         } else {
-            if (titleEl) titleEl.textContent = 'Pašalinti Automobilį?';
+            if (titleEl) titleEl.textContent = 'Pašalinti utomobilį?';
             if (messageEl) messageEl.innerHTML = `Ar tikrai norite pašalinti <strong>${escapeHtml(vehicle.name)}</strong>?<br>Jei turi istoriją - bus archyvuotas.`;
             if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-car"></i>';
         }
@@ -209,7 +209,7 @@ export async function deleteVehicle(id) {
         confirmModal.classList.remove('hidden');
     } else {
         // Fallback
-        if (!confirm(isTest ? 'Ištrinti testinį?' : 'Pašalinti automobilį?')) {
+        if (!confirm(isTest ? 'Ištrinti bandomąjį?' : 'Pašalinti automobilį?')) {
             pendingDeleteId = null;
             return;
         }

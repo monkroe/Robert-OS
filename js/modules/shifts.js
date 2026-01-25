@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SHIFTS MODULE v1.5.0 (FINAL)
-// Shift Management with True Odometer Validation
+// ROBERT OS - SHIFTS MODULE v1.5.0
+// Shift Management with Odometer Validation & Professional Icons
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -78,7 +78,7 @@ if (typeof window !== 'undefined') {
 
 export function openStartModal() {
     vibrate();
-    if (state.activeShift) return showToast('Jau turi aktyvią pamainą!', 'error');
+    if (state.activeShift) return showToast('<i class="fa-solid fa-triangle-exclamation"></i> Jau turi aktyvią pamainą!', 'error');
     
     const sel = document.getElementById('start-vehicle');
     if (!sel) return;
@@ -89,17 +89,21 @@ export function openStartModal() {
         sel.innerHTML = state.fleet
             .filter(v => v.is_active)
             .map(v => {
-                const odoInfo = v.last_odo ? ` (Rida: ${v.last_odo})` : '';
-                return `<option value="${v.id}" data-odo="${v.last_odo || 0}">${v.name}${v.is_test ? ' 🧪' : ''}${odoInfo}</option>`;
+                const currentOdo = v.last_odo || v.initial_odometer || 0;
+                const odoInfo = currentOdo ? ` (Rida: ${currentOdo})` : '';
+                // ✅ PAKEISTA: 🧪 -> 🚖
+                return `<option value="${v.id}" data-odo="${currentOdo}">${v.name}${v.is_test ? ' 🚖' : ''}${odoInfo}</option>`;
             })
             .join('');
     }
     
-    // Auto-fill first vehicle odometer
+    // Auto-fill with last_odo or initial_odometer
     const firstVehicle = state.fleet.find(v => v.is_active);
     const odoInput = document.getElementById('start-odo');
-    if (odoInput) {
-        odoInput.value = firstVehicle?.last_odo || '';
+    if (odoInput && firstVehicle) {
+        const lastOdo = firstVehicle.last_odo || firstVehicle.initial_odometer || '';
+        odoInput.value = lastOdo;
+        odoInput.placeholder = lastOdo ? `Paskutinė rida: ${lastOdo}` : 'Pradinis rodmuo';
     }
     
     // Dynamic update on vehicle change
@@ -110,8 +114,10 @@ export function openStartModal() {
     
     const newListener = function(e) {
         const selectedVehicle = state.fleet.find(v => v.id === e.target.value);
-        if (odoInput) {
-            odoInput.value = selectedVehicle?.last_odo || '';
+        if (odoInput && selectedVehicle) {
+            const lastOdo = selectedVehicle.last_odo || selectedVehicle.initial_odometer || '';
+            odoInput.value = lastOdo;
+            odoInput.placeholder = lastOdo ? `Paskutinė rida: ${lastOdo}` : 'Pradinis rodmuo';
         }
     };
     
@@ -137,7 +143,6 @@ export async function confirmStart() {
 
     state.loading = true;
     try {
-        // ✅ TIKROJI VALIDACIJA: Gauti paskutinę ŠITO AUTO pamainą
         const { data: lastShift, error: shiftError } = await db
             .from('finance_shifts')
             .select('end_odo')
@@ -149,26 +154,22 @@ export async function confirmStart() {
             .limit(1)
             .maybeSingle();
         
-        if (shiftError && shiftError.code !== 'PGRST116') {
-            throw shiftError;
+        if (shiftError && shiftError.code !== 'PGRST116') throw shiftError;
+        
+        if (lastShift && lastShift.end_odo && odo < lastShift.end_odo) {
+            vibrate([50, 50, 50]);
+            return showToast(`❌ Rida negali būti mažesnė nei ${lastShift.end_odo}`, 'error');
         }
         
-        // Jei yra paskutinė pamaina - tikrinti prieš jos end_odo
-        if (lastShift && lastShift.end_odo) {
-            if (odo < lastShift.end_odo) {
+        const vehicle = state.fleet.find(v => v.id === vid);
+        if (vehicle && (vehicle.last_odo || vehicle.initial_odometer)) {
+            const minOdo = vehicle.last_odo || vehicle.initial_odometer;
+            if (odo < minOdo) {
                 vibrate([50, 50, 50]);
-                return showToast(`❌ Rida negali būti mažesnė nei ${lastShift.end_odo} (paskutinė pamaina)`, 'error');
+                return showToast(`❌ Rida negali būti mažesnė nei ${minOdo}`, 'error');
             }
         }
-        
-        // Papildomas patikrinimas prieš vehicle.last_odo (jei skiriasi)
-        const vehicle = state.fleet.find(v => v.id === vid);
-        if (vehicle && vehicle.last_odo && odo < vehicle.last_odo) {
-            vibrate([50, 50, 50]);
-            return showToast(`❌ Rida negali būti mažesnė nei ${vehicle.last_odo}`, 'error');
-        }
 
-        // Viskas OK - kuriame pamainą
         const { error } = await db.from('finance_shifts').insert({
             user_id: state.user.id,
             vehicle_id: vid,
@@ -246,7 +247,6 @@ export async function confirmEnd() {
 
     state.loading = true;
     try {
-        // 1. Update shift
         const { error: shiftError } = await db.from('finance_shifts').update({
             end_odo: odo,
             end_time: new Date().toISOString(),
@@ -257,14 +257,11 @@ export async function confirmEnd() {
 
         if (shiftError) throw shiftError;
 
-        // 2. ✅ Update vehicle.last_odo (KRITINIS!)
         const { error: vehError } = await db.from('vehicles').update({
             last_odo: odo
         }).eq('id', state.activeShift.vehicle_id);
 
-        if (vehError) {
-            console.warn('Failed to update vehicle odometer:', vehError);
-        }
+        if (vehError) console.warn('Odometer sync failed:', vehError);
 
         stopTimer();
         const el = document.getElementById('shift-timer');
@@ -272,10 +269,7 @@ export async function confirmEnd() {
 
         window.closeModals();
         
-        // Refresh fleet data (kritinis - atnaujina vehicle.last_odo cache)
-        if (window.Garage && window.Garage.fetchFleet) {
-            await window.Garage.fetchFleet();
-        }
+        if (window.Garage && window.Garage.fetchFleet) await window.Garage.fetchFleet();
         
         window.dispatchEvent(new Event('refresh-data'));
         showToast('Pamaina baigta 🏁', 'success');

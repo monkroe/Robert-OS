@@ -1,9 +1,10 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - AUTH MODULE v1.5.0
-// Authentication with Memory Cleanup
+// ROBERT OS - AUTH MODULE v1.7.2
+// Authentication with Memory Cleanup & Timer Management
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
+import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
 
 // ────────────────────────────────────────────────────────────────
@@ -12,19 +13,31 @@ import { showToast, vibrate } from '../utils.js';
 
 export async function login() {
     vibrate();
-    const email = document.getElementById('auth-email').value;
+    
+    const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-pass').value;
     
     if (!email || !password) {
-        return showToast('Įveskite email ir slaptažodį', 'error');
+        return showToast('Įvesk email ir slaptažodį', 'error');
     }
     
-    const { error } = await db.auth.signInWithPassword({ email, password });
-    
-    if (error) {
-        showToast(error.message, 'error');
-    } else {
-        location.reload();
+    state.loading = true;
+    try {
+        const { data, error } = await db.auth.signInWithPassword({ email, password });
+        
+        if (error) throw error;
+        
+        state.user = data.user;
+        showToast('Sveiki sugrįžę! 👋', 'success');
+        
+        // Trigger post-login flow in app.js
+        window.dispatchEvent(new CustomEvent('user-logged-in'));
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        showToast('Prisijungimo klaida. Bandykite dar kartą.', 'error');
+    } finally {
+        state.loading = false;
     }
 }
 
@@ -40,45 +53,52 @@ export async function logout() {
     
     // ✅ CLEANUP MEMORY LEAKS
     try {
-        // 1. Cleanup realtime channels
+        // Stop timer interval (exposed from app.js)
+        if (window.stopTimer) {
+            window.stopTimer();
+            console.log('🧹 Timer stopped');
+        }
+        
+        // Clear any realtime subscriptions
         if (window.cleanupRealtime) {
             window.cleanupRealtime();
-            console.log('🧹 Realtime channels cleaned');
-        }
-        
-        // 2. Cleanup state listeners
-        if (window.cleanupStateListeners) {
-            window.cleanupStateListeners();
-            console.log('🧹 State listeners cleaned');
-        }
-        
-        // 3. Stop any running timers (if exposed)
-        if (window.Shifts && window.Shifts.stopTimer) {
-            window.Shifts.stopTimer();
+            console.log('🧹 Realtime cleaned');
         }
         
     } catch (cleanupError) {
         console.warn('Cleanup warning:', cleanupError);
-        // Don't block logout on cleanup errors
     }
     
-    // ✅ SUPABASE LOGOUT
-    await db.auth.signOut();
-    
-    // ✅ CLEAR STORAGE
-    localStorage.clear();
-    
-    // ✅ RESTORE THEME
-    if (savedTheme) {
-        localStorage.setItem('theme', savedTheme);
+    try {
+        // ✅ SUPABASE LOGOUT
+        await db.auth.signOut();
+        
+        // ✅ CLEAR STATE
+        state.user = null;
+        state.userSettings = null;
+        state.fleet = [];
+        state.activeShift = null;
+        
+        // ✅ CLEAR STORAGE
+        localStorage.clear();
+        
+        // ✅ RESTORE THEME
+        if (savedTheme) {
+            localStorage.setItem('theme', savedTheme);
+        }
+        
+        showToast('Atsijungta sėkmingai', 'info');
+        
+        // ✅ RELOAD
+        setTimeout(() => location.reload(), 500);
+        
+    } catch (error) {
+        console.error('Logout error:', error);
     }
-    
-    // ✅ RELOAD
-    location.reload();
 }
 
 // ────────────────────────────────────────────────────────────────
-// SESSION CHECK (Optional helper)
+// SESSION CHECK
 // ────────────────────────────────────────────────────────────────
 
 export async function checkSession() {
@@ -96,21 +116,4 @@ export async function checkSession() {
         console.error('Session check failed:', error);
         return null;
     }
-}
-
-// ────────────────────────────────────────────────────────────────
-// AUTO-REFRESH TOKEN (Optional)
-// ────────────────────────────────────────────────────────────────
-
-export function setupAuthListener() {
-    db.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_OUT') {
-            console.log('🔓 User signed out');
-            // Could redirect to login if needed
-        } else if (event === 'SIGNED_IN') {
-            console.log('🔐 User signed in:', session?.user?.email);
-        } else if (event === 'TOKEN_REFRESHED') {
-            console.log('🔄 Token refreshed');
-        }
-    });
 }

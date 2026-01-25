@@ -1,13 +1,17 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS v1.7.0 (ORCHESTRATOR)
-// System Orchestrator & UI Bridge
+// ROBERT OS - APP JS v1.7.2 (MODULAR)
+// System Orchestrator - Delegates to Specialized Modules
 // ════════════════════════════════════════════════════════════════
 
 import { db, initSupabase } from './db.js';
 import { state } from './state.js';
 import { showToast, vibrate } from './utils.js';
 
-// ─── MODULE IMPORTS ─────────────────────────────────────────────
+// ─── AUTH & UI MODULES ──────────────────────────────────────────
+import { login, logout, checkSession } from './modules/auth.js';
+import { switchTab, cycleTheme, applyTheme, openModal, closeModals, updateShiftControlsUI } from './modules/ui.js';
+
+// ─── FEATURE MODULES ────────────────────────────────────────────
 import { initShiftsModals } from './modules/shifts.js';
 import { initSettingsModal, loadSettings } from './modules/settings.js';
 import { initGarageModals, loadFleet } from './modules/garage.js';
@@ -19,7 +23,7 @@ import { calculateDailyCost, calculateWeeklyRentalProgress, calculateShiftEarnin
 // ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 ROBERT OS v1.7.1 - Booting...');
+    console.log('🚀 ROBERT OS v1.7.2 - Booting...');
     
     // 1. Initialize DB Connection
     initSupabase();
@@ -44,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 4. Setup Global Listeners
     setupEventListeners();
     
-    console.log('✅ ROBERT OS Ready & Listening');
+    console.log('✅ ROBERT OS Ready');
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -61,60 +65,10 @@ function showAppContent() {
     document.getElementById('app-content').classList.remove('hidden');
 }
 
-async function login() {
-    vibrate();
-    
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-pass').value;
-    
-    if (!email || !password) {
-        return showToast('Įvesk email ir slaptažodį', 'error');
-    }
-    
-    state.loading = true;
-    try {
-        const { data, error } = await db.auth.signInWithPassword({ email, password });
-        
-        if (error) throw error;
-        
-        state.user = data.user;
-        showToast('Sveiki sugrįžę! 👋', 'success');
-        await onUserLoggedIn();
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        showToast('Prisijungimo klaida. Bandykite dar kartą.', 'error');
-    } finally {
-        state.loading = false;
-    }
-}
-
-async function logout() {
-    vibrate();
-    
-    try {
-        await db.auth.signOut();
-        state.user = null;
-        state.userSettings = null;
-        state.fleet = [];
-        state.activeShift = null;
-        
-        showAuthScreen();
-        showToast('Atsijungta sėkmingai', 'info');
-        
-    } catch (error) {
-        console.error('Logout error:', error);
-    }
-}
-
-// ────────────────────────────────────────────────────────────────
-// DATA SYNC & ORCHESTRATION
-// ────────────────────────────────────────────────────────────────
-
 async function onUserLoggedIn() {
     showAppContent();
     
-    // Load Critical Data
+    // Load Critical Data in Parallel
     await Promise.all([
         loadSettings(),
         loadFleet(),
@@ -134,6 +88,10 @@ async function onUserLoggedIn() {
     }
 }
 
+// ────────────────────────────────────────────────────────────────
+// DATA SYNC
+// ────────────────────────────────────────────────────────────────
+
 async function loadActiveShift() {
     try {
         const { data, error } = await db
@@ -150,42 +108,6 @@ async function loadActiveShift() {
         
     } catch (error) {
         console.error('Active shift load error:', error);
-    }
-}
-
-function updateShiftControlsUI() {
-    const startBtn = document.getElementById('btn-start');
-    const activeControls = document.getElementById('active-controls');
-    const timerEl = document.getElementById('shift-timer');
-    const pauseBtnIcon = document.querySelector('#btn-pause i');
-    
-    if (state.activeShift) {
-        // Shift Active
-        if (startBtn) startBtn.classList.add('hidden');
-        if (activeControls) activeControls.classList.remove('hidden');
-        
-        // Pause State
-        if (state.activeShift.paused_at) {
-            timerEl?.classList.add('pulse-text');
-            if (pauseBtnIcon) {
-                pauseBtnIcon.classList.remove('fa-pause');
-                pauseBtnIcon.classList.add('fa-play');
-            }
-        } else {
-            timerEl?.classList.remove('pulse-text');
-            if (pauseBtnIcon) {
-                pauseBtnIcon.classList.remove('fa-play');
-                pauseBtnIcon.classList.add('fa-pause');
-            }
-        }
-    } else {
-        // No Active Shift
-        if (startBtn) startBtn.classList.remove('hidden');
-        if (activeControls) activeControls.classList.add('hidden');
-        if (timerEl) {
-            timerEl.textContent = '00:00:00';
-            timerEl.classList.remove('pulse-text');
-        }
     }
 }
 
@@ -278,58 +200,32 @@ function updateTimer() {
     timerEl.textContent = `${h}:${m}:${s}`;
 }
 
-// ────────────────────────────────────────────────────────────────
-// NAVIGATION & THEME
-// ────────────────────────────────────────────────────────────────
-
-function switchTab(tabName) {
-    vibrate();
-    
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    
-    const targetTab = document.getElementById(`tab-${tabName}`);
-    const targetBtn = document.getElementById(`btn-${tabName}`);
-    
-    if (targetTab) targetTab.classList.add('active');
-    if (targetBtn) targetBtn.classList.add('active');
-    
-    if (tabName === 'audit') refreshAudit();
-}
-
-function cycleTheme() {
-    vibrate();
-    const html = document.documentElement;
-    const isDark = html.classList.contains('dark');
-    
-    if (isDark) {
-        html.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-    } else {
-        html.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
+// Expose stop function for cleanup
+window.stopTimer = () => {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
     }
-}
-
-function applyTheme() {
-    const theme = localStorage.getItem('theme') || 'dark';
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-}
+};
 
 // ────────────────────────────────────────────────────────────────
 // EVENT LISTENER SETUP
 // ────────────────────────────────────────────────────────────────
 
 function setupEventListeners() {
+    // Data refresh trigger
     window.addEventListener('refresh-data', async () => {
         await loadActiveShift(); 
         refreshUI();
         
-        // ✅ CORRECTED: Check for ACTIVE class instead of hidden
         if (document.getElementById('tab-audit')?.classList.contains('active')) {
             refreshAudit();
         }
+    });
+    
+    // Audit refresh trigger
+    window.addEventListener('refresh-audit', () => {
+        refreshAudit();
     });
 
     // Loading State Watcher
@@ -357,27 +253,24 @@ function setupEventListeners() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// GLOBAL EXPORTS
+// GLOBAL EXPORTS (Bridge to HTML onclick handlers)
 // ────────────────────────────────────────────────────────────────
 
 window.login = login;
 window.logout = logout;
 window.switchTab = switchTab;
 window.cycleTheme = cycleTheme;
-window.openModal = (id) => {
-    const el = document.getElementById(id);
-    if(el) {
-        el.classList.remove('hidden');
-        el.classList.add('fade-in');
-    }
-};
-window.closeModals = () => {
-    document.querySelectorAll('.modal-overlay').forEach(el => {
-        el.classList.add('hidden');
-        el.classList.remove('fade-in');
-    });
-};
+window.openModal = openModal;
+window.closeModals = closeModals;
 
+// Debug mode
 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     window.state = state;
+    window.ROBERT_OS = { 
+        state, 
+        db, 
+        refreshUI, 
+        loadActiveShift,
+        checkSession 
+    };
 }

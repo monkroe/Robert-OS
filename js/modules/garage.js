@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - GARAGE MODULE v1.5.0 (FINAL)
-// Fleet Management with Year & Initial Odometer
+// Fleet Management with Rental Dates & Car Wash
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -53,10 +53,41 @@ export function openGarage() {
     document.getElementById('veh-year').value = '';
     document.getElementById('veh-initial-odo').value = '';
     document.getElementById('veh-cost').value = '';
+    document.getElementById('veh-rental-start').value = '';
+    document.getElementById('veh-carwash').value = '';
     setVehType('rental');
+    
+    document.getElementById('veh-is-test').value = 'false';
+    updateTestUI(false);
 
     renderGarageList();
     document.getElementById('garage-modal').classList.remove('hidden');
+}
+
+// ────────────────────────────────────────────────────────────────
+// TEST DRIVE TOGGLE
+// ────────────────────────────────────────────────────────────────
+
+export function toggleTestMode() {
+    vibrate();
+    const input = document.getElementById('veh-is-test');
+    const isTest = !(input.value === 'true');
+    
+    input.value = String(isTest);
+    updateTestUI(isTest);
+}
+
+function updateTestUI(isActive) {
+    const btn = document.getElementById('btn-test-mode');
+    const dot = document.getElementById('test-indicator');
+    
+    if (isActive) {
+        btn.className = "cursor-pointer border border-yellow-500 bg-yellow-500/10 rounded-lg p-3 flex items-center justify-between transition-all";
+        dot.className = "w-3 h-3 rounded-full bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.8)]";
+    } else {
+        btn.className = "cursor-pointer border border-gray-700 opacity-60 rounded-lg p-3 flex items-center justify-between transition-all hover:opacity-100";
+        dot.className = "w-3 h-3 rounded-full bg-gray-700";
+    }
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -74,20 +105,30 @@ export function renderGarageList() {
 
     list.innerHTML = state.fleet.map(v => {
         const safeName = escapeHtml(v.name);
-        const typeLabel = v.type === 'rental' ? '🚖 Bandomasis' : '🚘 Nuosavas';
+        const typeLabel = v.type === 'rental' ? 'RENTAL' : 'OWNED';
         const safeCost = escapeHtml(v.operating_cost_weekly || 0);
         const yearInfo = v.year ? ` (${v.year})` : '';
         const currentOdo = v.last_odo || v.initial_odometer || 0;
         
+        const isTest = v.is_test;
+        const borderClass = isTest 
+            ? 'border-yellow-500/50 bg-yellow-500/5' 
+            : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5';
+            
+        const testBadge = isTest 
+            ? `<span class="text-[10px] font-bold px-2 py-1 rounded bg-yellow-400 text-black uppercase ml-2 shadow-sm"><i class="fa-solid fa-flask mr-1"></i>TEST</span>` 
+            : '';
+        
         return `
-        <div class="group relative flex items-center justify-between p-4 mb-3 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 transition-all">
+        <div class="group relative flex items-center justify-between p-4 mb-3 rounded-xl border ${borderClass} transition-all">
             <div class="flex flex-col text-left">
                 <div class="flex items-center">
                     <span class="text-base font-bold text-gray-900 dark:text-white tracking-tight">${safeName}${yearInfo}</span>
+                    ${testBadge}
                 </div>
                 <div class="flex items-center gap-2 mt-1">
                     <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 uppercase">${typeLabel}</span>
-                    <span class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">$${safeCost}/sav</span>
+                    <span class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">$${safeCost}/wk</span>
                     ${currentOdo ? `<span class="text-[10px] text-gray-400 font-mono border-l border-white/10 pl-2">Rida: ${currentOdo}</span>` : ''}
                 </div>
             </div>
@@ -109,7 +150,10 @@ export async function saveVehicle() {
     const year = document.getElementById('veh-year').value.trim();
     const initialOdo = document.getElementById('veh-initial-odo').value.trim();
     const cost = document.getElementById('veh-cost').value;
+    const rentalStart = document.getElementById('veh-rental-start').value;
+    const carwash = document.getElementById('veh-carwash').value;
     const type = document.getElementById('veh-type').value;
+    const isTest = document.getElementById('veh-is-test').value === 'true';
 
     if (!name) return showToast('<i class="fa-solid fa-triangle-exclamation"></i> Reikia pavadinimo', 'error');
 
@@ -120,30 +164,35 @@ export async function saveVehicle() {
             name: name,
             type: type,
             operating_cost_weekly: parseFloat(cost || 0),
-            is_active: true
+            is_active: true,
+            is_test: isTest
         };
         
-        if (year) {
-            vehicleData.year = parseInt(year);
-        }
-        
+        if (year) vehicleData.year = parseInt(year);
         if (initialOdo) {
             vehicleData.initial_odometer = parseInt(initialOdo);
             vehicleData.last_odo = parseInt(initialOdo);
         }
+        if (rentalStart) vehicleData.rental_start_date = rentalStart;
+        if (carwash) vehicleData.carwash_monthly_cost = parseFloat(carwash);
         
         const { error } = await db.from('vehicles').insert(vehicleData);
         
         if (error) throw error;
         
-        const icon = type === 'rental' ? '🚖' : '🚘';
-        const label = type === 'rental' ? 'Bandomasis' : 'Nuosavas';
-        showToast(`${icon} ${label} automobilis pridėtas!`, 'success');
+        const icon = type === 'rental' ? '🚗' : '🚘';
+        const label = type === 'rental' ? 'Rental' : 'Owned';
+        const testLabel = isTest ? ' (Test Drive)' : '';
+        showToast(`${icon} ${label} vehicle added${testLabel}!`, 'success');
         
         document.getElementById('veh-name').value = '';
         document.getElementById('veh-year').value = '';
         document.getElementById('veh-initial-odo').value = '';
         document.getElementById('veh-cost').value = '';
+        document.getElementById('veh-rental-start').value = '';
+        document.getElementById('veh-carwash').value = '';
+        document.getElementById('veh-is-test').value = 'false';
+        updateTestUI(false);
         
         await fetchFleet();
         renderGarageList();
@@ -167,6 +216,7 @@ export async function deleteVehicle(id) {
     if (!vehicle) return;
     
     pendingDeleteId = id;
+    const isTest = vehicle.is_test;
     
     const confirmModal = document.getElementById('delete-vehicle-modal');
     if (confirmModal) {
@@ -174,27 +224,28 @@ export async function deleteVehicle(id) {
         const messageEl = confirmModal.querySelector('#delete-vehicle-message');
         const iconEl = confirmModal.querySelector('#delete-vehicle-icon');
         
-        const typeLabel = vehicle.type === 'rental' ? '🚖 bandomąjį' : '🚘 nuosavą';
-        
-        if (titleEl) titleEl.textContent = 'Pašalinti automobilį?';
-        if (messageEl) messageEl.innerHTML = `Ar tikrai norite pašalinti ${typeLabel} automobilį <strong>${escapeHtml(vehicle.name)}</strong>?<br>Jei turi istoriją - bus archyvuotas.`;
-        if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-car"></i>';
+        if (isTest) {
+            if (titleEl) titleEl.textContent = 'Delete Test Vehicle?';
+            if (messageEl) messageEl.innerHTML = `Vehicle <strong>${escapeHtml(vehicle.name)}</strong> is a test drive.<br>All related data will be deleted.`;
+            if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-flask text-yellow-500"></i>';
+        } else {
+            if (titleEl) titleEl.textContent = 'Delete Vehicle?';
+            if (messageEl) messageEl.innerHTML = `Are you sure you want to delete <strong>${escapeHtml(vehicle.name)}</strong>?<br>History will be archived.`;
+            if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-car"></i>';
+        }
         
         confirmModal.classList.remove('hidden');
-    } else {
-        if (!confirm('Pašalinti automobilį?')) {
-            pendingDeleteId = null;
-            return;
-        }
-        await executeDelete(id);
     }
 }
 
 export async function confirmDeleteVehicle() {
     if (!pendingDeleteId) return;
     
+    const vehicle = state.fleet.find(v => v.id === pendingDeleteId);
+    const isTest = vehicle?.is_test;
+    
     window.closeModals();
-    await executeDelete(pendingDeleteId);
+    await executeDelete(pendingDeleteId, isTest);
     pendingDeleteId = null;
 }
 
@@ -204,18 +255,25 @@ export function cancelDeleteVehicle() {
     window.closeModals();
 }
 
-async function executeDelete(id) {
+async function executeDelete(id, isTest) {
     state.loading = true;
     try {
-        const { error } = await db.from('vehicles').delete().eq('id', id);
-        
-        if (error && error.code === '23503') {
-            await db.from('vehicles').update({ is_active: false }).eq('id', id);
-            showToast('<i class="fa-solid fa-box-archive"></i> Automobilis archyvuotas', 'success');
-        } else if (error) {
-            throw error;
+        if (isTest) {
+            await db.from('expenses').delete().eq('vehicle_id', id);
+            await db.from('finance_shifts').delete().eq('vehicle_id', id);
+            await db.from('vehicles').delete().eq('id', id);
+            showToast('<i class="fa-solid fa-broom"></i> Test data cleaned', 'success');
         } else {
-            showToast('<i class="fa-solid fa-trash"></i> Automobilis ištrintas', 'success');
+            const { error } = await db.from('vehicles').delete().eq('id', id);
+            
+            if (error && error.code === '23503') {
+                await db.from('vehicles').update({ is_active: false }).eq('id', id);
+                showToast('<i class="fa-solid fa-box-archive"></i> Vehicle archived', 'success');
+            } else if (error) {
+                throw error;
+            } else {
+                showToast('<i class="fa-solid fa-trash"></i> Vehicle deleted', 'success');
+            }
         }
         
         await fetchFleet();
@@ -245,5 +303,15 @@ export function setVehType(type) {
     if (activeBtn) {
         activeBtn.classList.remove('opacity-50');
         activeBtn.classList.add('bg-teal-500', 'text-black', 'border-teal-500', 'opacity-100');
+    }
+    
+    // Show/hide rental-specific fields
+    const rentalFields = document.getElementById('rental-fields');
+    if (rentalFields) {
+        if (type === 'rental') {
+            rentalFields.classList.remove('hidden');
+        } else {
+            rentalFields.classList.add('hidden');
+        }
     }
 }

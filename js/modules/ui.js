@@ -1,14 +1,12 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE v1.7 “PRO UI” (STABLE)
-// Versija: 1.7
-// Patobulinimai: Smooth animations, Glow effects, Tab fade/slide, Real-time clocks
+// ROBERT OS - UI MODULE v1.7.0
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
-import { vibrate, showToast } from '../utils.js';
+import { showToast, vibrate } from '../utils.js';
 
 // ────────────────────────────────────────────────────────────────
-// THEME ENGINE 2.0
+// THEME
 // ────────────────────────────────────────────────────────────────
 
 let currentTheme = localStorage.getItem('theme') || 'auto';
@@ -20,23 +18,14 @@ export function applyTheme() {
     
     let isDark = false;
     
-    if (currentTheme === 'dark') {
-        isDark = true;
-    } else if (currentTheme === 'light') {
-        isDark = false;
-    } else if (currentTheme === 'auto') {
-        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
+    if (currentTheme === 'dark') isDark = true;
+    else if (currentTheme === 'light') isDark = false;
+    else if (currentTheme === 'auto') isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    // Toggle class
     if (isDark) html.classList.add('dark');
     else html.classList.remove('dark');
 
-    // Meta update
-    metaThemeColor?.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
-    
-    // Smooth transition enforcement
-    html.style.transition = 'background-color 0.5s ease, color 0.3s ease';
+    if (metaThemeColor) metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
 
     if (themeBtn) {
         let iconClass = 'fa-circle-half-stroke';
@@ -66,15 +55,10 @@ export function updateUI(key) {
         const el = document.getElementById('loading');
         if (el) el.classList.toggle('hidden', !state.loading);
     }
-    
     if (key === 'activeShift') {
         updateShiftControls();
     }
 }
-
-// ────────────────────────────────────────────────────────────────
-// SHIFT CONTROLS WITH ANIMATIONS
-// ────────────────────────────────────────────────────────────────
 
 function updateShiftControls() {
     const hasShift = !!state.activeShift;
@@ -84,52 +68,22 @@ function updateShiftControls() {
     const activeControls = document.getElementById('active-controls');
     const btnPause = document.getElementById('btn-pause');
 
-    // Hidden naudojame elementų rodymui/slėpimui
     if (btnStart) btnStart.classList.toggle('hidden', hasShift);
     if (activeControls) activeControls.classList.toggle('hidden', !hasShift);
 
     if (btnPause && hasShift) {
-        // Reset classes
-        btnPause.className = 'col-span-1 btn-bento transition-all duration-300';
-        
         if (isPaused) {
             btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
-            btnPause.classList.add('bg-green-500/10', 'text-green-500', 'border-green-500/50', 'pulse-animation');
+            btnPause.className = 'col-span-1 btn-bento bg-green-500/10 text-green-500 border-green-500/50 transition-all';
         } else {
             btnPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
-            btnPause.classList.add('bg-yellow-500/10', 'text-yellow-500', 'border-yellow-500/50');
-            // Remove pulse when running normally (optional) or keep it
+            btnPause.className = 'col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50 transition-all';
         }
     }
-
-    window.dispatchEvent(new CustomEvent('shiftStateChanged', { detail: hasShift }));
 }
 
 // ────────────────────────────────────────────────────────────────
-// PROGRESS BARS WITH SMOOTH ANIMATION
-// ────────────────────────────────────────────────────────────────
-
-// SVARBU: Paliekame šią funkciją dėl suderinamumo su app.js
-export function updateGrindBar() {}
-
-export function renderProgressBar(elementId, current, target, colors = {}) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-
-    const percentage = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-    
-    // JS transition control
-    el.style.transition = 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
-    el.style.width = `${percentage}%`;
-
-    const glowEl = document.getElementById(elementId.replace('bar', 'glow'));
-    if (glowEl) {
-        glowEl.classList.toggle('hidden', percentage < 100);
-    }
-}
-
-// ────────────────────────────────────────────────────────────────
-// MODALS WITH FADE & SCALE
+// MODALS & TABS
 // ────────────────────────────────────────────────────────────────
 
 export function closeModals() {
@@ -137,9 +91,6 @@ export function closeModals() {
     document.querySelectorAll('.modal-overlay').forEach(el => {
         if (!el.classList.contains('hidden')) {
             el.classList.add('fade-out');
-            el.classList.remove('fade-in');
-            
-            // Palaukiame kol animacija baigsis prieš paslepiant
             setTimeout(() => {
                 el.classList.add('hidden');
                 el.classList.remove('fade-out');
@@ -157,40 +108,26 @@ export function openModal(modalId) {
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// TABS WITH FADE/SLIDE TRANSITION
-// ────────────────────────────────────────────────────────────────
-
 export function switchTab(id) {
     vibrate();
     state.currentTab = id;
 
-    // 1. Reset Tabs
-    document.querySelectorAll('.tab-content').forEach(el => {
-        el.classList.remove('active', 'fade-in');
-    });
-
-    // 2. Activate Tab with Animation
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active', 'fade-in'));
     const tab = document.getElementById(`tab-${id}`);
-    if (tab) {
-        tab.classList.add('active', 'fade-in');
-    }
+    if (tab) tab.classList.add('active', 'fade-in');
 
-    // 3. Update Nav
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const btn = document.getElementById(`btn-${id}`);
     if (btn) btn.classList.add('active');
 
-    // 4. Data Refresh
     if (id === 'audit') {
         window.dispatchEvent(new Event('refresh-data'));
     }
-    
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ────────────────────────────────────────────────────────────────
-// CLOCKS WITH SMOOTH UPDATES
+// CLOCKS
 // ────────────────────────────────────────────────────────────────
 
 let clockInterval = null;
@@ -209,34 +146,49 @@ export function stopClocks() {
 }
 
 function updateClocks() {
-    const settings = state.userSettings;
-    if (!settings) return;
-
+    const settings = state.userSettings || {};
+    
     try {
-        const primaryTZ = settings.timezone_primary || 'America/Chicago';
-        const secondaryTZ = settings.timezone_secondary || 'Europe/Vilnius';
+        // Gali būti undefined arba "" (disabled)
+        const primaryTZ = settings.timezone_primary;   
+        const secondaryTZ = settings.timezone_secondary; 
 
-        const primaryTime = new Date().toLocaleTimeString('en-US', { 
-            timeZone: primaryTZ, hour: '2-digit', minute: '2-digit', hour12: false 
-        });
-        const secondaryTime = new Date().toLocaleTimeString('en-US', { 
-            timeZone: secondaryTZ, hour: '2-digit', minute: '2-digit', hour12: false 
-        });
+        const elPrimary = document.getElementById('clock-primary');
+        const elSecondary = document.getElementById('clock-secondary');
 
-        const primaryEl = document.getElementById('clock-primary');
-        const secondaryEl = document.getElementById('clock-secondary');
+        // 1. PRIMARY CLOCK
+        if (elPrimary) {
+            if (!primaryTZ) {
+                elPrimary.textContent = ""; 
+                elPrimary.classList.add('hidden'); 
+            } else {
+                elPrimary.classList.remove('hidden');
+                elPrimary.textContent = new Date().toLocaleTimeString('en-US', { 
+                    timeZone: primaryTZ, 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    hour12: false 
+                });
+            }
+        }
 
-        if (primaryEl) primaryEl.textContent = primaryTime;
-        if (secondaryEl) secondaryEl.textContent = secondaryTime;
+        // 2. SECONDARY CLOCK
+        if (elSecondary) {
+            if (!secondaryTZ) {
+                elSecondary.textContent = "";
+                elSecondary.classList.add('hidden');
+            } else {
+                elSecondary.classList.remove('hidden');
+                elSecondary.textContent = new Date().toLocaleTimeString('en-US', { 
+                    timeZone: secondaryTZ, 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    hour12: false 
+                });
+            }
+        }
 
     } catch (error) {
-        console.warn('Clock update failed:', error);
+        console.warn('Clock update logic error (likely invalid timezone):', error);
     }
 }
-
-// ────────────────────────────────────────────────────────────────
-// UTILS
-// ────────────────────────────────────────────────────────────────
-
-export { showToast } from '../utils.js';
-export function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }

@@ -1,257 +1,383 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS v1.5.0 (ORCHESTRATOR)
-// Main Application Controller with Memory Leak Prevention
+// ROBERT OS - APP.JS v1.7.0 (ORCHESTRATOR)
+// System Orchestrator & UI Bridge
 // ════════════════════════════════════════════════════════════════
 
-import { db } from './db.js';
+import { db, initSupabase } from './db.js';
 import { state } from './state.js';
-import * as Auth from './modules/auth.js';
-import * as Garage from './modules/garage.js';
-import * as Shifts from './modules/shifts.js';
-import * as Finance from './modules/finance.js';
-import * as UI from './modules/ui.js';
-import * as Settings from './modules/settings.js';
-import * as Costs from './modules/costs.js';
+import { showToast, vibrate } from './utils.js';
+
+// ─── MODULE IMPORTS ─────────────────────────────────────────────
+import { initShiftsModals } from './modules/shifts.js';
+import { initSettingsModal, loadSettings } from './modules/settings.js';
+import { initGarageModals, loadFleet } from './modules/garage.js';
+import { initFinanceModals, refreshAudit } from './modules/finance.js';
+import { calculateDailyCost, calculateWeeklyRentalProgress, calculateShiftEarnings } from './modules/costs.js';
 
 // ────────────────────────────────────────────────────────────────
-// REALTIME CHANNEL TRACKING (Memory Leak Prevention)
+// SYSTEM BOOT
 // ────────────────────────────────────────────────────────────────
 
-let realtimeChannel = null;
-
-// ────────────────────────────────────────────────────────────────
-// INITIALIZATION
-// ────────────────────────────────────────────────────────────────
-
-async function init() {
-    UI.applyTheme();
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 ROBERT OS v1.7.1 - Booting...');
     
+    // 1. Initialize DB Connection
+    initSupabase();
+    
+    // 2. Inject Modals into DOM
+    initShiftsModals();
+    initSettingsModal();
+    initGarageModals();
+    initFinanceModals();
+    
+    // 3. Auth Check
     const { data: { session } } = await db.auth.getSession();
     
     if (session) {
         state.user = session.user;
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-content').classList.remove('hidden');
-        
-        try {
-            await Settings.loadSettings();
-        } catch (error) {
-            console.warn('Settings load failed, using defaults');
-            state.userSettings = {
-                timezone_primary: 'America/Chicago',
-                timezone_secondary: 'Europe/Vilnius',
-                clock_position: 'cockpit',
-                monthly_fixed_expenses: 0,
-                weekly_rental_cost: 350,
-                rental_week_start_day: 2,
-                default_shift_target_hours: 12,
-                notifications_enabled: true,
-                compact_mode: false
-            };
-        }
-        
-        await Garage.fetchFleet();
-        await refreshAll();
-        setupRealtime();
+        console.log(`👤 User authenticated: ${state.user.email}`);
+        await onUserLoggedIn();
     } else {
-        document.getElementById('auth-screen').classList.remove('hidden');
+        showAuthScreen();
     }
     
-    window.addEventListener('refresh-data', () => {
-        refreshAll();
-    });
+    // 4. Setup Global Listeners
+    setupEventListeners();
+    
+    console.log('✅ ROBERT OS Ready & Listening');
+});
 
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (localStorage.getItem('theme') === 'auto') UI.applyTheme();
-    });
+// ────────────────────────────────────────────────────────────────
+// AUTHENTICATION FLOW
+// ────────────────────────────────────────────────────────────────
+
+function showAuthScreen() {
+    document.getElementById('auth-screen').classList.remove('hidden');
+    document.getElementById('app-content').classList.add('hidden');
+}
+
+function showAppContent() {
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app-content').classList.remove('hidden');
+}
+
+async function login() {
+    vibrate();
+    
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-pass').value;
+    
+    if (!email || !password) {
+        return showToast('Įvesk email ir slaptažodį', 'error');
+    }
+    
+    state.loading = true;
+    try {
+        const { data, error } = await db.auth.signInWithPassword({ email, password });
+        
+        if (error) throw error;
+        
+        state.user = data.user;
+        showToast('Sveiki sugrįžę! 👋', 'success');
+        await onUserLoggedIn();
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        showToast('Prisijungimo klaida. Bandykite dar kartą.', 'error');
+    } finally {
+        state.loading = false;
+    }
+}
+
+async function logout() {
+    vibrate();
+    
+    try {
+        await db.auth.signOut();
+        state.user = null;
+        state.userSettings = null;
+        state.fleet = [];
+        state.activeShift = null;
+        
+        showAuthScreen();
+        showToast('Atsijungta sėkmingai', 'info');
+        
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
 }
 
 // ────────────────────────────────────────────────────────────────
-// DATA REFRESH
+// DATA SYNC & ORCHESTRATION
 // ────────────────────────────────────────────────────────────────
 
-export async function refreshAll() {
+async function onUserLoggedIn() {
+    showAppContent();
+    
+    // Load Critical Data
+    await Promise.all([
+        loadSettings(),
+        loadFleet(),
+        loadActiveShift()
+    ]);
+    
+    // Apply Visual Preferences
+    applyTheme();
+    
+    // Start Loops
+    startTimerUpdate();
+    refreshUI();
+    
+    // Initial Audit Refresh if needed
+    if (document.getElementById('tab-audit')?.classList.contains('active')) {
+        refreshAudit();
+    }
+}
+
+async function loadActiveShift() {
     try {
-        const { data: shift } = await db
+        const { data, error } = await db
             .from('finance_shifts')
             .select('*')
-            .in('status', ['active', 'paused'])
             .eq('user_id', state.user.id)
-            .order('start_time', { ascending: false })
-            .limit(1)
+            .eq('status', 'active')
             .maybeSingle();
         
-        state.activeShift = shift;
-        UI.updateUI('activeShift');
+        if (error && error.code !== 'PGRST116') throw error;
         
-        if (state.activeShift) {
-            Shifts.startTimer();
-        } else {
-            Shifts.stopTimer();
-        }
+        state.activeShift = data;
+        updateShiftControlsUI();
         
-        await updateProgressBars();
-        
-        const auditTab = document.getElementById('tab-audit');
-        if (auditTab && !auditTab.classList.contains('hidden')) {
-            Finance.refreshAudit();
-        }
     } catch (error) {
-        console.error('Error in refreshAll:', error);
+        console.error('Active shift load error:', error);
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// PROGRESS BARS UPDATE
-// ────────────────────────────────────────────────────────────────
-
-async function updateProgressBars() {
-    try {
-        const rentalProgress = await Costs.calculateWeeklyRentalProgress();
+function updateShiftControlsUI() {
+    const startBtn = document.getElementById('btn-start');
+    const activeControls = document.getElementById('active-controls');
+    const timerEl = document.getElementById('shift-timer');
+    const pauseBtnIcon = document.querySelector('#btn-pause i');
+    
+    if (state.activeShift) {
+        // Shift Active
+        if (startBtn) startBtn.classList.add('hidden');
+        if (activeControls) activeControls.classList.remove('hidden');
         
-        const rentalBarEl = document.getElementById('rental-bar');
-        const rentalValEl = document.getElementById('rental-val');
-        
-        if (rentalBarEl && rentalValEl) {
-            rentalValEl.textContent = `$${rentalProgress.earned} / $${rentalProgress.target}`;
-            rentalBarEl.style.width = `${rentalProgress.percentage}%`;
-            
-            rentalBarEl.classList.remove('bg-red-500', 'bg-yellow-500', 'bg-green-500');
-            if (rentalProgress.percentage < 70) {
-                rentalBarEl.classList.add('bg-red-500');
-            } else if (rentalProgress.percentage < 90) {
-                rentalBarEl.classList.add('bg-yellow-500');
-            } else {
-                rentalBarEl.classList.add('bg-green-500');
+        // Pause State
+        if (state.activeShift.paused_at) {
+            timerEl?.classList.add('pulse-text');
+            if (pauseBtnIcon) {
+                pauseBtnIcon.classList.remove('fa-pause');
+                pauseBtnIcon.classList.add('fa-play');
+            }
+        } else {
+            timerEl?.classList.remove('pulse-text');
+            if (pauseBtnIcon) {
+                pauseBtnIcon.classList.remove('fa-play');
+                pauseBtnIcon.classList.add('fa-pause');
             }
         }
+    } else {
+        // No Active Shift
+        if (startBtn) startBtn.classList.remove('hidden');
+        if (activeControls) activeControls.classList.add('hidden');
+        if (timerEl) {
+            timerEl.textContent = '00:00:00';
+            timerEl.classList.remove('pulse-text');
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
+// UI REFRESH LOGIC
+// ────────────────────────────────────────────────────────────────
+
+async function refreshUI() {
+    updateShiftControlsUI();
+
+    try {
+        const dailyCost = await calculateDailyCost();
+        const rentalProgress = await calculateWeeklyRentalProgress();
+        const shiftEarnings = calculateShiftEarnings();
         
-        const dailyCost = await Costs.calculateDailyCost();
-        const shiftEarnings = Costs.calculateShiftEarnings();
+        // Update Grind Bar
+        const grindVal = document.getElementById('grind-val');
+        const grindBar = document.getElementById('grind-bar');
+        const grindGlow = document.getElementById('grind-glow');
         
-        const grindBarEl = document.getElementById('grind-bar');
-        const grindValEl = document.getElementById('grind-val');
-        
-        if (grindBarEl && grindValEl) {
-            const target = Math.round(dailyCost) || 1;
-            const current = Math.round(shiftEarnings) || 0;
-            const pct = Math.min((current / target) * 100, 100);
+        if (grindVal && grindBar) {
+            const target = dailyCost > 0 ? dailyCost : 1;
+            const percent = Math.min((shiftEarnings / target) * 100, 100);
             
-            grindValEl.textContent = `$${current} / $${target}`;
-            grindBarEl.style.width = `${pct}%`;
+            grindVal.textContent = `$${shiftEarnings} / $${dailyCost}`;
+            grindBar.style.width = `${percent}%`;
+            
+            if (percent >= 100 && grindGlow) grindGlow.classList.remove('hidden');
+            else if (grindGlow) grindGlow.classList.add('hidden');
         }
         
+        // Update Rental Bar
+        const rentalVal = document.getElementById('rental-val');
+        const rentalBar = document.getElementById('rental-bar');
+        
+        if (rentalVal && rentalBar) {
+            rentalVal.textContent = `$${rentalProgress.earned} / $${rentalProgress.target}`;
+            rentalBar.style.width = `${rentalProgress.percentage}%`;
+            
+            rentalBar.className = `h-full transition-all duration-500 relative ${
+                rentalProgress.percentage >= 100 ? 'bg-green-500' : 
+                rentalProgress.percentage >= 75 ? 'bg-yellow-500' : 'bg-teal-500'
+            }`;
+        }
+        
+        // Update Earnings Display
         const earningsEl = document.getElementById('shift-earnings');
         if (earningsEl) {
-            earningsEl.textContent = `$${Math.round(shiftEarnings)}`;
+            earningsEl.textContent = `$${shiftEarnings}`;
         }
+        
     } catch (error) {
-        console.error('Error updating progress bars:', error);
+        console.error('UI Refresh Error:', error);
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// REALTIME SUBSCRIPTIONS (With Cleanup)
+// TIMER SYSTEM
 // ────────────────────────────────────────────────────────────────
 
-function setupRealtime() {
-    // Cleanup existing channel first
-    if (realtimeChannel) {
-        console.log('🧹 Cleaning up existing realtime channel');
-        realtimeChannel.unsubscribe();
-        realtimeChannel = null;
+let timerInterval = null;
+
+function startTimerUpdate() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(updateTimer, 1000);
+    updateTimer();
+}
+
+function updateTimer() {
+    const timerEl = document.getElementById('shift-timer');
+    if (!timerEl || !state.activeShift) return;
+    
+    if (state.activeShift.paused_at) return;
+    
+    const startTime = new Date(state.activeShift.start_time);
+    const now = new Date();
+    
+    let diff = Math.floor((now - startTime) / 1000);
+    
+    if (state.activeShift.total_paused_seconds) {
+        diff -= state.activeShift.total_paused_seconds;
     }
     
-    const userId = state.user.id;
+    if (diff < 0) diff = 0;
     
-    console.log('📡 Setting up realtime channel for user:', userId);
+    const h = Math.floor(diff / 3600).toString().padStart(2, '0');
+    const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+    const s = (diff % 60).toString().padStart(2, '0');
     
-    realtimeChannel = db.channel('user-channel')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public',
-            table: 'finance_shifts',
-            filter: `user_id=eq.${userId}`
-        }, () => {
-            console.log('🔄 Realtime: finance_shifts changed');
-            refreshAll();
-        })
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public',
-            table: 'expenses',
-            filter: `user_id=eq.${userId}`
-        }, () => {
-            console.log('🔄 Realtime: expenses changed');
-            refreshAll();
-        })
-        .subscribe();
+    timerEl.textContent = `${h}:${m}:${s}`;
 }
 
 // ────────────────────────────────────────────────────────────────
-// CLEANUP (Called from auth.js on logout)
+// NAVIGATION & THEME
 // ────────────────────────────────────────────────────────────────
 
-export function cleanupRealtime() {
-    if (realtimeChannel) {
-        console.log('🧹 Unsubscribing from realtime channel');
-        realtimeChannel.unsubscribe();
-        realtimeChannel = null;
+function switchTab(tabName) {
+    vibrate();
+    
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    
+    const targetTab = document.getElementById(`tab-${tabName}`);
+    const targetBtn = document.getElementById(`btn-${tabName}`);
+    
+    if (targetTab) targetTab.classList.add('active');
+    if (targetBtn) targetBtn.classList.add('active');
+    
+    if (tabName === 'audit') refreshAudit();
+}
+
+function cycleTheme() {
+    vibrate();
+    const html = document.documentElement;
+    const isDark = html.classList.contains('dark');
+    
+    if (isDark) {
+        html.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+    } else {
+        html.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// GLOBAL WINDOW FUNCTIONS
-// ────────────────────────────────────────────────────────────────
-
-// Auth
-window.login = Auth.login;
-window.logout = Auth.logout;
-
-// Garage
-window.openGarage = Garage.openGarage;
-window.saveVehicle = Garage.saveVehicle;
-window.deleteVehicle = Garage.deleteVehicle;
-window.confirmDeleteVehicle = Garage.confirmDeleteVehicle;  // ✅ NAUJAS
-window.cancelDeleteVehicle = Garage.cancelDeleteVehicle;    // ✅ NAUJAS
-window.setVehType = Garage.setVehType;
-window.toggleTestMode = Garage.toggleTestMode;
-
-// Shifts
-window.openStartModal = Shifts.openStartModal;
-window.confirmStart = Shifts.confirmStart;
-window.openEndModal = Shifts.openEndModal;
-window.confirmEnd = Shifts.confirmEnd;
-window.togglePause = Shifts.togglePause;
-window.selectWeather = Shifts.selectWeather;
-
-// Finance
-window.openTxModal = Finance.openTxModal;
-window.setExpType = Finance.setExpType;
-window.confirmTx = Finance.confirmTx;
-window.exportAI = Finance.exportAI;
-
-// UI
-window.cycleTheme = UI.cycleTheme;
-window.switchTab = UI.switchTab;
-window.openModal = UI.openModal;
-window.closeModals = UI.closeModals;
-
-// Settings
-window.openSettings = Settings.openSettings;
-window.saveSettings = Settings.saveSettings;
-
-// Finance Delete Logic
-window.toggleSelectAll = Finance.toggleSelectAll || window.toggleSelectAll;
-window.requestDelete = Finance.requestDelete || window.requestDelete; 
-window.confirmDelete = Finance.confirmDelete || window.confirmDelete;
-window.updateDeleteButton = Finance.updateDeleteButton || window.updateDeleteButton;
-
-// Cleanup Functions (for logout)
-window.cleanupRealtime = cleanupRealtime;
+function applyTheme() {
+    const theme = localStorage.getItem('theme') || 'dark';
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+}
 
 // ────────────────────────────────────────────────────────────────
-// START APPLICATION
+// EVENT LISTENER SETUP
 // ────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', init);
+function setupEventListeners() {
+    window.addEventListener('refresh-data', async () => {
+        await loadActiveShift(); 
+        refreshUI();
+        
+        // ✅ CORRECTED: Check for ACTIVE class instead of hidden
+        if (document.getElementById('tab-audit')?.classList.contains('active')) {
+            refreshAudit();
+        }
+    });
+
+    // Loading State Watcher
+    setInterval(() => {
+        const loader = document.getElementById('loading');
+        if (loader) {
+            if (state.loading) loader.classList.remove('hidden');
+            else loader.classList.add('hidden');
+        }
+    }, 100);
+    
+    // Close modals on overlay click
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) {
+            closeModals();
+        }
+    });
+    
+    // ESC key closes modals
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModals();
+        }
+    });
+}
+
+// ────────────────────────────────────────────────────────────────
+// GLOBAL EXPORTS
+// ────────────────────────────────────────────────────────────────
+
+window.login = login;
+window.logout = logout;
+window.switchTab = switchTab;
+window.cycleTheme = cycleTheme;
+window.openModal = (id) => {
+    const el = document.getElementById(id);
+    if(el) {
+        el.classList.remove('hidden');
+        el.classList.add('fade-in');
+    }
+};
+window.closeModals = () => {
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.classList.add('hidden');
+        el.classList.remove('fade-in');
+    });
+};
+
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    window.state = state;
+}

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - UTILS.JS v1.5.0
-// Global Utilities with Memory Leak Prevention
+// Global Utilities with HTML Toast Support
 // ════════════════════════════════════════════════════════════════
 
 // ────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ export const showToast = (msg, type = 'info') => {
         return;
     }
     
-    // Prevent spam: limit active toasts
+    // Prevent spam
     if (activeToasts.size >= MAX_TOASTS) {
         const oldest = activeToasts.values().next().value;
         if (oldest) {
@@ -36,25 +36,18 @@ export const showToast = (msg, type = 'info') => {
         }
     }
     
-    // Sanitize message (XSS protection)
-    const safeMsg = escapeHtml(msg);
-    
-    // Create toast element
+    // ✅ ALLOW HTML (for icons) - no escaping needed if we control the source
     const toast = document.createElement('div');
-    const color = type === 'error' ? 'bg-red-500' : 'bg-teal-500'; // ✅ PATAISYTA
-    const icon = type === 'error' ? 'triangle-exclamation' : type === 'info' ? 'info-circle' : 'check';
+    const color = type === 'error' ? 'bg-red-500' : 'bg-teal-500';
     
     toast.className = `${color} text-black px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-bold animate-slideUp pointer-events-auto`;
-    toast.innerHTML = `<i class="fa-solid fa-${icon}"></i> <span>${safeMsg}</span>`;
+    toast.innerHTML = `<span>${msg}</span>`; // ✅ HTML supported
     
-    // Add to DOM and tracking
     container.appendChild(toast);
     activeToasts.add(toast);
     
-    // Haptic feedback
     vibrate(type === 'error' ? [50, 50, 50] : [20]);
     
-    // Auto-remove after 3 seconds
     setTimeout(() => {
         if (toast.parentElement) {
             toast.remove();
@@ -64,7 +57,7 @@ export const showToast = (msg, type = 'info') => {
 };
 
 // ────────────────────────────────────────────────────────────────
-// XSS PROTECTION
+// XSS PROTECTION (Legacy support)
 // ────────────────────────────────────────────────────────────────
 
 function escapeHtml(str) {

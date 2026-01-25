@@ -1,15 +1,29 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE v1.7.0 (PURE EXPORTS)
+// ROBERT OS - UI MODULE v1.7.2
+// Theme Management, Modals, Tabs, Animations
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
-import { showToast, vibrate } from '../utils.js';
+import { vibrate, showToast } from '../utils.js';
 
 // ────────────────────────────────────────────────────────────────
-// THEME
+// THEME SYSTEM (Auto/Dark/Light)
 // ────────────────────────────────────────────────────────────────
 
-let currentTheme = localStorage.getItem('theme') || 'auto';
+let currentTheme = localStorage.getItem('theme') || 'dark';
+
+export function cycleTheme() {
+    vibrate();
+    
+    // Cycle: dark → light → auto → dark
+    if (currentTheme === 'dark') currentTheme = 'light';
+    else if (currentTheme === 'light') currentTheme = 'auto';
+    else currentTheme = 'dark';
+    
+    localStorage.setItem('theme', currentTheme);
+    applyTheme();
+    showToast(`Theme: ${currentTheme.toUpperCase()}`, 'info');
+}
 
 export function applyTheme() {
     const html = document.documentElement;
@@ -18,111 +32,147 @@ export function applyTheme() {
     
     let isDark = false;
     
-    if (currentTheme === 'dark') isDark = true;
-    else if (currentTheme === 'light') isDark = false;
-    else if (currentTheme === 'auto') isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
+    if (currentTheme === 'dark') {
+        isDark = true;
+    } else if (currentTheme === 'light') {
+        isDark = false;
+    } else if (currentTheme === 'auto') {
+        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    
     if (isDark) html.classList.add('dark');
     else html.classList.remove('dark');
-
-    if (metaThemeColor) metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
-    html.style.transition = 'background-color 0.5s ease, color 0.3s ease';
-
+    
+    // Update PWA status bar color
+    if (metaThemeColor) {
+        metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
+    }
+    
+    // Update theme button icon
     if (themeBtn) {
-        let iconClass = 'fa-circle-half-stroke';
+        let iconClass = 'fa-circle-half-stroke'; // auto
         if (currentTheme === 'dark') iconClass = 'fa-moon';
         if (currentTheme === 'light') iconClass = 'fa-sun';
         themeBtn.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
     }
 }
 
-export function cycleTheme() {
+// ────────────────────────────────────────────────────────────────
+// MODAL MANAGEMENT (with Fade Animations)
+// ────────────────────────────────────────────────────────────────
+
+export function openModal(modalId) {
     vibrate();
-    if (currentTheme === 'auto') currentTheme = 'dark';
-    else if (currentTheme === 'dark') currentTheme = 'light';
-    else currentTheme = 'auto';
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
     
-    localStorage.setItem('theme', currentTheme);
-    applyTheme();
-    showToast(`Theme: ${currentTheme.toUpperCase()}`, 'info');
-}
-
-// ────────────────────────────────────────────────────────────────
-// UI UPDATES
-// ────────────────────────────────────────────────────────────────
-
-export function updateUI(key) {
-    if (key === 'loading') {
-        const el = document.getElementById('loading');
-        if (el) el.classList.toggle('hidden', !state.loading);
-    }
-    if (key === 'activeShift') {
-        updateShiftControls();
-    }
-}
-
-function updateShiftControls() {
-    const hasShift = !!state.activeShift;
-    const isPaused = state.activeShift?.status === 'paused';
+    modal.classList.remove('hidden', 'fade-out');
+    modal.classList.add('fade-in');
     
-    const btnStart = document.getElementById('btn-start');
-    const activeControls = document.getElementById('active-controls');
-    const btnPause = document.getElementById('btn-pause');
-
-    if (btnStart) btnStart.classList.toggle('hidden', hasShift);
-    if (activeControls) activeControls.classList.toggle('hidden', !hasShift);
-
-    if (btnPause && hasShift) {
-        if (isPaused) {
-            btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
-            btnPause.className = 'col-span-1 btn-bento bg-green-500/10 text-green-500 border-green-500/50 transition-all';
-        } else {
-            btnPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
-            btnPause.className = 'col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50 transition-all';
-        }
-    }
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden';
 }
-
-// ────────────────────────────────────────────────────────────────
-// MODALS & TABS
-// ────────────────────────────────────────────────────────────────
 
 export function closeModals() {
     vibrate();
+    
     document.querySelectorAll('.modal-overlay').forEach(el => {
         if (!el.classList.contains('hidden')) {
+            // Add fade-out animation
             el.classList.add('fade-out');
+            el.classList.remove('fade-in');
+            
+            // Remove after animation completes
             setTimeout(() => {
                 el.classList.add('hidden');
                 el.classList.remove('fade-out');
             }, 200);
         }
     });
+    
+    // Restore body scroll
+    setTimeout(() => {
+        document.body.style.overflow = '';
+    }, 200);
 }
 
-export function openModal(modalId) {
+// ────────────────────────────────────────────────────────────────
+// TAB NAVIGATION
+// ────────────────────────────────────────────────────────────────
+
+export function switchTab(tabName) {
     vibrate();
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('hidden', 'fade-out');
-        modal.classList.add('fade-in');
+    
+    // Update state
+    state.currentTab = tabName;
+    
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(t => {
+        t.classList.remove('active', 'fade-in');
+    });
+    
+    // Remove active from all nav items
+    document.querySelectorAll('.nav-item').forEach(n => {
+        n.classList.remove('active');
+    });
+    
+    // Show selected tab with fade
+    const targetTab = document.getElementById(`tab-${tabName}`);
+    if (targetTab) {
+        targetTab.classList.add('active', 'fade-in');
     }
-}
-
-export function switchTab(id) {
-    vibrate();
-    state.currentTab = id;
-
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active', 'fade-in'));
-    const tab = document.getElementById(`tab-${id}`);
-    if (tab) tab.classList.add('active', 'fade-in');
-
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const btn = document.getElementById(`btn-${id}`);
-    if (btn) btn.classList.add('active');
-
-    if (id === 'audit') {
-        window.dispatchEvent(new Event('refresh-data'));
+    
+    // Activate nav button
+    const targetBtn = document.getElementById(`btn-${tabName}`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
     }
+    
+    // Special actions per tab
+    if (tabName === 'audit') {
+        window.dispatchEvent(new Event('refresh-audit'));
+    }
+    
+    // Smooth scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ────────────────────────────────────────────────────────────────
+// UI STATE UPDATES
+// ────────────────────────────────────────────────────────────────
+
+export function updateShiftControlsUI() {
+    const startBtn = document.getElementById('btn-start');
+    const activeControls = document.getElementById('active-controls');
+    const timerEl = document.getElementById('shift-timer');
+    const pauseBtnIcon = document.querySelector('#btn-pause i');
+    
+    if (state.activeShift) {
+        // Shift Active
+        if (startBtn) startBtn.classList.add('hidden');
+        if (activeControls) activeControls.classList.remove('hidden');
+        
+        // Pause State UI
+        if (state.activeShift.paused_at) {
+            timerEl?.classList.add('pulse-text');
+            if (pauseBtnIcon) {
+                pauseBtnIcon.classList.remove('fa-pause');
+                pauseBtnIcon.classList.add('fa-play');
+            }
+        } else {
+            timerEl?.classList.remove('pulse-text');
+            if (pauseBtnIcon) {
+                pauseBtnIcon.classList.remove('fa-play');
+                pauseBtnIcon.classList.add('fa-pause');
+            }
+        }
+    } else {
+        // No Active Shift
+        if (startBtn) startBtn.classList.remove('hidden');
+        if (activeControls) activeControls.classList.add('hidden');
+        if (timerEl) {
+            timerEl.textContent = '00:00:00';
+            timerEl.classList.remove('pulse-text');
+        }
+    }
 }

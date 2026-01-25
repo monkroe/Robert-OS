@@ -1,4 +1,4 @@
-const CACHE_NAME = 'robert-os-v1.1-safe';
+const CACHE_NAME = 'robert-os-v1.7.1';
 const ASSETS = [
   '/',
   '/index.html',

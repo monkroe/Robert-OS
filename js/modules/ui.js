@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE v1.7.0
+// ROBERT OS - UI MODULE v2.0 (PURE EXPORTS)
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
@@ -26,6 +26,7 @@ export function applyTheme() {
     else html.classList.remove('dark');
 
     if (metaThemeColor) metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
+    html.style.transition = 'background-color 0.5s ease, color 0.3s ease';
 
     if (themeBtn) {
         let iconClass = 'fa-circle-half-stroke';
@@ -124,71 +125,4 @@ export function switchTab(id) {
         window.dispatchEvent(new Event('refresh-data'));
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// ────────────────────────────────────────────────────────────────
-// CLOCKS
-// ────────────────────────────────────────────────────────────────
-
-let clockInterval = null;
-
-export function startClocks() {
-    stopClocks();
-    updateClocks();
-    clockInterval = setInterval(updateClocks, 1000);
-}
-
-export function stopClocks() {
-    if (clockInterval) {
-        clearInterval(clockInterval);
-        clockInterval = null;
-    }
-}
-
-function updateClocks() {
-    const settings = state.userSettings || {};
-    
-    try {
-        // Gali būti undefined arba "" (disabled)
-        const primaryTZ = settings.timezone_primary;   
-        const secondaryTZ = settings.timezone_secondary; 
-
-        const elPrimary = document.getElementById('clock-primary');
-        const elSecondary = document.getElementById('clock-secondary');
-
-        // 1. PRIMARY CLOCK
-        if (elPrimary) {
-            if (!primaryTZ) {
-                elPrimary.textContent = ""; 
-                elPrimary.classList.add('hidden'); 
-            } else {
-                elPrimary.classList.remove('hidden');
-                elPrimary.textContent = new Date().toLocaleTimeString('en-US', { 
-                    timeZone: primaryTZ, 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    hour12: false 
-                });
-            }
-        }
-
-        // 2. SECONDARY CLOCK
-        if (elSecondary) {
-            if (!secondaryTZ) {
-                elSecondary.textContent = "";
-                elSecondary.classList.add('hidden');
-            } else {
-                elSecondary.classList.remove('hidden');
-                elSecondary.textContent = new Date().toLocaleTimeString('en-US', { 
-                    timeZone: secondaryTZ, 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    hour12: false 
-                });
-            }
-        }
-
-    } catch (error) {
-        console.warn('Clock update logic error (likely invalid timezone):', error);
-    }
 }

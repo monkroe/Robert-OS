@@ -1,9 +1,17 @@
-const CACHE_NAME = 'robert-os-v1.7.1';
+const CACHE_NAME = 'robert-os-v1.7.1'; // ✅ UPDATED
 const ASSETS = [
   '/',
   '/index.html',
   '/style.css',
   '/js/app.js',
+  '/js/db.js',
+  '/js/state.js',
+  '/js/utils.js',
+  '/js/modules/shifts.js',
+  '/js/modules/settings.js',
+  '/js/modules/garage.js',
+  '/js/modules/finance.js',
+  '/js/modules/costs.js',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];
@@ -26,7 +34,7 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // STRATEGIJA: Network First (Saugiausia)
+  // Network First (Supabase compatibility)
   e.respondWith(
     fetch(e.request)
       .then(res => {

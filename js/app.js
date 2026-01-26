@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS v1.8.1 (CLEANED & FINAL)
+// ROBERT OS - APP.JS v1.8.2
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -7,7 +7,7 @@ import { state } from './state.js';
 import * as Auth from './modules/auth.js';
 import * as Garage from './modules/garage.js';
 import * as Shifts from './modules/shifts.js';
-import * as Finance from './modules/finance.js'; // Importuojam, kad modulis pasileistų
+import * as Finance from './modules/finance.js'; // Svarbu importuoti
 import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
@@ -45,19 +45,13 @@ async function init() {
         try {
             await Settings.loadSettings();
         } catch (error) {
-            console.warn('Defaults loaded');
-            state.userSettings = {
-                timezone_primary: 'America/Chicago',
-                timezone_secondary: 'Europe/Vilnius',
-                weekly_rental_cost: 350,
-                rental_week_start_day: 2
-            };
+            state.userSettings = { timezone_primary: 'America/Chicago', weekly_rental_cost: 350 };
         }
         
         await Garage.fetchFleet();
         await refreshAll();
         
-        // Priverstinis Audit užkrovimas
+        // Audit auto-load
         const auditTab = document.getElementById('tab-audit');
         if (auditTab && !auditTab.classList.contains('hidden')) {
             setTimeout(() => Finance.refreshAudit(), 500);
@@ -70,23 +64,15 @@ async function init() {
     }
     
     window.addEventListener('refresh-data', refreshAll);
-    
-    setInterval(() => {
-        if (!localStorage.getItem('theme')) initTheme();
-    }, 60000);
+    setInterval(() => { if (!localStorage.getItem('theme')) initTheme(); }, 60000);
 }
 
 // DUOMENŲ ATNAUJINIMAS
 export async function refreshAll() {
     try {
         const { data: shift } = await db
-            .from('finance_shifts')
-            .select('*')
-            .in('status', ['active', 'paused'])
-            .eq('user_id', state.user.id)
-            .order('start_time', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .from('finance_shifts').select('*').in('status', ['active', 'paused'])
+            .eq('user_id', state.user.id).order('start_time', { ascending: false }).limit(1).maybeSingle();
         
         state.activeShift = shift;
         UI.updateUI('activeShift');
@@ -96,52 +82,25 @@ export async function refreshAll() {
         
         await updateProgressBars();
         
-        // Atnaujinam istoriją
         const auditTab = document.getElementById('tab-audit');
-        if (auditTab && !auditTab.classList.contains('hidden')) {
-            Finance.refreshAudit();
-        }
-    } catch (error) {
-        console.error('Refresh Error:', error);
-    }
+        if (auditTab && !auditTab.classList.contains('hidden')) Finance.refreshAudit();
+    } catch (error) { console.error('Refresh Error:', error); }
 }
 
 async function updateProgressBars() {
     try {
         const rentalProgress = await Costs.calculateWeeklyRentalProgress();
-        const rentalBarEl = document.getElementById('rental-bar');
-        const rentalValEl = document.getElementById('rental-val');
-        
-        if (rentalBarEl && rentalValEl) {
-            rentalValEl.textContent = `$${rentalProgress.earned} / $${rentalProgress.target}`;
-            rentalBarEl.style.width = `${rentalProgress.percentage}%`;
-            
-            rentalBarEl.classList.remove('bg-red-500', 'bg-yellow-500', 'bg-green-500');
-            if (rentalProgress.percentage < 70) rentalBarEl.classList.add('bg-red-500');
-            else if (rentalProgress.percentage < 90) rentalBarEl.classList.add('bg-yellow-500');
-            else rentalBarEl.classList.add('bg-green-500');
-        }
+        UI.renderProgressBar('rental-bar', rentalProgress.earned, rentalProgress.target, {warning: 70, success: 90});
+        UI.renderProgressText('rental-val', `$${rentalProgress.earned} / $${rentalProgress.target}`);
         
         const dailyCost = await Costs.calculateDailyCost();
         const shiftEarnings = Costs.calculateShiftEarnings();
-        const grindBarEl = document.getElementById('grind-bar');
-        const grindValEl = document.getElementById('grind-val');
+        UI.renderProgressBar('grind-bar', shiftEarnings, dailyCost, {warning: 70, success: 90});
+        UI.renderProgressText('grind-val', `$${Math.round(shiftEarnings)} / $${Math.round(dailyCost)}`);
         
-        if (grindBarEl && grindValEl) {
-            const target = Math.round(dailyCost) || 1;
-            const current = Math.round(shiftEarnings) || 0;
-            const pct = Math.min((current / target) * 100, 100);
-            
-            grindValEl.textContent = `$${current} / $${target}`;
-            grindBarEl.style.width = `${pct}%`;
-        }
-
         const earningsEl = document.getElementById('shift-earnings');
         if (earningsEl) earningsEl.textContent = `$${Math.round(shiftEarnings)}`;
-
-    } catch (e) {
-        console.error("Bar update error", e);
-    }
+    } catch (e) { console.error("Bar error", e); }
 }
 
 function setupRealtime() {
@@ -172,7 +131,7 @@ window.switchTab = UI.switchTab;
 window.openModal = UI.openModal;
 window.closeModals = UI.closeModals;
 
-// Garage (Čia viskas OK, nes Garage modulis nebindina savęs pats)
+// Garage
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.editVehicle = Garage.editVehicle;
@@ -194,7 +153,6 @@ window.selectWeather = Shifts.selectWeather;
 window.openSettings = Settings.openSettings;
 window.saveSettings = Settings.saveSettings;
 
-// PASTABA: Finansų funkcijos (pvz., confirmDelete, openTxModal) čia NĖRA, 
-// nes jos yra apibrėžtos pačiame finance.js faile. Tai išsprendžia konfliktą.
+// PASTABA: Finansų funkcijos (window.requestLogDelete ir t.t.) yra pačiame finance.js
 
 document.addEventListener('DOMContentLoaded', init);

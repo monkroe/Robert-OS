@@ -1,78 +1,82 @@
 <!DOCTYPE html>
-<html lang="lt" class="h-full">
+<html lang="lt">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Robert OS</title>
 
     <script>
-        (function() {
-            const displayError = (title, msg) => {
-                if (document.getElementById('critical-error')) return;
-                const div = document.createElement('div');
-                div.id = 'critical-error';
-                div.style = "position:fixed;top:0;left:0;width:100%;background:#cc0000;color:white;padding:15px;z-index:9999;font-family:monospace;font-size:12px;border-bottom:2px solid white";
-                div.innerHTML = `<b>🚨 ROBERT OS ${title}:</b><br>${msg}`;
-                document.body?.appendChild(div) || document.write(div.outerHTML);
-            };
-            window.onerror = (m, u, l) => displayError("RUNTIME ERROR", `${m} (${u}:${l})`);
-            window.onunhandledrejection = (e) => displayError("ASYNC ERROR", e.reason?.message || e.reason);
-        })();
+        window.onerror = (m, u, l) => {
+            console.error("Runtime:", m);
+            const err = document.createElement('div');
+            err.style = "position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:10px;z-index:9999;font-size:10px";
+            err.innerText = `🚨 KLAIDA: ${m}`;
+            document.body.appendChild(err);
+        };
     </script>
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@4.0/dist/index.min.css">
-    <style>
-        :root { --os-radius: 2.5rem; }
-        body { font-family: 'Inter', sans-serif; background-color: black; color: white; margin: 0; -webkit-font-smoothing: antialiased; }
-        .bento-card { background: #111; border: 1px solid rgba(255,255,255,0.05); border-radius: var(--os-radius); }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    borderRadius: { 'os': '2.5rem' },
+                    colors: { teal: { 500: '#14b8a6' } }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer base {
+            body { @apply bg-black text-white antialiased; }
+        }
+        .bento-card { @apply bg-[#111] border border-white/5 rounded-os; }
+        @keyframes shimmer { 100% { transform: translateX(100%); } }
     </style>
 </head>
+<body>
 
-<body class="bg-black text-white overflow-x-hidden selection:bg-teal-500/30">
-
-    <div id="toast-container" class="fixed top-6 right-6 z-[2000] flex flex-col gap-3 pointer-events-none w-full max-w-sm"></div>
+    <div id="toast-container" class="fixed top-6 right-6 z-[2000] flex flex-col gap-3 w-full max-w-sm pointer-events-none"></div>
     <div id="modals-container" class="relative z-[1500]"></div>
 
-    <main id="app" class="min-h-[100dvh] flex flex-col p-4 md:p-8 max-w-5xl mx-auto">
-        <div class="flex-1 flex items-center justify-center">
-            <div class="animate-pulse text-teal-500 font-black tracking-tighter text-3xl uppercase">Robert OS Loading...</div>
+    <main id="app" class="min-h-screen flex items-center justify-center p-4">
+        <div id="boot-loader" class="text-center">
+            <div class="animate-pulse text-teal-500 font-black tracking-tighter text-3xl uppercase">
+                Robert OS
+            </div>
+            <div class="mt-4 w-24 h-1 bg-white/10 mx-auto overflow-hidden relative">
+                <div class="absolute inset-0 bg-teal-500 -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+            </div>
         </div>
     </main>
 
     <template id="modal-template">
-        <div class="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-            <div class="bento-card w-full max-w-lg animate-slideUp shadow-2xl overflow-hidden">
+        <div class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bento-card w-full max-w-lg overflow-hidden border border-white/10 shadow-2xl">
                 <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <h2 class="modal-title font-bold text-lg uppercase tracking-tighter text-teal-500"></h2>
-                    <button class="close-modal p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white">✕</button>
+                    <h2 class="modal-title font-bold text-lg uppercase tracking-widest text-teal-500"></h2>
+                    <button class="close-modal text-white/40 hover:text-white text-2xl">✕</button>
                 </div>
-                <div class="modal-content p-8"></div>
+                <div class="modal-content p-6 text-white/90"></div>
             </div>
         </div>
     </template>
 
+    <template id="tmpl-tx-modal"><div class="tx-content"></div></template>
+    <template id="tmpl-delete-modal"><div class="confirm-content"></div></template>
+    <template id="tmpl-start-modal"><div class="start-content"></div></template>
+
     <script type="module">
-        // Perėjome prie esm.sh, kuris teisingai eksportuoja modulius
         import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+        window.supabaseClient = createClient;
 
-        async function initSystem() {
-            try {
-                // Priskiriame globaliai, kad jūsų app.js galėtų naudoti
-                window.supabaseClient = createClient;
-                
-                // Tik tada įkeliame pagrindinį programos kodą
-                await import('./js/app.js');
-                console.log("✅ Robert OS: Supabase paruoštas, app.js užkrautas.");
-            } catch (err) {
-                console.error("Boot Error:", err);
-                // Jei nepavyko užkrauti modulio, parodome klaidą per Guardian
-                if (window.onunhandledrejection) window.onunhandledrejection({ reason: err });
-            }
-        }
-
-        initSystem();
+        // Paleidžiame sistemą
+        import('./js/app.js').then(m => {
+            console.log("System initialized");
+        }).catch(err => {
+            console.error("Import failed:", err);
+        });
     </script>
 </body>
 </html>

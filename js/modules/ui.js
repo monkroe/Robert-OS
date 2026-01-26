@@ -1,112 +1,61 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI.JS v1.7.5
-// Vaizdo valdymas, Skeleton Screens ir Temos
+// ROBERT OS - UI.JS v1.1.0
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
-import { vibrate, showToast } from '../utils.js';
 
+// 1. ACTION MAPPER (Reikalingas EventBinderiui)
 export const actions = {
-    // Tab'ų perjungimas (per data-action="ui:switchTab")
-    switchTab: (tabId) => {
-        vibrate([5]);
-        
-        // Deaktyvuojam visus
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        
-        // Aktyvuojam pasirinktą
-        const targetTab = document.getElementById(`tab-${tabId}`);
-        const targetBtn = document.getElementById(`btn-${tabId}`);
-        
-        if (targetTab) targetTab.classList.remove('hidden');
-        if (targetBtn) targetBtn.classList.add('active');
-        
-        state.currentTab = tabId;
+    'logout': () => {
+        console.log('Logging out...');
+        // auth.logout() ir t.t.
     },
-
-    // Modalo uždarymas (per data-action="ui:closeModals")
-    closeModals: () => {
-        document.querySelectorAll('.modal-overlay').forEach(el => {
-            el.classList.add('fade-out');
-            setTimeout(() => el.classList.add('hidden'), 200);
-        });
+    'toggle-menu': () => {
+        console.log('Toggle menu');
     }
 };
 
-// ────────────────────────────────────────────────────────────────
-// 1. MODALŲ VALDYMAS (With Hydration & Skeletons)
-// ────────────────────────────────────────────────────────────────
-
-/**
- * Atidaro modalą ir, jei reikia, užpildo jį skeletonais
- */
-export function openModal(id, options = { loading: false }) {
-    const modal = document.getElementById(`${id}-modal`);
-    if (!modal) return;
-
-    modal.classList.remove('hidden', 'fade-out');
-    modal.classList.add('fade-in');
-    vibrate([10]);
-
-    if (options.loading) {
-        renderSkeletons(modal);
-    }
+// 2. PAGRINDINĖS FUNKCIJOS
+export function showAuthScreen() {
+    const app = document.getElementById('app');
+    app.innerHTML = `
+        <div class="animate-slideUp bento-card p-8 max-w-sm mx-auto mt-20 text-center">
+            <h1 class="text-2xl font-black text-teal-500 mb-4">ROBERT OS</h1>
+            <p class="text-white/60 mb-6">Prašome prisijungti prie sistemos</p>
+            <button data-action="auth:login" class="bg-teal-500 text-black px-6 py-3 rounded-full font-bold hover:bg-teal-400 transition-all">
+                Prisijungti
+            </button>
+        </div>
+    `;
 }
 
-/**
- * Užpildo modalą "Skeleton" blokeliais (Placeholders)
- */
-function renderSkeletons(modalElement) {
-    const container = modalElement.querySelector('.modal-body') || modalElement.querySelector('.modal-content');
-    if (!container) return;
-
-    // Ieškome vietų, kur bus kraunami duomenys (pvz. #garage-list)
-    const lists = container.querySelectorAll('[id$="-list"]');
-    lists.forEach(list => {
-        list.innerHTML = `
-            <div class="animate-pulse space-y-3">
-                <div class="h-16 bg-white/5 rounded-2xl w-full"></div>
-                <div class="h-16 bg-white/5 rounded-2xl w-full opacity-50"></div>
-                <div class="h-16 bg-white/5 rounded-2xl w-full opacity-20"></div>
+export function showAppContent() {
+    const app = document.getElementById('app');
+    // Pašaliname krovimosi indikatorių ir įkeliame pagrindinį layoutą
+    app.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full animate-slideUp">
+            <div id="fleet-widget" class="bento-card p-6 h-64 flex items-center justify-center border-teal-500/20">
+                <span class="text-white/20">Kraunamas automobilių parkas...</span>
             </div>
-        `;
-    });
+            <div id="finance-widget" class="bento-card p-6 h-64 flex items-center justify-center border-teal-500/20">
+                <span class="text-white/20">Kraunami finansai...</span>
+            </div>
+        </div>
+    `;
 }
-
-// ────────────────────────────────────────────────────────────────
-// 2. TEMŲ VALDYMAS (v1.5 Aesthetic)
-// ────────────────────────────────────────────────────────────────
 
 export function applyTheme() {
-    const isDark = state.userSettings?.theme !== 'light';
-    document.documentElement.classList.toggle('dark', isDark);
-    
-    // Atnaujiname Status Bar spalvą PWA režimui
-    const themeColor = isDark ? '#000000' : '#f3f4f6';
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
+    console.log('🎨 Theme applied');
+    document.documentElement.classList.add('dark');
 }
-
-// ────────────────────────────────────────────────────────────────
-// 3. DASHBOARD REFRESH (The Pulse of OS)
-// ────────────────────────────────────────────────────────────────
 
 export function refreshDashboard() {
-    // Ši funkcija orkestruoja visų Cockpit elementų atnaujinimą
-    // Naudojama po sėkmingų DB operacijų
-    console.log('🔄 UI Dashboard Refreshing...');
-    
-    // Atnaujiname progress bars, timerius ir t.t.
-    // Čia bus kviečiami costs.js skaičiavimai
+    console.log('🔄 Dashboard refreshed');
+    // Čia vyks duomenų atvaizdavimas iš state
 }
 
-/**
- * Pagalbinė funkcija formos duomenims surinkti
- */
-export function getFormData(formSelector) {
-    const form = document.querySelector(formSelector);
-    if (!form) return {};
-    
-    const formData = new FormData(form);
-    return Object.fromEntries(formData.entries());
+// Pagalbinė funkcija pranešimams (iš utils.js dažniausiai)
+export function updateLoadingState(isLoading) {
+    state.loading = isLoading;
+    // UI indikacija...
 }

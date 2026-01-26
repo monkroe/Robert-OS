@@ -4,36 +4,121 @@
 /* Fixed: Tabs, Modals, Light Mode Background                       */
 /* ════════════════════════════════════════════════════════════════ */
 
-/* 1. KINTAMIEJI (SOFT & TEAL) */
 :root {
-    /* DARK MODE (DEFAULT) */
     --bg-color: #000000;
     --card-bg: #111111;
-    --accent: #14b8a6; /* TIKRASIS TEAL */
+    --accent: #14b8a6;
     --text-main: #ffffff;
     --text-muted: #9ca3af;
-    --border-color: rgba(255,255,255,0.1); /* Minkštas rėmelis */
+    --border-color: rgba(255,255,255,0.1);
     --input-bg: #111827;
     --track-bg: #1f2937;
-    
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
 }
 
-/* LIGHT MODE */
 :root.light {
     --bg-color: #f3f4f6;
     --card-bg: #ffffff;
     --text-main: #111827;
     --text-muted: #6b7280;
-    --border-color: rgba(0,0,0,0.08); /* Labai švelnus rėmelis, jokio juodo */
+    --border-color: rgba(0,0,0,0.08);
     --input-bg: #ffffff;
     --track-bg: #e5e7eb;
 }
 
-/* 2. BAZINIAI NUSTATYMAI */
 body {
     background-color: var(--bg-color);
+    color: var(--text-main);
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* HEADER & NAV */
+.global-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    background-color: var(--bg-color);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-color);
+    padding: max(1rem, var(--safe-top)) 1rem 0;
+    height: calc(3.5rem + var(--safe-top));
+    display: flex; align-items: center; justify-content: space-between;
+}
+
+.bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    background-color: var(--bg-color);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-color);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    padding-bottom: max(1rem, var(--safe-bottom)); 
+    height: calc(4rem + var(--safe-bottom));
+}
+
+.container {
+    padding-top: calc(4.5rem + var(--safe-top)); 
+    padding-left: 1rem; padding-right: 1rem;
+    padding-bottom: 6rem;
+    height: 100%; overflow-y: auto;
+}
+
+/* UI ELEMENTS */
+.input-field {
+    width: 100%; background-color: var(--input-bg);
+    border: 1px solid var(--border-color); border-radius: 0.75rem;
+    padding: 1rem; color: var(--text-main); outline: none; font-family: monospace;
+}
+
+.btn-primary-os {
+    width: 100%; background-color: var(--accent); color: #000;
+    font-weight: 900; text-transform: uppercase;
+    border-radius: 0.75rem; padding: 1rem; border: none;
+}
+
+/* TAB SYSTEM - FIX (Pašalintas !important) */
+.tab-content {
+    display: none;
+    opacity: 0;
+    transform: translateY(10px);
+}
+.tab-content.active {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    animation: fadeSlideUp 0.4s ease-out forwards;
+}
+
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* BENTO CARDS */
+.bento-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.bento-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem; padding: 1rem;
+    display: flex; flex-direction: column;
+}
+
+/* MODALS */
+.modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background-color: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+    display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-content {
+    background-color: var(--card-bg);
+    width: 100%; max-width: 28rem; padding: 1.5rem;
+    border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.hidden { display: none !important; }
+
     color: var(--text-main);
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;

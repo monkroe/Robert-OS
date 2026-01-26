@@ -12,6 +12,38 @@ import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
+// ────────────────────────────────────────────────────────────────
+// 1. AUTO THEME LOGIC (Laiko pagrindu)
+// ────────────────────────────────────────────────────────────────
+
+function initAutoTheme() {
+    const rootEl = document.documentElement;
+    const now = new Date();
+    const hour = now.getHours();
+
+    // Nuo 7:00 ryto iki 19:00 vakaro - Šviesi tema
+    // Kitu laiku - Tamsi tema (default)
+    if (hour >= 7 && hour < 19) {
+        rootEl.classList.add('light');
+        console.log('☀️ Day Mode Active');
+    } else {
+        rootEl.classList.remove('light');
+        console.log('🌙 Night Mode Active');
+    }
+}
+
+// Paleidžiame temą iškart
+initAutoTheme();
+
+// Tikriname kas 15 min (jei programa atidaryta ilgai)
+setInterval(initAutoTheme, 900000);
+
+
+// ────────────────────────────────────────────────────────────────
+// 2. MAIN APP INIT (Tavo senas kodas)
+// ────────────────────────────────────────────────────────────────
+
+
 async function init() {
     UI.applyTheme();
     

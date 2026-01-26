@@ -1,7 +1,9 @@
 name: Deploy Robert OS v1.7.5
+
 on:
   push:
     branches: [ main ]
+
 permissions:
   contents: read
   pages: write
@@ -11,24 +13,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4 # Atnaujinta į v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4 # Atnaujinta į v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20' # 2026-aisiais naudojame stabilią v20 versiją
+          node-version: '20'
 
-      - name: Install Tailwind
-        run: npm init -y && npm install -D tailwindcss
+      - run: npm init -y
+      - run: npm install -D tailwindcss
 
-      - name: Build CSS
-        run: npx tailwindcss -i ./style.css -o ./output.css --minify
+      - run: mkdir -p public
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3 # Atnaujinta į v3 (suvokiant v4 pakeitimus)
+      - run: |
+          cp index.html public/
+          cp manifest.json public/
+          cp sw.js public/
+          cp -r js public/
+
+      - run: npx tailwindcss -i ./style.css -o ./public/output.css --minify
+
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: ./public
 
   deploy:
     needs: build
@@ -36,6 +42,4 @@ jobs:
     environment:
       name: github-pages
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4 # Atnaujinta į v4
+      - uses: actions/deploy-pages@v4

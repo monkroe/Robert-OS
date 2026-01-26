@@ -1,49 +1,104 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - DB.JS v1.5.0
-// Database Connection & Configuration
+// ROBERT OS - DB.JS v1.7.2
+// Supabase Connection with Proper Initialization
 // ════════════════════════════════════════════════════════════════
 
 const CONFIG = {
     SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co',
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy',
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy'
 };
 
 // ────────────────────────────────────────────────────────────────
-// VALIDATION - Prevents silent failures
+// VALIDATION
 // ────────────────────────────────────────────────────────────────
 
-if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL === 'JŪSŲ_URL_ČIA') {
-    console.error('❌ ROBERT OS: Supabase URL not configured!');
-    console.error('📍 Please update CONFIG.SUPABASE_URL in js/db.js');
-    throw new Error('Database configuration error: Missing SUPABASE_URL');
+function validateConfig() {
+    if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('jūsų')) {
+        console.error('❌ ROBERT OS: Supabase URL not configured!');
+        console.error('📍 Update CONFIG.SUPABASE_URL in js/db.js');
+        throw new Error('Missing SUPABASE_URL');
+    }
+
+    if (!CONFIG.SUPABASE_KEY || CONFIG.SUPABASE_KEY.includes('jūsų')) {
+        console.error('❌ ROBERT OS: Supabase KEY not configured!');
+        console.error('📍 Update CONFIG.SUPABASE_KEY in js/db.js');
+        throw new Error('Missing SUPABASE_KEY');
+    }
 }
 
-if (!CONFIG.SUPABASE_KEY || CONFIG.SUPABASE_KEY === 'JŪSŲ_KEY_ČIA') {
-    console.error('❌ ROBERT OS: Supabase KEY not configured!');
-    console.error('📍 Please update CONFIG.SUPABASE_KEY in js/db.js');
-    throw new Error('Database configuration error: Missing SUPABASE_KEY');
+// ────────────────────────────────────────────────────────────────
+// GLOBAL SUPABASE CLIENT (will be initialized)
+// ────────────────────────────────────────────────────────────────
+
+export let db = null;
+
+// ────────────────────────────────────────────────────────────────
+// INIT FUNCTION (called from app.js)
+// ────────────────────────────────────────────────────────────────
+
+export function initSupabase() {
+    console.log('🔌 Initializing Supabase connection...');
+    
+    // Validate config first
+    validateConfig();
+    
+    // Check if Supabase library is loaded
+    if (typeof window.supabase === 'undefined') {
+        console.error('❌ Supabase library not loaded!');
+        console.error('📍 Ensure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is in index.html');
+        throw new Error('Supabase library not found');
+    }
+    
+    // Create client from global window.supabase
+    db = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+    
+    // Test connection
+    testConnection();
+    
+    console.log('✅ Supabase client initialized');
 }
 
 // ────────────────────────────────────────────────────────────────
-// CREATE CLIENT
+// CONNECTION TEST
 // ────────────────────────────────────────────────────────────────
 
-export const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
-
-// ────────────────────────────────────────────────────────────────
-// CONNECTION CHECK (Optional - helps debug production issues)
-// ────────────────────────────────────────────────────────────────
-
-db.auth.getSession()
-    .then(({ data, error }) => {
+async function testConnection() {
+    try {
+        const { data, error } = await db.auth.getSession();
+        
         if (error) {
-            console.warn('⚠️ ROBERT OS: Database connection issue');
-            console.warn('Details:', error.message);
+            console.warn('⚠️ Supabase connection warning:', error.message);
         } else {
-            console.log('✅ ROBERT OS v1.5.0: Database connected');
+            console.log('✅ Database connection verified');
         }
-    })
-    .catch(err => {
-        console.error('❌ ROBERT OS: Fatal database error');
-        console.error('Details:', err);
-    });
+    } catch (err) {
+        console.error('❌ Database connection failed:', err);
+        throw err;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
+// HELPER: Get authenticated user
+// ────────────────────────────────────────────────────────────────
+
+export async function getCurrentUser() {
+    if (!db) {
+        throw new Error('Database not initialized. Call initSupabase() first.');
+    }
+    
+    const { data: { user }, error } = await db.auth.getUser();
+    
+    if (error) throw error;
+    return user;
+}
+
+// ────────────────────────────────────────────────────────────────
+// HELPER: Check if authenticated
+// ────────────────────────────────────────────────────────────────
+
+export async function isAuthenticated() {
+    if (!db) return false;
+    
+    const { data: { session } } = await db.auth.getSession();
+    return !!session;
+}

@@ -66,14 +66,13 @@ async function verifyModules() {
     
     for (const test of MODULE_TESTS) {
         totalModules++;
-        console.log(`\n📦 Testing: ${test.name}`);
+        console.log(`
+📦 Testing: ${test.name}`);
         
         try {
-            // Importuojame modulį dinamiškai
             const module = await import(test.path);
             const moduleExports = Object.keys(module);
             
-            // Tikriname trūkstamus eksportus
             const missingExports = test.imports.filter(imp => !moduleExports.includes(imp));
             const extraExports = moduleExports.filter(exp => !test.imports.includes(exp) && exp !== 'default');
             
@@ -102,8 +101,8 @@ async function verifyModules() {
         }
     }
     
-    // Rezultatų suvestinė
-    console.log('\n═══════════════════════════════════════');
+    console.log('
+═══════════════════════════════════════');
     console.log('📊 VERIFICATION SUMMARY:');
     console.log(`   Total Modules: ${totalModules}`);
     console.log(`   ✅ Passed: ${passedModules}`);
@@ -111,16 +110,18 @@ async function verifyModules() {
     console.log(`   🚨 Errors: ${failedModules - (totalModules - passedModules)}`);
     
     if (failedModules === 0) {
-        console.log('\n🎉 All modules are correctly exported!');
+        console.log('
+🎉 All modules are correctly exported!');
     } else {
-        console.log('\n⚠️  Some modules need fixes. Check the list above.');
+        console.log('
+⚠️  Some modules need fixes. Check the list above.');
     }
     
     return { totalModules, passedModules, failedModules };
 }
 
 // ────────────────────────────────────────────────────────────────
-// HTML INTERFACE (jei norite naudoti naršyklėje)
+// HTML INTERFACE (naršyklėje)
 // ────────────────────────────────────────────────────────────────
 
 function createHTMLInterface() {
@@ -144,24 +145,27 @@ function createHTMLInterface() {
         <body>
             <div class="container">
                 <h1>🔍 Robert OS Module Verifier</h1>
-                <button onclick="runVerification()">Run Verification</button>
+                <button id="run-btn">Run Verification</button>
                 <div id="results"></div>
                 <div id="summary" class="summary" style="display:none;"></div>
             </div>
             
-            <script>
-                async function runVerification() {
-                    const resultsDiv = document.getElementById('results');
-                    const summaryDiv = document.getElementById('summary');
-                    
+            <script type="module">
+                import { verifyModules } from './js/verifier.js';
+
+                const btn = document.getElementById('run-btn');
+                const resultsDiv = document.getElementById('results');
+                const summaryDiv = document.getElementById('summary');
+
+                btn.addEventListener('click', async () => {
                     resultsDiv.innerHTML = '<p>Running tests...</p>';
                     summaryDiv.style.display = 'none';
-                    
+
                     const tests = ${JSON.stringify(MODULE_TESTS)};
                     let passed = 0;
                     let failed = 0;
                     let html = '';
-                    
+
                     for (const test of tests) {
                         try {
                             const module = await import(test.path);
@@ -169,43 +173,46 @@ function createHTMLInterface() {
                             const missing = test.imports.filter(imp => !exports.includes(imp));
                             
                             if (missing.length === 0) {
-                                html += \`
+                                html += `
                                     <div class="module pass">
-                                        <strong>✅ \${test.name}</strong><br>
-                                        Exports: \${exports.length} found
+                                        <strong>✅ ${test.name}</strong><br>
+                                        Exports: ${exports.length} found
                                     </div>
-                                \`;
+                                `;
                                 passed++;
                             } else {
-                                html += \`
+                                html += `
                                     <div class="module fail">
-                                        <strong>❌ \${test.name}</strong><br>
-                                        Missing: \${missing.join(', ')}<br>
-                                        Found: \${exports.join(', ') || 'none'}
+                                        <strong>❌ ${test.name}</strong><br>
+                                        Missing: ${missing.join(', ')}<br>
+                                        Found: ${exports.join(', ') || 'none'}
                                     </div>
-                                \`;
+                                `;
                                 failed++;
                             }
                         } catch (error) {
-                            html += \`
+                            html += `
                                 <div class="module error">
-                                    <strong>🚨 \${test.name}</strong><br>
-                                    Error: \${error.message}
+                                    <strong>🚨 ${test.name}</strong><br>
+                                    Error: ${error.message}
                                 </div>
-                            \`;
+                            `;
                             failed++;
                         }
                     }
-                    
+
                     resultsDiv.innerHTML = html;
-                    summaryDiv.innerHTML = \`
+                    summaryDiv.innerHTML = `
                         <h3>📊 Summary</h3>
-                        <p>Total Modules: \${tests.length}</p>
-                        <p>✅ Passed: \${passed}</p>
-                        <p>❌ Failed: \${failed}</p>
-                    \`;
+                        <p>Total Modules: ${tests.length}</p>
+                        <p>✅ Passed: ${passed}</p>
+                        <p>❌ Failed: ${failed}</p>
+                    `;
                     summaryDiv.style.display = 'block';
-                }
+
+                    // Paleidžiam ir konsolinį variantą, jei nori
+                    verifyModules().catch(console.error);
+                });
             </script>
         </body>
         </html>
@@ -215,20 +222,24 @@ function createHTMLInterface() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// NAUDOJIMAS:
+// NAUDOJIMAS NARŠYKLĖJE
 // ────────────────────────────────────────────────────────────────
 
-// Variantas 1: Paleisti konsolėje
+// Variantai:
+// 1) verifier.html + <script type="module" src="./js/verifier.js"></script>
+// 2) Konsolėje: window.verifyModules()
+
 if (typeof window !== 'undefined') {
     window.verifyModules = verifyModules;
     console.log('Module verifier loaded. Run: verifyModules()');
 }
 
-// Variantas 2: Sukurti HTML failą
+// Jei atidarytas verifier.html – sugeneruojam UI
 if (typeof window !== 'undefined' && window.location.pathname.includes('verifier.html')) {
-    document.body.innerHTML = createHTMLInterface();
+    document.open();
+    document.write(createHTMLInterface());
+    document.close();
 }
 
-// Variantas 3: Paleisti automatiškai (išjungti komentarą)
-// verifyModules().catch(console.error);
+// Eksportas moduliams
 export { verifyModules };

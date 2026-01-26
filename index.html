@@ -312,7 +312,7 @@
 
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp">
-            <h3 style="text-align: center; font-size: 1.25rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; color: #14b8a6;">GARAGE MANAGEMENT</h3>
+            <h3 id="garage-modal-title" style="text-align: center; font-size: 1.25rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; color: #14b8a6;">GARAGE MANAGEMENT</h3>
             
             <div style="text-align: left; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
                 <p class="label-xs">Add New</p>
@@ -321,10 +321,10 @@
                 <input type="number" inputmode="numeric" id="veh-year" class="input-field" placeholder="Year (optional, e.g. 2024)" min="1990" max="2030">
                 <input type="number" inputmode="numeric" id="veh-initial-odo" class="input-field" placeholder="Initial Odometer (optional)">
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                    <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn" style="background-color: #14b8a6; color: #000; opacity: 1;">RENTAL</button>
-                    <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn" style="opacity: 0.5;">OWNED</button>
-                </div>
+                <div class="veh-type-group mb-3">
+    <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn active">RENTAL</button>
+    <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn">OWNED</button>
+</div>
                 <input type="hidden" id="veh-type" value="rental">
 
                 <div id="rental-fields" style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -346,8 +346,7 @@
                     <input type="hidden" id="veh-is-test" value="false">
                 </div>
 
-                <button onclick="saveVehicle()" class="btn-primary-os" style="padding-top: 0.75rem; padding-bottom: 0.75rem; margin-top: 0.5rem;">ADD TO FLEET</button>
-            </div>
+                <button onclick="saveVehicle()" id="btn-save-veh" class="btn-primary-os" style="padding-top: 0.75rem; padding-bottom: 0.75rem; margin-top: 0.5rem;">ADD TO FLEET</button>
 
             <div style="text-align: left; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
                 <p class="label-xs" style="margin-bottom: 0.5rem;">Your Fleet</p>

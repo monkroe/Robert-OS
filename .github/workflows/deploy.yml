@@ -1,42 +1,6 @@
-name: Deploy Robert OS v1.7.5
-on:
-  push:
-    branches: [ main ]
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Build and Generate CSS
-        # Viską darome viename žingsnyje, kad išvengtume npm klaidų
         run: |
           npm install tailwindcss@latest postcss autoprefixer
           mkdir -p dist
-          npx tailwindcss -i ./style.css -o ./dist/output.css --minify
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+          # Kreipiamės tiesiai į instaliuotą bin'ą, kad GitHub nebeturėtų klausimų
+          ./node_modules/.bin/tailwindcss -i ./style.css -o ./dist/output.css --minify

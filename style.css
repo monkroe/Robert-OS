@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS v1.7.5 - STYLES (CLEAN)                                */
+/* ROBERT OS v1.7.6 - POLISHED ANIMATIONS & TABS FIX                */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -36,7 +36,17 @@ body {
     padding: 0;
 }
 
-/* HEADER & NAV */
+/* ════════ ANIMATIONS (RESTORED v1.2 FEEL) ════════ */
+
+@keyframes slideUp { 
+    from { opacity: 0; transform: translateY(20px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+.animate-slideUp { 
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+}
+
+/* ════════ HEADER & NAV ════════ */
 .global-header {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
     background-color: rgba(0,0,0,0.9);
@@ -66,7 +76,7 @@ body {
     height: 100%; overflow-y: auto;
 }
 
-/* UI ELEMENTS */
+/* ════════ UI ELEMENTS ════════ */
 .input-field {
     width: 100%; background-color: var(--input-bg);
     border: 1px solid var(--border-color); border-radius: 0.75rem;
@@ -85,26 +95,18 @@ body {
 }
 .btn-primary-os:active { transform: scale(0.98); }
 
-/* TAB SYSTEM */
+/* ════════ TAB SYSTEM (FIXED) ════════ */
 .tab-content {
-    display: none !important;
+    display: none; /* Default hidden */
     opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.3s, transform 0.3s;
 }
+
 .tab-content.active {
-    display: block !important;
-    opacity: 1;
-    transform: translateY(0);
-    animation: fadeSlideUp 0.4s ease-out forwards;
+    display: block; /* Show when active */
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; /* Soft animation */
 }
 
-@keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* BENTO CARDS */
+/* ════════ BENTO CARDS ════════ */
 .bento-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .bento-card {
     background-color: var(--card-bg);
@@ -116,7 +118,7 @@ body {
 }
 .bento-card.clickable:active { background-color: rgba(255,255,255,0.05); }
 
-/* MODALS */
+/* ════════ MODALS ════════ */
 .modal-overlay {
     position: fixed; inset: 0; z-index: 100;
     background-color: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
@@ -137,7 +139,7 @@ body {
 }
 @media (min-width: 640px) { .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); } }
 
-/* UTILS & BUTTONS */
+/* ════════ UTILS & BUTTONS ════════ */
 .header-btn {
     width: 2rem; height: 2rem; border-radius: 0.5rem;
     display: flex; align-items: center; justify-content: center;
@@ -159,31 +161,50 @@ body {
 .hidden { display: none !important; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* TYPOGRAPHY */
+/* ════════ TYPOGRAPHY ════════ */
 .val-timer { font-size: 3rem; font-weight: 900; letter-spacing: -0.05em; color: var(--text-main); line-height: 1; }
 .val-lg { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
 .label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
-/* Light Mode Overrides */
+/* ════════ LIGHT MODE OVERRIDES ════════ */
 :root.light .bg-gray-800 { background-color: var(--track-bg) !important; }
 :root.light .text-gray-100 { color: var(--text-main) !important; }
 :root.light .text-teal-400 { color: #0d9488 !important; }
 :root.light #rental-val, :root.light #grind-val { color: #111827 !important; }
 
-/* Transaction Buttons */
+/* ════════ TRANSACTION BUTTONS (SOFT STYLE FIX) ════════ */
+/* Bazinė klasė visiems pasirinkimo mygtukams */
 .weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
-    border: 1px solid var(--border-color);
-    background-color: rgba(255,255,255,0.03); color: var(--text-main);
+    border: 1px solid transparent; /* Rėmelis nematomas by default */
+    background-color: rgba(255,255,255,0.03); /* Labai lengvas fonas */
+    color: var(--text-main);
     transition: all 0.2s;
     cursor: pointer;
 }
-:root.light .weather-btn, :root.light .exp-btn, :root.light .inc-btn {
-    background-color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-.inc-btn.active { border-color: #22c55e !important; color: #22c55e !important; background: rgba(34,197,94,0.1) !important; }
-.exp-btn.active { border-color: #ef4444 !important; color: #ef4444 !important; background: rgba(239,68,68,0.1) !important; }
 
-/* TOAST FIX */
+/* Hover ir Active efektai */
+.weather-btn:hover, .exp-btn:hover, .inc-btn:hover {
+    background-color: rgba(255,255,255,0.08);
+}
+
+:root.light .weather-btn, :root.light .exp-btn, :root.light .inc-btn {
+    background-color: rgba(0,0,0,0.03);
+}
+
+/* Aktyvi būsena (pasirinkta) */
+.inc-btn.active { 
+    border-color: rgba(34,197,94,0.3) !important; 
+    color: #22c55e !important; 
+    background: rgba(34,197,94,0.1) !important; 
+}
+
+.exp-btn.active { 
+    border-color: rgba(239,68,68,0.3) !important; 
+    color: #ef4444 !important; 
+    background: rgba(239,68,68,0.1) !important; 
+}
+
+/* ════════ TOASTS ════════ */
 #toast-container > div {
     background-color: #14b8a6 !important;
     color: #000000 !important;

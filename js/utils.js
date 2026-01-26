@@ -150,3 +150,17 @@ if (typeof window !== 'undefined') {
     window.showToast = showToast;
     window.getActiveToastCount = () => activeToasts.size;
 }
+
+// utils.js priedas
+export const initGlobalErrorHandlers = () => {
+    window.onerror = (message, source, lineno, colno, error) => {
+        showToast(`💥 Sistemos klaida: ${message}`, 'error');
+        console.error('ROBERT OS CRITICAL:', { message, source, lineno, error });
+        return false;
+    };
+
+    window.onunhandledrejection = (event) => {
+        showToast(`🌐 Tinklo/DB klaida: ${event.reason}`, 'error');
+        console.error('UNHANDLED PROMISE:', event.reason);
+    };
+};

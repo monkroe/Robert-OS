@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS v1.7.7
+// ROBERT OS - APP.JS v1.8.1 (CLEANED & FINAL)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -7,7 +7,7 @@ import { state } from './state.js';
 import * as Auth from './modules/auth.js';
 import * as Garage from './modules/garage.js';
 import * as Shifts from './modules/shifts.js';
-import * as Finance from './modules/finance.js'; // Įsitikink, kad importuojama
+import * as Finance from './modules/finance.js'; // Importuojam, kad modulis pasileistų
 import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
@@ -57,7 +57,7 @@ async function init() {
         await Garage.fetchFleet();
         await refreshAll();
         
-        // Priverstinis Audit užkrovimas jei vartotojas refreshino puslapį būdamas audit tabe
+        // Priverstinis Audit užkrovimas
         const auditTab = document.getElementById('tab-audit');
         if (auditTab && !auditTab.classList.contains('hidden')) {
             setTimeout(() => Finance.refreshAudit(), 500);
@@ -96,7 +96,7 @@ export async function refreshAll() {
         
         await updateProgressBars();
         
-        // Jei esame audit tabe, atnaujiname ir jį
+        // Atnaujinam istoriją
         const auditTab = document.getElementById('tab-audit');
         if (auditTab && !auditTab.classList.contains('hidden')) {
             Finance.refreshAudit();
@@ -152,10 +152,15 @@ function setupRealtime() {
         .subscribe();
 }
 
-// GLOBALŪS KVIETIMAI
+// ════════════════════════════════════════════════════════════════
+// 3. GLOBALŪS KVIETIMAI (WINDOW BINDING)
+// ════════════════════════════════════════════════════════════════
+
+// Auth
 window.login = Auth.login;
 window.logout = Auth.logout;
 
+// Theme & UI
 window.cycleTheme = () => {
     const root = document.documentElement;
     const isLight = root.classList.toggle('light');
@@ -163,20 +168,21 @@ window.cycleTheme = () => {
     if(navigator.vibrate) navigator.vibrate(10);
     if(UI.applyTheme) UI.applyTheme();
 };
-
 window.switchTab = UI.switchTab;
 window.openModal = UI.openModal;
 window.closeModals = UI.closeModals;
 
+// Garage (Čia viskas OK, nes Garage modulis nebindina savęs pats)
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
-window.editVehicle = Garage.editVehicle; // <--- NAUJA
+window.editVehicle = Garage.editVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
 window.confirmDeleteVehicle = Garage.confirmDeleteVehicle; 
 window.cancelDeleteVehicle = Garage.cancelDeleteVehicle; 
 window.setVehType = Garage.setVehType;
 window.toggleTestMode = Garage.toggleTestMode;
 
+// Shifts
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
@@ -184,9 +190,11 @@ window.confirmEnd = Shifts.confirmEnd;
 window.togglePause = Shifts.togglePause;
 window.selectWeather = Shifts.selectWeather;
 
-// Finance modulio funkcijos dabar pasiekiamos tiesiai iš modulio,
-// bet paliekame čia dėl aiškumo
+// Settings
 window.openSettings = Settings.openSettings;
 window.saveSettings = Settings.saveSettings;
+
+// PASTABA: Finansų funkcijos (pvz., confirmDelete, openTxModal) čia NĖRA, 
+// nes jos yra apibrėžtos pačiame finance.js faile. Tai išsprendžia konfliktą.
 
 document.addEventListener('DOMContentLoaded', init);

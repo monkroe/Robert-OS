@@ -12,28 +12,120 @@ import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
-// ────────────────────────────────────────────────────────────────
-// THEME LOGIC (MANUAL PRIORITY)
-// ────────────────────────────────────────────────────────────────
-
-// 1. Įjungimo logika
+// 1. TEMOS VALDYMAS
 function initTheme() {
     const root = document.documentElement;
-    const saved = localStorage.getItem('theme'); // 'light', 'dark', arba null
+    const saved = localStorage.getItem('theme');
+    const hour = new Date().getHours();
 
     if (saved === 'dark') {
-        root.classList.remove('light'); // Forsuojam tamsią
-        console.log('🌑 Manual Dark Mode');
+        root.classList.remove('light');
     } else if (saved === 'light') {
-        root.classList.add('light'); // Forsuojam šviesią
-        console.log('☀️ Manual Light Mode');
+        root.classList.add('light');
     } else {
-        // Jei niekas neišsaugota -> Auto pagal laiką
-        checkAutoTheme();
+        // Auto: 7:00 - 19:00 Šviesu
+        if (hour >= 7 && hour < 19) root.classList.add('light');
+        else root.classList.remove('light');
     }
 }
 
-function checkAutoTheme() {
+// 2. SISTEMOS INICIALIZAVIMAS
+async function init() {
+    initTheme();
+    UI.applyTheme();
+    
+    const { data: { session } } = await db.auth.getSession();
+    
+    if (session) {
+        state.user = session.user;
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-content').classList.remove('hidden');
+        
+        try {
+            await Settings.loadSettings();
+        } catch (error) {
+            state.userSettings = {
+                timezone_primary: 'America/Chicago',
+                timezone_secondary: 'Europe/Vilnius',
+                weekly_rental_cost: 350,
+                rental_week_start_day: 2
+            };
+        }
+        
+        await Garage.fetchFleet();
+        await refreshAll();
+        setupRealtime();
+    } else {
+        document.getElementById('auth-screen').classList.remove('hidden');
+    }
+    
+    window.addEventListener('refresh-data', refreshAll);
+}
+
+export async function refreshAll() {
+    try {
+        const { data: shift } = await db
+            .from('finance_shifts')
+            .select('*')
+            .in('status', ['active', 'paused'])
+            .eq('user_id', state.user.id)
+            .order('start_time', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        
+        state.activeShift = shift;
+        UI.updateUI('activeShift');
+        
+        if (state.activeShift) Shifts.startTimer();
+        else Shifts.stopTimer();
+        
+        updateProgressBars();
+    } catch (error) {
+        console.error('Refresh Error:', error);
+    }
+}
+
+async function updateProgressBars() {
+    const rentalProgress = await Costs.calculateWeeklyRentalProgress();
+    const rentalBarEl = document.getElementById('rental-bar');
+    const rentalValEl = document.getElementById('rental-val');
+    
+    if (rentalBarEl && rentalValEl) {
+        rentalValEl.textContent = `$${rentalProgress.earned} / $${rentalProgress.target}`;
+        rentalBarEl.style.width = `${rentalProgress.percentage}%`;
+        
+        rentalBarEl.classList.remove('bg-red-500', 'bg-yellow-500', 'bg-green-500');
+        if (rentalProgress.percentage < 70) rentalBarEl.classList.add('bg-red-500');
+        else if (rentalProgress.percentage < 90) rentalBarEl.classList.add('bg-yellow-500');
+        else rentalBarEl.classList.add('bg-green-500');
+    }
+}
+
+function setupRealtime() {
+    const userId = state.user.id;
+    db.channel('user-channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_shifts', filter: `user_id=eq.${userId}` }, refreshAll)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${userId}` }, refreshAll)
+        .subscribe();
+}
+
+// 3. GLOBALŪS KVIETIMAI (WINDOW BINDING)
+window.login = Auth.login;
+window.logout = Auth.logout;
+window.cycleTheme = () => {
+    const root = document.documentElement;
+    const isLight = root.classList.toggle('light');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    UI.applyTheme();
+};
+window.switchTab = UI.switchTab;
+window.closeModals = UI.closeModals;
+window.openStartModal = Shifts.openStartModal;
+window.confirmStart = Shifts.confirmStart;
+window.togglePause = Shifts.togglePause;
+
+document.addEventListener('DOMContentLoaded', init);
+
     // Jei vartotojas jau pasirinko rankiniu būdu, auto nebeveikia
     if (localStorage.getItem('theme')) return;
 

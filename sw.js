@@ -3,37 +3,38 @@
 // Smart Caching Strategy: Static Assets + Supabase Compatibility
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'robert-os-v1.7.2'; // ✅ UPDATED
+const CACHE_NAME = 'robert-os-v1.7.2';
 
+// ⚠️ SVARBU: Naudojame reliatyvius kelius (./), kad veiktų GitHub Pages
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/manifest.json',
+  './',
+  './index.html',
+  './style.css',
+  './manifest.json',
   
   // Core JS
-  '/js/app.js',
-  '/js/db.js',
-  '/js/state.js',
-  '/js/utils.js',
+  './js/app.js',
+  './js/db.js',
+  './js/state.js',
+  './js/utils.js',
   
   // Modules
-  '/js/modules/auth.js',      // ✅ ADDED
-  '/js/modules/ui.js',        // ✅ ADDED
-  '/js/modules/shifts.js',
-  '/js/modules/settings.js',
-  '/js/modules/garage.js',
-  '/js/modules/finance.js',
-  '/js/modules/costs.js',
+  './js/modules/auth.js',
+  './js/modules/ui.js',
+  './js/modules/shifts.js',
+  './js/modules/settings.js',
+  './js/modules/garage.js',
+  './js/modules/finance.js',
+  './js/modules/costs.js',
   
-  // External CDN Dependencies
+  // External CDN Dependencies (Šie gali likti absoliutūs URL)
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2' // ✅ CRITICAL
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
 // ────────────────────────────────────────────────────────────────
-// INSTALL: Cache all static assets
+// INSTALL
 // ────────────────────────────────────────────────────────────────
 
 self.addEventListener('install', (event) => {
@@ -47,12 +48,15 @@ self.addEventListener('install', (event) => {
         return cache.addAll(ASSETS);
       })
       .then(() => console.log('✅ [SW] All assets cached'))
-      .catch((err) => console.error('❌ [SW] Cache failed:', err))
+      .catch((err) => {
+        console.error('❌ [SW] Cache failed. Check paths!', err);
+        // Net jei cache nepavyksta, SW bandys veikti toliau
+      })
   );
 });
 
 // ────────────────────────────────────────────────────────────────
-// ACTIVATE: Clean up old caches
+// ACTIVATE
 // ────────────────────────────────────────────────────────────────
 
 self.addEventListener('activate', (event) => {
@@ -75,35 +79,32 @@ self.addEventListener('activate', (event) => {
 });
 
 // ────────────────────────────────────────────────────────────────
-// FETCH: Smart caching strategy
+// FETCH (Network First)
 // ────────────────────────────────────────────────────────────────
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
   
-  // ─── BYPASS CONDITIONS ──────────────────────────────────────
-  
-  // Ignore non-GET requests
+  // Ignore non-GET
   if (request.method !== 'GET') return;
   
-  // Ignore Supabase API calls (data must be fresh)
+  // Ignore Supabase API (Always Network)
   if (url.hostname.includes('supabase.co')) return;
   
-  // Ignore non-HTTP protocols
+  // Ignore chrome-extension schemes etc.
   if (!url.protocol.startsWith('http')) return;
-  
-  // ─── CACHING STRATEGY ───────────────────────────────────────
   
   event.respondWith(
     fetch(request)
       .then((response) => {
+        // Check valid response
         if (!response || response.status !== 200 || response.type === 'error') {
           return response;
         }
         
+        // Clone and Cache
         const responseToCache = response.clone();
-        
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(request, responseToCache);
         });
@@ -111,23 +112,18 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
+        // Offline Fallback
         return caches.match(request).then((cachedResponse) => {
           if (cachedResponse) {
-            console.log(`📂 [SW] Serving from cache: ${url.pathname}`);
             return cachedResponse;
           }
           
+          // SPA Fallback for navigation
           if (request.mode === 'navigate') {
-            return caches.match('/index.html');
+            return caches.match('./index.html');
           }
           
-          return new Response('Offline - no cached version available', {
-            status: 503,
-            statusText: 'Service Unavailable',
-            headers: new Headers({
-              'Content-Type': 'text/plain',
-            }),
-          });
+          return new Response('Offline', { status: 503, statusText: 'Offline' });
         });
       })
   );
@@ -140,13 +136,5 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
-  }
-  
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
-    event.waitUntil(
-      caches.keys().then((names) => {
-        return Promise.all(names.map((name) => caches.delete(name)));
-      })
-    );
   }
 });

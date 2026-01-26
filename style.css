@@ -4,15 +4,15 @@
 /* Fixed: Tabs, Modals, Light Mode Background                       */
 /* ════════════════════════════════════════════════════════════════ */
 
-/* 1. KINTAMIEJI (THEME VARIABLES) */
+/* 1. KINTAMIEJI (SOFT & TEAL) */
 :root {
     /* DARK MODE (DEFAULT) */
     --bg-color: #000000;
     --card-bg: #111111;
-    --accent: #14b8a6;
+    --accent: #14b8a6; /* TIKRASIS TEAL */
     --text-main: #ffffff;
     --text-muted: #9ca3af;
-    --border-color: rgba(255,255,255,0.1);
+    --border-color: rgba(255,255,255,0.1); /* Minkštas rėmelis */
     --input-bg: #111827;
     --track-bg: #1f2937;
     
@@ -20,13 +20,13 @@
     --safe-bottom: env(safe-area-inset-bottom);
 }
 
-/* LIGHT MODE (Aktyvuojama su .light klase) */
+/* LIGHT MODE */
 :root.light {
     --bg-color: #f3f4f6;
     --card-bg: #ffffff;
     --text-main: #111827;
     --text-muted: #6b7280;
-    --border-color: rgba(0,0,0,0.1);
+    --border-color: rgba(0,0,0,0.08); /* Labai švelnus rėmelis, jokio juodo */
     --input-bg: #ffffff;
     --track-bg: #e5e7eb;
 }
@@ -41,244 +41,160 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* ════════ SAFE AREA & LAYOUT (ORIGINAL SIZES) ════════ */
+/* 3. TOAST FIX (FORSUOJAME TEAL SPALVĄ) */
+#toast-container > div {
+    background-color: #14b8a6 !important; /* Visada Teal */
+    color: #000000 !important; /* Juodas tekstas geresniam kontrastui */
+    border-radius: 1rem !important;
+    box-shadow: 0 10px 30px rgba(20, 184, 166, 0.4) !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 0.75rem !important;
+    padding: 1rem !important;
+}
+/* Error toast */
+#toast-container > div.bg-red-500 {
+    background-color: #ef4444 !important;
+    box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4) !important;
+}
 
+/* 4. LAYOUT (HEADER & NAV - ORIGINAL SIZES) */
 .global-header {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 50;
-    background-color: rgba(0,0,0,0.9); /* Originalus tamsus stiklas */
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    background-color: rgba(0,0,0,0.9);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
-    padding-left: 1rem;
-    padding-right: 1rem;
-    padding-top: max(1rem, var(--safe-top)); 
+    padding: max(1rem, var(--safe-top)) 1rem 0;
     height: calc(3.5rem + var(--safe-top));
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
 }
-
-/* Light mode header fix */
 :root.light .global-header { background-color: rgba(255,255,255,0.9); }
 
-.container {
-    padding-top: calc(4.5rem + var(--safe-top)); 
-    padding-left: 1rem;
-    padding-right: 1rem;
-    padding-bottom: 6rem; /* Kad turinys nelįstų po footeriu */
-}
-
 .bottom-nav {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
     background-color: rgba(0,0,0,0.9);
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border-color);
-    z-index: 50;
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    display: grid; grid-template-columns: repeat(5, 1fr);
     padding-bottom: max(1rem, var(--safe-bottom)); 
-    height: calc(4rem + var(--safe-bottom)); /* Tavo mėgstamas aukštis */
+    height: calc(4rem + var(--safe-bottom));
 }
 :root.light .bottom-nav { background-color: rgba(255,255,255,0.9); }
 
-/* ════════ UI COMPONENTS ════════ */
+.container {
+    padding-top: calc(4.5rem + var(--safe-top)); 
+    padding-left: 1rem; padding-right: 1rem;
+    padding-bottom: 6rem;
+    height: 100%; overflow-y: auto;
+}
 
+/* 5. UI ELEMENTS (SOFT BORDERS) */
 .input-field {
-    width: 100%;
-    background-color: var(--input-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    color: var(--text-main); 
-    font-family: monospace;
-    outline: none;
+    width: 100%; background-color: var(--input-bg);
+    border: 1px solid var(--border-color); border-radius: 0.75rem;
+    padding: 1rem; color: var(--text-main); outline: none; font-family: monospace;
     transition: all 0.2s;
 }
-.input-field:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
-}
+.input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
 .btn-primary-os {
-    width: 100%;
-    background-color: var(--accent);
-    color: black;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-radius: 0.75rem;
-    padding: 1rem;
-    transition: all 0.2s;
-    box-shadow: 0 0 15px rgba(20,184,166,0.3);
+    width: 100%; background-color: var(--accent); color: #000;
+    font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;
+    border-radius: 0.75rem; padding: 1rem; border: none;
+    box-shadow: 0 0 20px rgba(20,184,166,0.3); /* Soft Glow */
 }
 .btn-primary-os:active { transform: scale(0.98); }
 
-.header-btn {
-    width: 2rem; height: 2rem;
-    border-radius: 0.5rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-    color: var(--text-muted);
-}
-.header-btn:hover { color: var(--text-main); transform: scale(1.05); }
-.header-btn:active { transform: scale(0.95); }
-
-.nav-item {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    color: var(--text-muted); 
-    gap: 0.25rem;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    background: none; border: none;
-    transition: color 0.2s;
-}
-.nav-item.active { color: var(--accent); }
-.nav-item i { font-size: 1.125rem; } /* Tavo mėgstamas dydis */
-
-/* ════════ BENTO GRID ════════ */
-
-.bento-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-}
-
+/* 6. BENTO GRID & CARDS */
+.bento-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .bento-card {
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 1rem;
+    padding: 1rem; position: relative;
     display: flex; flex-direction: column;
-    padding: 1rem;
-    position: relative;
-    transition: all 0.2s;
     color: var(--text-main);
 }
-.bento-card.clickable:active {
-    background-color: rgba(255,255,255,0.05);
+.bento-card.clickable:active { background-color: rgba(255,255,255,0.05); }
+
+/* 7. TAB SYSTEM FIX */
+.tab-content {
+    display: none !important; /* Paslepiam */
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s;
+}
+.tab-content.active {
+    display: block !important; /* Rodo */
+    opacity: 1;
+    transform: translateY(0);
+    animation: fadeSlideUp 0.4s ease-out forwards;
+}
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.val-timer { 
-    font-size: 3rem; 
-    line-height: 1; 
-    font-weight: 900; 
-    letter-spacing: -0.05em; 
-    font-feature-settings: "tnum"; 
-    color: var(--text-main); 
-    text-shadow: 0 4px 8px rgba(0,0,0,0.5);
-}
-:root.light .val-timer { text-shadow: none; }
-
-.val-lg { 
-    font-size: 1.5rem; 
-    line-height: 2rem; 
-    font-weight: 700; 
-    color: var(--text-main);
-}
-
-.label-xs { 
-    font-size: 10px; 
-    font-weight: 700; 
-    color: var(--text-muted); 
-    text-transform: uppercase; 
-    letter-spacing: 0.05em; 
-}
-
-.btn-bento {
-    border-radius: 0.75rem;
-    border: 1px solid var(--border-color);
-    display: flex; align-items: center; justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-main);
-    transition: all 0.2s;
-}
-
-/* ════════ MODALS (FIXED) ════════ */
-
+/* 8. MODALS (FIXED Z-INDEX & BORDERS) */
 .modal-overlay {
-    position: fixed; inset: 0;
-    z-index: 100; /* Standartinis lygis */
-    background-color: rgba(0,0,0,0.9);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: flex-end; 
-    justify-content: center;
+    position: fixed; inset: 0; z-index: 100;
+    background-color: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+    display: flex; align-items: flex-end; justify-content: center;
 }
 @media (min-width: 640px) { .modal-overlay { align-items: center; padding: 1rem; } }
 
-/* SVARBU: Delete modalai turi būti viršuje, kad veiktų Cancel/Delete */
-#delete-modal, #delete-vehicle-modal {
-    z-index: 200 !important;
-}
+/* Delete modals higher */
+#delete-modal, #delete-vehicle-modal { z-index: 200 !important; }
 
 .modal-content {
     background-color: var(--card-bg);
-    width: 100%;
-    max-width: 28rem;
+    width: 100%; max-width: 28rem; padding: 1.5rem;
     border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;
-    border-top: 1px solid var(--border-color);
-    padding: 1.5rem;
-    padding-bottom: max(1.5rem, var(--safe-bottom));
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border-top: 1px solid var(--border-color); /* Soft border */
     color: var(--text-main);
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
 }
 @media (min-width: 640px) { .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); } }
 
-/* ════════ TAB SYSTEM (FIXED) ════════ */
-/* Priverčia tabus atsidaryti net jei yra hidden klasė */
-.tab-content {
-    display: none !important;
+/* 9. UTILS & BUTTONS */
+.header-btn {
+    width: 2rem; height: 2rem; border-radius: 0.5rem;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); transition: all 0.2s;
 }
-.tab-content.active {
-    display: block !important;
-    animation: slideUp 0.3s ease-out;
+.header-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.1); }
+
+.nav-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--text-muted); gap: 0.25rem;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    background: none; border: none; transition: color 0.2s;
 }
+.nav-item.active { color: var(--accent); }
+.nav-item i { font-size: 1.25rem; }
 
-/* ════════ ANIMATIONS & UTILS ════════ */
-
-@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-.animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-
-.no-scrollbar::-webkit-scrollbar { display: none; }
 .hidden { display: none !important; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* ════════ INTERACTIVE BUTTONS ════════ */
+/* 10. TYPOGRAPHY & LIGHT MODE OVERRIDES */
+.val-timer { font-size: 3rem; font-weight: 900; letter-spacing: -0.05em; color: var(--text-main); line-height: 1; }
+.val-lg { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+.label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
-.weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
-    transition: all 0.2s;
-    border: 1px solid var(--border-color);
-    background-color: rgba(255,255,255,0.05);
-    color: var(--text-main);
-}
-.weather-btn:active, .exp-btn:active, .inc-btn:active { transform: scale(0.95); }
-
-/* ACTIVE STATES */
-.inc-btn.active {
-    background-color: rgba(34,197,94,0.15) !important;
-    color: #22c55e !important;
-    border-color: #22c55e !important;
-}
-.exp-btn.active {
-    background-color: rgba(239,68,68,0.15) !important;
-    color: #ef4444 !important;
-    border-color: #ef4444 !important;
-}
-
-/* ════════ LIGHT MODE FIXES (CRITICAL) ════════ */
-
-/* Tai "permuša" Tailwind klases kai įjungta šviesi tema */
+/* Light Mode Specifics - minkšti atspalviai */
 :root.light .bg-gray-800 { background-color: var(--track-bg) !important; }
 :root.light .text-gray-100 { color: var(--text-main) !important; }
-:root.light #auth-screen { background-color: #f3f4f6; }
-:root.light .btn-bento { background-color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-:root.light .log-card { background-color: white; border-color: #e5e7eb; }
+:root.light .text-teal-400 { color: #0d9488 !important; } /* Tamsesnė teal ant balto */
 :root.light #rental-val, :root.light #grind-val { color: #111827 !important; }
 
-/* Checkbox fix */
-input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+/* Transaction Buttons */
+.weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
+    border: 1px solid var(--border-color);
+    background-color: rgba(255,255,255,0.03); color: var(--text-main);
+    transition: all 0.2s;
+}
+:root.light .weather-btn, :root.light .exp-btn, :root.light .inc-btn {
+    background-color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.inc-btn.active { border-color: #22c55e !important; color: #22c55e !important; background: rgba(34,197,94,0.1) !important; }
+.exp-btn.active { border-color: #ef4444 !important; color: #ef4444 !important; background: rgba(239,68,68,0.1) !important; }

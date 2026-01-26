@@ -11,13 +11,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Checkout code
+        uses: actions/checkout@v4 # Atnaujinta į v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4 # Atnaujinta į v4
         with:
-          node-version: '18'
-      - run: npm init -y && npm install -D tailwindcss
-      - run: npx tailwindcss -i ./style.css -o ./output.css --minify # Generuojame į root
-      - uses: actions/upload-pages-artifact@v1
+          node-version: '20' # 2026-aisiais naudojame stabilią v20 versiją
+
+      - name: Install Tailwind
+        run: npm init -y && npm install -D tailwindcss
+
+      - name: Build CSS
+        run: npx tailwindcss -i ./style.css -o ./output.css --minify
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3 # Atnaujinta į v3 (suvokiant v4 pakeitimus)
         with:
           path: .
 
@@ -26,8 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-    outputs:
-      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v1
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 # Atnaujinta į v4

@@ -1,36 +1,33 @@
 name: Deploy Robert OS v1.7.5
-
 on:
   push:
     branches: [ main ]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: '18'
-
-      - name: Init npm
-        run: npm init -y
-
-      - name: Install Tailwind CSS
-        run: npm install -D tailwindcss
-
-      - name: Create dist folder
-        run: mkdir -p dist
-
-      - name: Generate Output CSS
-        run: npx tailwindcss -i ./style.css -o ./dist/output.css --minify
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - run: npm init -y && npm install -D tailwindcss
+      - run: npx tailwindcss -i ./style.css -o ./output.css --minify # Generuojame į root
+      - uses: actions/upload-pages-artifact@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
+          path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v1

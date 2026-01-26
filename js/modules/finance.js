@@ -1,238 +1,323 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE v1.7.6
+// ROBERT OS - FINANCE MODULE v1.7.7 (ROBUST FIX)
 // ════════════════════════════════════════════════════════════════
 
+import { db } from '../db.js';
 import { state } from '../state.js';
-import { vibrate, showToast } from '../utils.js';
+import { showToast, vibrate } from '../utils.js';
 
-// ────────────────────────────────────────────────────────────────
-// THEME ENGINE
-// ────────────────────────────────────────────────────────────────
+/* ────────────────────────────────────────────────────────────────
+   INTERNAL STATE
+---------------------------------------------------------------- */
 
-let currentTheme = localStorage.getItem('theme') || 'auto';
+let txDraft = {
+    direction: 'in', // 'in' arba 'out'
+    category: 'tips'
+};
+let idsToDelete = [];
 
-export function applyTheme() {
-    const html = document.documentElement;
-    const themeBtn = document.getElementById('btn-theme');
-    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    
-    let isDark = false;
-    
-    if (currentTheme === 'dark') {
-        isDark = true;
-    } else if (currentTheme === 'light') {
-        isDark = false;
-    } else if (currentTheme === 'auto') {
-        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
+/* ────────────────────────────────────────────────────────────────
+   UI → CORE BRIDGE
+---------------------------------------------------------------- */
 
-    if (isDark) {
-        html.classList.add('dark');
-        if(metaThemeColor) metaThemeColor.setAttribute('content', '#000000');
-    } else {
-        html.classList.remove('dark');
-        if(metaThemeColor) metaThemeColor.setAttribute('content', '#f3f4f6');
-    }
-
-    if (themeBtn) {
-        let iconClass = 'fa-circle-half-stroke';
-        if (currentTheme === 'dark') iconClass = 'fa-moon';
-        if (currentTheme === 'light') iconClass = 'fa-sun';
-        themeBtn.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
-    }
-}
-
-export function cycleTheme() {
+export function openTxModal(direction) {
     vibrate();
-    
-    if (currentTheme === 'auto') currentTheme = 'dark';
-    else if (currentTheme === 'dark') currentTheme = 'light';
-    else currentTheme = 'auto';
-    
-    localStorage.setItem('theme', currentTheme);
-    applyTheme();
-    showToast(`Theme: ${currentTheme.toUpperCase()}`, 'info');
-}
+    txDraft.direction = direction;
+    // Nustatome default kategoriją pagal kryptį
+    txDraft.category = direction === 'in' ? 'tips' : 'fuel';
 
-// ────────────────────────────────────────────────────────────────
-// UI UPDATES
-// ────────────────────────────────────────────────────────────────
-
-export function updateUI(key) {
-    if (key === 'loading') {
-        const el = document.getElementById('loading');
-        if (el) el.classList.toggle('hidden', !state.loading);
+    updateTxModalUI(direction);
+    
+    const amountInput = document.getElementById('tx-amount');
+    if (amountInput) {
+        amountInput.value = '';
+        amountInput.focus(); // Fokusas į laukelį
     }
     
-    if (key === 'activeShift') {
-        updateShiftControls();
-    }
+    if (window.openModal) window.openModal('tx-modal');
 }
 
-// ────────────────────────────────────────────────────────────────
-// SHIFT CONTROLS
-// ────────────────────────────────────────────────────────────────
-
-function updateShiftControls() {
-    const hasShift = !!state.activeShift;
-    const isPaused = state.activeShift?.status === 'paused';
-    
-    const btnStart = document.getElementById('btn-start');
-    const activeControls = document.getElementById('active-controls');
-    const btnPause = document.getElementById('btn-pause');
-    
-    if (btnStart) btnStart.classList.toggle('hidden', hasShift);
-    if (activeControls) activeControls.classList.toggle('hidden', !hasShift);
-    
-    if (btnPause && hasShift) {
-        if (isPaused) {
-            btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
-            btnPause.classList.remove('bg-yellow-500/10', 'text-yellow-500', 'border-yellow-500/50');
-            btnPause.classList.add('bg-green-500/10', 'text-green-500', 'border-green-500/50');
-        } else {
-            btnPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
-            btnPause.classList.remove('bg-green-500/10', 'text-green-500', 'border-green-500/50');
-            btnPause.classList.add('bg-yellow-500/10', 'text-yellow-500', 'border-yellow-500/50');
-        }
-    }
-}
-
-// ────────────────────────────────────────────────────────────────
-// PROGRESS BARS
-// ────────────────────────────────────────────────────────────────
-
-export function updateGrindBar() {
-    // Legacy support
-}
-
-export function renderProgressBar(elementId, current, target, colors = {}) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-    
-    const percentage = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-    
-    el.style.width = `${percentage}%`;
-    el.classList.remove('bg-red-500', 'bg-yellow-500', 'bg-green-500');
-    
-    if (percentage < (colors.warning || 70)) {
-        el.classList.add('bg-red-500');
-    } else if (percentage < (colors.success || 90)) {
-        el.classList.add('bg-yellow-500');
-    } else {
-        el.classList.add('bg-green-500');
-    }
-}
-
-export function renderProgressText(elementId, text) {
-    const el = document.getElementById(elementId);
-    if (el) el.textContent = text;
-}
-
-// ────────────────────────────────────────────────────────────────
-// MODALS
-// ────────────────────────────────────────────────────────────────
-
-export function closeModals() {
+export function setTxCategory(category, el) {
     vibrate();
-    document.querySelectorAll('.modal-overlay').forEach(el => {
-        el.classList.add('hidden');
+    txDraft.category = category;
+    updateCategoryUI(category, el);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   UI UPDATERS
+---------------------------------------------------------------- */
+
+function updateTxModalUI(direction) {
+    const title = document.getElementById('tx-title');
+    const incomeTypes = document.getElementById('income-types');
+    const expenseTypes = document.getElementById('expense-types');
+    const fuelFields = document.getElementById('fuel-fields');
+
+    if (title) title.textContent = direction === 'in' ? 'PAJAMOS' : 'IŠLAIDOS';
+
+    if (incomeTypes) incomeTypes.classList.toggle('hidden', direction !== 'in');
+    if (expenseTypes) expenseTypes.classList.toggle('hidden', direction === 'in');
+
+    // Paslepiame kuro laukus atidarant
+    if (fuelFields) fuelFields.classList.add('hidden');
+    
+    // Vizualiai nuimame ryškius rėmelius ir active klases
+    document.querySelectorAll('.inc-btn, .exp-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.classList.remove('border-gray-800'); // Soft style fix
     });
 }
 
-export function openModal(modalId) {
-    vibrate();
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('hidden');
+function updateCategoryUI(category, el) {
+    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => btn.classList.remove('active'));
+    
+    if (el) {
+        el.classList.add('active');
+        el.classList.remove('border-gray-800');
+    }
+
+    const fuelFields = document.getElementById('fuel-fields');
+    if (fuelFields) {
+        if (category === 'fuel') fuelFields.classList.remove('hidden');
+        else fuelFields.classList.add('hidden');
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// TABS (PATAISYTA: Dabar prideda .active klasę animacijoms)
-// ────────────────────────────────────────────────────────────────
+/* ────────────────────────────────────────────────────────────────
+   CONFIRM TRANSACTION
+---------------------------------------------------------------- */
 
-export function switchTab(id) {
-    vibrate();
-    state.currentTab = id;
-    
-    // 1. Paslepiame VISUS tabus ir nuimame 'active' klasę
-    document.querySelectorAll('.tab-content').forEach(el => {
-        el.classList.add('hidden');
-        el.classList.remove('active'); // Svarbu CSS animacijai
-    });
-    
-    // 2. Surandame ir rodome naują tabą
-    const tab = document.getElementById(`tab-${id}`);
-    if (tab) {
-        tab.classList.remove('hidden');
-        // Mažas timeout užtikrina, kad animacija suveiktų
-        requestAnimationFrame(() => {
-            tab.classList.add('active');
-        });
+export async function confirmTx() {
+    vibrate([20]);
+
+    const amountEl = document.getElementById('tx-amount');
+    const amount = amountEl ? parseFloat(amountEl.value) : 0;
+
+    if (!amount || amount <= 0) {
+        return showToast('Įvesk sumą', 'error');
     }
-    
-    // 3. Atnaujiname navigaciją (ikonų spalvas)
-    document.querySelectorAll('.nav-item').forEach(el => {
-        el.classList.remove('active');
-    });
-    
-    const btn = document.getElementById(`btn-${id}`);
-    if (btn) {
-        btn.classList.add('active');
-    }
-    
-    // Jei atidarome Audit - atnaujiname duomenis
-    if (id === 'audit') {
-        window.dispatchEvent(new Event('refresh-data'));
-    }
-}
 
-// ────────────────────────────────────────────────────────────────
-// LAIKRODŽIAI
-// ────────────────────────────────────────────────────────────────
+    state.loading = true;
 
-let clockInterval = null;
-
-export function startClocks() {
-    stopClocks();
-    updateClocks();
-    clockInterval = setInterval(updateClocks, 1000);
-}
-
-export function stopClocks() {
-    if (clockInterval) {
-        clearInterval(clockInterval);
-        clockInterval = null;
-    }
-}
-
-function updateClocks() {
-    const settings = state.userSettings;
-    if (!settings) return;
-    
     try {
-        const primaryTZ = settings.timezone_primary || 'America/Chicago';
-        const secondaryTZ = settings.timezone_secondary || 'Europe/Vilnius';
-        
-        const primaryTime = new Date().toLocaleTimeString('en-US', {
-            timeZone: primaryTZ,
-            hour: '2-digit', minute: '2-digit', hour12: false
-        });
-        
-        const secondaryTime = new Date().toLocaleTimeString('en-US', {
-            timeZone: secondaryTZ,
-            hour: '2-digit', minute: '2-digit', hour12: false
-        });
-        
-        const primaryEl = document.getElementById('clock-primary');
-        const secondaryEl = document.getElementById('clock-secondary');
-        
-        if (primaryEl) primaryEl.textContent = primaryTime;
-        if (secondaryEl) secondaryEl.textContent = secondaryTime;
-        
-    } catch (error) {
-        // Ignoruojam timezone klaidas
+        let meta = {};
+        if (txDraft.category === 'fuel') {
+            const gal = document.getElementById('tx-gal').value;
+            const odo = document.getElementById('tx-odo').value;
+            if (gal) meta.gallons = parseFloat(gal);
+            if (odo) meta.odometer = parseInt(odo);
+        }
+
+        const payload = {
+            amount: amount,
+            category: txDraft.category,
+            meta: meta
+        };
+
+        if (txDraft.direction === 'in') {
+            await recordIncome(payload);
+        } else {
+            await recordExpense(payload);
+        }
+
+        if (window.closeModals) window.closeModals();
+        window.dispatchEvent(new Event('refresh-data'));
+
+    } catch (err) {
+        console.error('Finance Error:', err);
+        showToast('Klaida: ' + err.message, 'error');
+    } finally {
+        state.loading = false;
     }
 }
 
-export { showToast } from '../utils.js';
+/* ────────────────────────────────────────────────────────────────
+   CORE FINANCE OPERATIONS
+---------------------------------------------------------------- */
+
+async function recordIncome({ amount, category }) {
+    if (!state.user?.id) throw new Error('Vartotojas nerastas');
+
+    const payload = {
+        user_id: state.user.id,
+        shift_id: state.activeShift?.id ?? null,
+        vehicle_id: state.activeShift?.vehicle_id ?? null,
+        type: 'income',
+        category,
+        amount,
+        created_at: new Date().toISOString()
+    };
+
+    const { error } = await db.from('expenses').insert(payload);
+    if (error) throw error;
+
+    if (state.activeShift?.id) {
+        await updateShiftEarnings(amount);
+    }
+
+    showToast(`+$${amount.toFixed(2)}`, 'success');
+}
+
+async function recordExpense({ amount, category, meta }) {
+    if (!state.user?.id) throw new Error('Vartotojas nerastas');
+    if (!state.activeShift) throw new Error('Reikia aktyvios pamainos išlaidoms');
+
+    const payload = {
+        user_id: state.user.id,
+        shift_id: state.activeShift.id,
+        vehicle_id: state.activeShift.vehicle_id,
+        type: 'expense',
+        category,
+        amount,
+        ...meta,
+        created_at: new Date().toISOString()
+    };
+
+    const { error } = await db.from('expenses').insert(payload);
+    if (error) throw error;
+
+    showToast(`-$${amount.toFixed(2)}`, 'info');
+}
+
+async function updateShiftEarnings(delta) {
+    const { data, error } = await db
+        .from('finance_shifts')
+        .select('gross_earnings')
+        .eq('id', state.activeShift.id)
+        .single();
+
+    if (!error && data) {
+        const next = (data.gross_earnings || 0) + delta;
+        await db.from('finance_shifts').update({ gross_earnings: next }).eq('id', state.activeShift.id);
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   AUDIT & DELETE (FIXED LOADING)
+---------------------------------------------------------------- */
+
+export async function refreshAudit() {
+    const listEl = document.getElementById('audit-list');
+    
+    // Jei nėra userio, stabdom
+    if (!state.user?.id) {
+        if (listEl) listEl.innerHTML = '<div class="py-10 text-center opacity-50">Prisijunkite...</div>';
+        return;
+    }
+
+    try {
+        const { data, error } = await db
+            .from('finance_shifts')
+            .select('*')
+            .eq('user_id', state.user.id)
+            .order('start_time', { ascending: false })
+            .limit(50);
+
+        if (error) throw error;
+        renderAuditList(data);
+
+    } catch (e) { 
+        console.error('Audit Load Error:', e);
+        if (listEl) listEl.innerHTML = `<div class="py-10 text-center text-red-500">Klaida kraunant duomenis</div>`;
+    }
+}
+
+function renderAuditList(shifts) {
+    const listEl = document.getElementById('audit-list');
+    if (!listEl) return;
+    
+    // Reset Checkbox
+    const master = document.getElementById('select-all-logs');
+    if (master) master.checked = false;
+    updateDeleteButtonLocal();
+
+    if (!shifts || shifts.length === 0) {
+        listEl.innerHTML = `<div class="py-10 text-center opacity-50 text-sm">Nėra istorijos</div>`;
+        return;
+    }
+
+    listEl.innerHTML = shifts.map(shift => {
+        const start = new Date(shift.start_time);
+        const date = start.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
+        const time = start.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+        const earn = shift.gross_earnings || 0;
+        const statusClass = shift.status === 'completed' ? 'text-gray-400' : 'text-teal-500 animate-pulse';
+
+        return `
+        <div class="log-card flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/5 mb-2">
+            <div class="flex gap-4 items-center">
+                <input type="checkbox" class="log-checkbox w-5 h-5 rounded bg-gray-800 border-gray-600 text-teal-500 focus:ring-0" value="${shift.id}">
+                <div>
+                    <div class="text-xs opacity-50">${date}</div>
+                    <div class="text-sm font-bold ${statusClass}">${time}</div>
+                </div>
+            </div>
+            <div class="font-mono font-bold text-green-500">+$${earn.toFixed(2)}</div>
+        </div>`;
+    }).join('');
+
+    // Re-attach event listeners for checkboxes manually
+    document.querySelectorAll('.log-checkbox').forEach(box => {
+        box.addEventListener('change', updateDeleteButtonLocal);
+    });
+}
+
+function updateDeleteButtonLocal() {
+    const checked = document.querySelectorAll('.log-checkbox:checked');
+    const btn = document.getElementById('btn-delete-logs');
+    const count = document.getElementById('delete-count');
+    
+    if (btn && count) {
+        count.textContent = checked.length;
+        if (checked.length > 0) btn.classList.remove('hidden');
+        else btn.classList.add('hidden');
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   WINDOW BINDINGS (AUTO-FIX)
+   Tai užtikrina, kad mygtukai veiktų net jei app.js nespėja
+---------------------------------------------------------------- */
+
+window.openTxModal = openTxModal;
+window.setExpType = setTxCategory; // HTML naudoja setExpType
+window.confirmTx = confirmTx;
+
+window.toggleSelectAll = () => {
+    const master = document.getElementById('select-all-logs');
+    document.querySelectorAll('.log-checkbox').forEach(b => {
+        b.checked = master.checked;
+    });
+    updateDeleteButtonLocal();
+};
+
+window.requestDelete = () => {
+    vibrate();
+    idsToDelete = Array.from(document.querySelectorAll('.log-checkbox:checked')).map(el => el.value);
+    if (idsToDelete.length === 0) return;
+    document.getElementById('del-modal-count').textContent = idsToDelete.length;
+    if (window.openModal) window.openModal('delete-modal');
+};
+
+window.confirmDelete = async () => {
+    vibrate([20]);
+    if (idsToDelete.length === 0) return;
+    state.loading = true;
+    try {
+        await db.from('expenses').delete().in('shift_id', idsToDelete);
+        await db.from('finance_shifts').delete().in('id', idsToDelete);
+        showToast(`${idsToDelete.length} įrašai ištrinti`, 'success');
+        idsToDelete = [];
+        if (window.closeModals) window.closeModals();
+        refreshAudit();
+        window.dispatchEvent(new Event('refresh-data'));
+    } catch (e) {
+        showToast('Klaida trinant', 'error');
+    } finally {
+        state.loading = false;
+    }
+};
+
+window.exportAI = () => {
+    showToast('AI Export: Coming Soon', 'info');
+};

@@ -170,6 +170,7 @@ window.closeModals = UI.closeModals;
 
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
+window.editVehicle = Garage.editVehicle; // <--- NAUJA
 window.deleteVehicle = Garage.deleteVehicle;
 window.confirmDeleteVehicle = Garage.confirmDeleteVehicle; 
 window.cancelDeleteVehicle = Garage.cancelDeleteVehicle; 

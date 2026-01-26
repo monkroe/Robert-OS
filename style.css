@@ -1,19 +1,18 @@
-// ════════════════════════════════════════════════════════════════
-// ROBERT OS - STYLE. CSS v1.9 (FINAL)
-// Features: Auto Theme + Layout Fixes + Smooth Animations + Auto Dark/Light
-// System Orchestrator - Delegates to Specialized Modules
-// ════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════ */
+/* ROBERT OS v1.7.5 - ORIGINAL DESIGN + FIXES                       */
+/* Restored: Big Icons, Large Footer, Original Colors               */
+/* Fixed: Tabs, Modals, Light Mode Background                       */
+/* ════════════════════════════════════════════════════════════════ */
 
-/* 1. THEME VARIABLES */
+/* 1. KINTAMIEJI (THEME VARIABLES) */
 :root {
     /* DARK MODE (DEFAULT) */
-    --bg-main: #000000;
-    --bg-card: #111111;
-    --bg-header: rgba(0, 0, 0, 0.9);
+    --bg-color: #000000;
+    --card-bg: #111111;
+    --accent: #14b8a6;
     --text-main: #ffffff;
     --text-muted: #9ca3af;
-    --border-color: rgba(255, 255, 255, 0.15); /* Ryškesnis rėmelis */
-    --accent: #14b8a6;
+    --border-color: rgba(255,255,255,0.1);
     --input-bg: #111827;
     --track-bg: #1f2937;
     
@@ -21,206 +20,127 @@
     --safe-bottom: env(safe-area-inset-bottom);
 }
 
-/* LIGHT MODE */
+/* LIGHT MODE (Aktyvuojama su .light klase) */
 :root.light {
-    --bg-main: #f3f4f6;
-    --bg-card: #ffffff;
-    --bg-header: rgba(255, 255, 255, 0.95);
+    --bg-color: #f3f4f6;
+    --card-bg: #ffffff;
     --text-main: #111827;
-    --text-muted: #4b5563; /* Tamsesnis pilkas tekstas */
-    --border-color: rgba(0, 0, 0, 0.1);
+    --text-muted: #6b7280;
+    --border-color: rgba(0,0,0,0.1);
     --input-bg: #ffffff;
     --track-bg: #e5e7eb;
 }
 
-/* 2. BASE RESET */
-*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* 2. BAZINIAI NUSTATYMAI */
 body {
-    background-color: var(--bg-main);
+    background-color: var(--bg-color);
     color: var(--text-main);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    margin: 0; height: 100vh; overflow: hidden;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* 3. LAYOUT (HEADER & NAV - RESTORED SIZES) */
+/* ════════ SAFE AREA & LAYOUT (ORIGINAL SIZES) ════════ */
+
 .global-header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-    background-color: var(--bg-header);
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 50;
+    background-color: rgba(0,0,0,0.9); /* Originalus tamsus stiklas */
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
-    padding: max(1rem, var(--safe-top)) 1rem 0;
-    height: calc(4rem + var(--safe-top)); /* Šiek tiek aukštesnis headeris */
-    display: flex; align-items: center; justify-content: space-between;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: max(1rem, var(--safe-top)); 
+    height: calc(3.5rem + var(--safe-top));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Light mode header fix */
+:root.light .global-header { background-color: rgba(255,255,255,0.9); }
+
+.container {
+    padding-top: calc(4.5rem + var(--safe-top)); 
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 6rem; /* Kad turinys nelįstų po footeriu */
 }
 
 .bottom-nav {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
-    background-color: var(--bg-header);
-    backdrop-filter: blur(12px);
-    border-top: 1px solid var(--border-color);
-    display: grid; grid-template-columns: repeat(5, 1fr);
-    /* GRĄŽINTAS DYDIS */
-    padding-bottom: max(1rem, var(--safe-bottom)); 
-    height: calc(5rem + var(--safe-bottom)); 
-}
-
-.container {
-    padding-top: calc(5rem + var(--safe-top)); 
-    padding-bottom: calc(6rem + var(--safe-bottom));
-    padding-left: 1rem; padding-right: 1rem;
-    height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; 
-}
-
-/* 4. BUTTONS & NAV ITEMS (BIGGER ICONS) */
-.header-btn {
-    width: 2.5rem; height: 2.5rem; /* Didesni mygtukai viršuje */
-    border-radius: 0.75rem;
-    display: flex; align-items: center; justify-content: center;
-    border: 1px solid var(--border-color);
-    background: rgba(255,255,255,0.05);
-    color: var(--text-muted);
-    font-size: 1.1rem; /* Didesnė ikona */
-}
-:root.light .header-btn { background: white; }
-
-.nav-item {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    color: var(--text-muted);
-    background: none; border: none;
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-    gap: 6px;
-    transition: all 0.2s;
-}
-/* GRĄŽINTOS DIDELĖS IKONOS */
-.nav-item i { font-size: 1.5rem; margin-bottom: 2px; } 
-.nav-item.active { color: var(--accent); transform: translateY(-2px); }
-
-/* 5. CARDS & GRID */
-.bento-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.bento-card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 1.25rem; /* Apvalesni kampai */
-    padding: 1.25rem;
-    position: relative;
-    display: flex; flex-direction: column;
-    color: var(--text-main);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-.bento-card.clickable:active { transform: scale(0.98); }
-
-.btn-primary-os {
-    width: 100%; background-color: var(--accent); color: #000;
-    font-weight: 900; text-transform: uppercase; border-radius: 0.75rem;
-    padding: 1rem; border: none; box-shadow: 0 4px 15px rgba(20, 184, 166, 0.3);
-}
-.btn-primary-os:active { transform: scale(0.97); }
-
-/* 6. MODALS (FIXED Z-INDEX & CANCEL) */
-.modal-overlay {
-    position: fixed; inset: 0; 
-    z-index: 100; /* Bazinis lygis */
-    background-color: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
-    display: flex; align-items: flex-end; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity 0.2s;
-}
-.modal-overlay:not(.hidden) { opacity: 1; pointer-events: auto; }
-
-/* SVARBU: Delete modalai turi būti aukščiau už kitus */
-#delete-modal, #delete-vehicle-modal { z-index: 110 !important; }
-
-.modal-content {
-    background-color: var(--bg-card);
-    width: 100%; max-width: 28rem; padding: 1.5rem;
-    border-top-left-radius: 1.75rem; border-top-right-radius: 1.75rem;
-    border-top: 1px solid var(--border-color);
-    color: var(--text-main);
-    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
-}
-.modal-overlay:not(.hidden) .modal-content { transform: translateY(0); }
-
-@media (min-width: 640px) {
-    .modal-overlay { align-items: center; }
-    .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); transform: scale(0.95); opacity: 0; }
-    .modal-overlay:not(.hidden) .modal-content { transform: scale(1); opacity: 1; }
-}
-
-/* 7. UTILS */
-.hidden { display: none !important; }
-.tab-content { display: none !important; opacity: 0; transition: opacity 0.2s; }
-.tab-content.active { display: block !important; opacity: 1; animation: slideUp 0.3s; }
-
-.input-field {
-    width: 100%; background-color: var(--input-bg);
-    border: 1px solid var(--border-color); border-radius: 0.75rem;
-    padding: 1rem; color: var(--text-main); outline: none;
-}
-
-/* Light Mode Overrides */
-.bg-gray-800 { background-color: var(--track-bg) !important; }
-.text-gray-100 { color: var(--text-main) !important; }
-.text-red-400 { color: #ef4444 !important; }
-.text-teal-400 { color: #14b8a6 !important; }
-.text-green-400 { color: #22c55e !important; }
-
-.val-timer { font-size: 3rem; font-weight: 900; color: var(--text-main); }
-.val-lg { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
-.label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
-
-/* Auth Screen */
-#auth-screen { background-color: var(--bg-main); z-index: 500; }
-#auth-screen .input-field { background-color: var(--input-bg); color: var(--text-main); }
-
-@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.animate-slideUp { animation: slideUp 0.3s; }
-
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background-color: rgba(0,0,0,0.9);
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border-color);
     z-index: 50;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     padding-bottom: max(1rem, var(--safe-bottom)); 
-    height: calc(4rem + var(--safe-bottom));
+    height: calc(4rem + var(--safe-bottom)); /* Tavo mėgstamas aukštis */
+}
+:root.light .bottom-nav { background-color: rgba(255,255,255,0.9); }
+
+/* ════════ UI COMPONENTS ════════ */
+
+.input-field {
+    width: 100%;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    color: var(--text-main); 
+    font-family: monospace;
+    outline: none;
+    transition: all 0.2s;
+}
+.input-field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
 }
 
-.container {
-    padding-top: calc(4.5rem + var(--safe-top)); 
-    padding-bottom: calc(5rem + var(--safe-bottom));
-    padding-left: 1rem;
-    padding-right: 1rem;
-    height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch; 
+.btn-primary-os {
+    width: 100%;
+    background-color: var(--accent);
+    color: black;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    transition: all 0.2s;
+    box-shadow: 0 0 15px rgba(20,184,166,0.3);
 }
+.btn-primary-os:active { transform: scale(0.98); }
 
-/* ────────────────────────────────────────────────────────────────
-   4. TABS & CONTENT
-──────────────────────────────────────────────────────────────── */
-.tab-content {
-    display: none !important;
-    opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+.header-btn {
+    width: 2rem; height: 2rem;
+    border-radius: 0.5rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    color: var(--text-muted);
 }
+.header-btn:hover { color: var(--text-main); transform: scale(1.05); }
+.header-btn:active { transform: scale(0.95); }
 
-.tab-content.active {
-    display: block !important;
-    opacity: 1;
-    transform: translateY(0);
-    animation: tabEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+.nav-item {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--text-muted); 
+    gap: 0.25rem;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: none; border: none;
+    transition: color 0.2s;
 }
+.nav-item.active { color: var(--accent); }
+.nav-item i { font-size: 1.125rem; } /* Tavo mėgstamas dydis */
 
-@keyframes tabEnter {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+/* ════════ BENTO GRID ════════ */
 
-/* ────────────────────────────────────────────────────────────────
-   5. COMPONENTS (Cards & Buttons)
-──────────────────────────────────────────────────────────────── */
 .bento-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -228,191 +148,137 @@ body {
 }
 
 .bento-card {
-    background-color: var(--bg-card);
+    background-color: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 1rem;
-    padding: 1rem;
     display: flex; flex-direction: column;
-    color: var(--text-main);
-    box-shadow: var(--shadow-soft);
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), 
-                background-color 0.3s, 
-                border-color 0.3s,
-                box-shadow 0.3s;
-}
-
-.bento-card.clickable:active { 
-    transform: scale(0.96); 
-    filter: brightness(0.95);
-}
-
-.btn-primary-os {
-    width: 100%;
-    background-color: var(--accent);
-    color: #000;
-    font-weight: 900;
-    text-transform: uppercase;
-    border-radius: 0.75rem;
     padding: 1rem;
-    border: none;
-    box-shadow: 0 4px 15px rgba(20, 184, 166, 0.3);
-    transition: transform 0.15s ease, box-shadow 0.3s ease;
+    position: relative;
+    transition: all 0.2s;
+    color: var(--text-main);
 }
-.btn-primary-os:active { 
-    transform: scale(0.97); 
-    box-shadow: 0 2px 8px rgba(20, 184, 166, 0.2);
+.bento-card.clickable:active {
+    background-color: rgba(255,255,255,0.05);
 }
 
-/* Header & Nav Buttons */
-.header-btn {
-    width: 2.2rem; height: 2.2rem;
-    border-radius: 0.6rem;
+.val-timer { 
+    font-size: 3rem; 
+    line-height: 1; 
+    font-weight: 900; 
+    letter-spacing: -0.05em; 
+    font-feature-settings: "tnum"; 
+    color: var(--text-main); 
+    text-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+:root.light .val-timer { text-shadow: none; }
+
+.val-lg { 
+    font-size: 1.5rem; 
+    line-height: 2rem; 
+    font-weight: 700; 
+    color: var(--text-main);
+}
+
+.label-xs { 
+    font-size: 10px; 
+    font-weight: 700; 
+    color: var(--text-muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.05em; 
+}
+
+.btn-bento {
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
     display: flex; align-items: center; justify-content: center;
-    border: 1px solid var(--border-color);
-    background: transparent;
-    color: var(--text-muted);
-    transition: all 0.2s ease;
-}
-.header-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
-.header-btn:active { transform: scale(0.9); }
-
-.nav-item {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    color: var(--text-muted);
-    background: none; border: none;
-    font-size: 10px; font-weight: 700; text-transform: uppercase;
-    gap: 4px;
-    transition: color 0.3s ease, transform 0.2s;
-}
-.nav-item.active { 
-    color: var(--accent); 
-    transform: translateY(-2px);
-}
-.nav-item:active { transform: scale(0.9); }
-
-/* Form Elements */
-.input-field {
-    width: 100%;
-    background-color: var(--input-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    color: var(--text-main);
-    outline: none;
-    font-family: monospace;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-.input-field:focus { 
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2); 
-}
-
-/* ────────────────────────────────────────────────────────────────
-   6. INTERACTIVE & FX
-──────────────────────────────────────────────────────────────── */
-.weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-card);
+    gap: 0.5rem;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
     color: var(--text-main);
     transition: all 0.2s;
 }
-.weather-btn:active, .exp-btn:active, .inc-btn:active { transform: scale(0.95); }
 
-.inc-btn.active { 
-    border-color: #22c55e; 
-    color: #22c55e; 
-    background: rgba(34,197,94,0.1); 
-    box-shadow: 0 0 10px rgba(34,197,94,0.2);
-}
-.exp-btn.active { 
-    border-color: #ef4444; 
-    color: #ef4444; 
-    background: rgba(239,68,68,0.1);
-    box-shadow: 0 0 10px rgba(239,68,68,0.2);
-}
+/* ════════ MODALS (FIXED) ════════ */
 
-.log-card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    margin-bottom: 0.5rem;
-    display: flex; justify-content: space-between; align-items: center;
-    color: var(--text-main);
-    animation: fadeIn 0.3s ease forwards;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* ────────────────────────────────────────────────────────────────
-   7. MODALS
-──────────────────────────────────────────────────────────────── */
 .modal-overlay {
-    position: fixed; inset: 0; z-index: 100;
-    background-color: rgba(0,0,0,0.8);
-    backdrop-filter: blur(8px);
-    display: flex; align-items: flex-end; justify-content: center;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.2s ease;
+    position: fixed; inset: 0;
+    z-index: 100; /* Standartinis lygis */
+    background-color: rgba(0,0,0,0.9);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: flex-end; 
+    justify-content: center;
 }
-.modal-overlay:not(.hidden) {
-    opacity: 1; pointer-events: auto;
+@media (min-width: 640px) { .modal-overlay { align-items: center; padding: 1rem; } }
+
+/* SVARBU: Delete modalai turi būti viršuje, kad veiktų Cancel/Delete */
+#delete-modal, #delete-vehicle-modal {
+    z-index: 200 !important;
 }
 
 .modal-content {
-    background-color: var(--bg-card);
-    width: 100%; max-width: 28rem;
-    padding: 1.5rem;
+    background-color: var(--card-bg);
+    width: 100%;
+    max-width: 28rem;
     border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;
     border-top: 1px solid var(--border-color);
+    padding: 1.5rem;
+    padding-bottom: max(1.5rem, var(--safe-bottom));
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     color: var(--text-main);
-    transform: translateY(100%);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.modal-overlay:not(.hidden) .modal-content {
-    transform: translateY(0);
-}
+@media (min-width: 640px) { .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); } }
 
-@media (min-width: 640px) {
-    .modal-overlay { align-items: center; }
-    .modal-content { 
-        border-radius: 1.5rem; 
-        border: 1px solid var(--border-color);
-        transform: scale(0.95);
-        opacity: 0;
-    }
-    .modal-overlay:not(.hidden) .modal-content {
-        transform: scale(1);
-        opacity: 1;
-    }
+/* ════════ TAB SYSTEM (FIXED) ════════ */
+/* Priverčia tabus atsidaryti net jei yra hidden klasė */
+.tab-content {
+    display: none !important;
+}
+.tab-content.active {
+    display: block !important;
+    animation: slideUp 0.3s ease-out;
 }
 
-/* ────────────────────────────────────────────────────────────────
-   8. UTILS & TYPOGRAPHY
-──────────────────────────────────────────────────────────────── */
-.val-timer { font-size: 3rem; font-weight: 900; letter-spacing: -0.05em; color: var(--text-main); line-height: 1; }
-.val-lg { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
-.label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+/* ════════ ANIMATIONS & UTILS ════════ */
 
-.bg-gray-800 { background-color: var(--track-bg) !important; transition: background-color 0.4s; }
-.text-gray-100 { color: var(--text-main) !important; }
-.text-red-400 { color: #f87171 !important; }
-.text-teal-400 { color: var(--accent) !important; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 
-@keyframes pulse-soft {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-}
-.animate-pulse { animation: pulse-soft 2s infinite; }
-
-#auth-screen { background-color: var(--bg-main); z-index: 500; }
-.hidden { display: none !important; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+.hidden { display: none !important; }
 
-/* ────────────────────────────────────────────────────────────────
-   9. AUTO THEME SCRIPT (USAGE IN app.js)
-──────────────────────────────────────────────────────────────── */
+/* ════════ INTERACTIVE BUTTONS ════════ */
+
+.weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
+    transition: all 0.2s;
+    border: 1px solid var(--border-color);
+    background-color: rgba(255,255,255,0.05);
+    color: var(--text-main);
+}
+.weather-btn:active, .exp-btn:active, .inc-btn:active { transform: scale(0.95); }
+
+/* ACTIVE STATES */
+.inc-btn.active {
+    background-color: rgba(34,197,94,0.15) !important;
+    color: #22c55e !important;
+    border-color: #22c55e !important;
+}
+.exp-btn.active {
+    background-color: rgba(239,68,68,0.15) !important;
+    color: #ef4444 !important;
+    border-color: #ef4444 !important;
+}
+
+/* ════════ LIGHT MODE FIXES (CRITICAL) ════════ */
+
+/* Tai "permuša" Tailwind klases kai įjungta šviesi tema */
+:root.light .bg-gray-800 { background-color: var(--track-bg) !important; }
+:root.light .text-gray-100 { color: var(--text-main) !important; }
+:root.light #auth-screen { background-color: #f3f4f6; }
+:root.light .btn-bento { background-color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+:root.light .log-card { background-color: white; border-color: #e5e7eb; }
+:root.light #rental-val, :root.light #grind-val { color: #111827 !important; }
+
+/* Checkbox fix */
+input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }

@@ -1,9 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE
-// Versija: 1.2
-// 
-// ATSAKOMYBĖ: UI atvaizdavimas ir vartotojo sąsaja
-// Temos, modalai, tab'ai, progress bars (tik rendering, ne logika)
+// ROBERT OS - UI MODULE v1.7.6
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
@@ -32,10 +28,10 @@ export function applyTheme() {
 
     if (isDark) {
         html.classList.add('dark');
-        metaThemeColor?.setAttribute('content', '#000000');
+        if(metaThemeColor) metaThemeColor.setAttribute('content', '#000000');
     } else {
         html.classList.remove('dark');
-        metaThemeColor?.setAttribute('content', '#f3f4f6');
+        if(metaThemeColor) metaThemeColor.setAttribute('content', '#f3f4f6');
     }
 
     if (themeBtn) {
@@ -59,7 +55,7 @@ export function cycleTheme() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// UI UPDATES (Reaguoja į state pasikeitimus)
+// UI UPDATES
 // ────────────────────────────────────────────────────────────────
 
 export function updateUI(key) {
@@ -74,7 +70,7 @@ export function updateUI(key) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT CONTROLS (Start/Pause/End mygtukai)
+// SHIFT CONTROLS
 // ────────────────────────────────────────────────────────────────
 
 function updateShiftControls() {
@@ -85,11 +81,9 @@ function updateShiftControls() {
     const activeControls = document.getElementById('active-controls');
     const btnPause = document.getElementById('btn-pause');
     
-    // Rodyti/slėpti mygtukus
     if (btnStart) btnStart.classList.toggle('hidden', hasShift);
     if (activeControls) activeControls.classList.toggle('hidden', !hasShift);
     
-    // Pause mygtuko tekstas
     if (btnPause && hasShift) {
         if (isPaused) {
             btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
@@ -104,17 +98,12 @@ function updateShiftControls() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// PROGRESS BARS (Tik vizualizacija, skaičiavimus daro Costs)
+// PROGRESS BARS
 // ────────────────────────────────────────────────────────────────
 
 export function updateGrindBar() {
-    // Legacy funkcija - dabar app.js valdo progress bars
-    // Paliekame tuščią suderinamumui
+    // Legacy support
 }
-
-// ────────────────────────────────────────────────────────────────
-// PROGRESS BAR HELPERS (Naudojami iš app.js)
-// ────────────────────────────────────────────────────────────────
 
 export function renderProgressBar(elementId, current, target, colors = {}) {
     const el = document.getElementById(elementId);
@@ -122,10 +111,7 @@ export function renderProgressBar(elementId, current, target, colors = {}) {
     
     const percentage = target > 0 ? Math.min((current / target) * 100, 100) : 0;
     
-    // Nustatyti plotį
     el.style.width = `${percentage}%`;
-    
-    // Nustatyti spalvą
     el.classList.remove('bg-red-500', 'bg-yellow-500', 'bg-green-500');
     
     if (percentage < (colors.warning || 70)) {
@@ -135,12 +121,6 @@ export function renderProgressBar(elementId, current, target, colors = {}) {
     } else {
         el.classList.add('bg-green-500');
     }
-    
-    // Glow effect jei 100%
-    const glowEl = el.querySelector('.glow');
-    if (glowEl) {
-        glowEl.classList.toggle('hidden', percentage < 100);
-    }
 }
 
 export function renderProgressText(elementId, text) {
@@ -149,7 +129,7 @@ export function renderProgressText(elementId, text) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// MODALS (Atidarymas/Uždarymas)
+// MODALS
 // ────────────────────────────────────────────────────────────────
 
 export function closeModals() {
@@ -168,27 +148,30 @@ export function openModal(modalId) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// TABS (Navigacija tarp Cockpit/Audit/Runway/Vault/Future)
+// TABS (PATAISYTA: Dabar prideda .active klasę animacijoms)
 // ────────────────────────────────────────────────────────────────
 
 export function switchTab(id) {
     vibrate();
-    
-    // Atnaujinti state
     state.currentTab = id;
     
-    // Slėpti visus tabs
+    // 1. Paslepiame VISUS tabus ir nuimame 'active' klasę
     document.querySelectorAll('.tab-content').forEach(el => {
         el.classList.add('hidden');
+        el.classList.remove('active'); // Svarbu CSS animacijai
     });
     
-    // Rodyti pasirinktą
+    // 2. Surandame ir rodome naują tabą
     const tab = document.getElementById(`tab-${id}`);
     if (tab) {
         tab.classList.remove('hidden');
+        // Mažas timeout užtikrina, kad animacija suveiktų
+        requestAnimationFrame(() => {
+            tab.classList.add('active');
+        });
     }
     
-    // Atnaujinti navigation mygtukus
+    // 3. Atnaujiname navigaciją (ikonų spalvas)
     document.querySelectorAll('.nav-item').forEach(el => {
         el.classList.remove('active');
     });
@@ -198,23 +181,22 @@ export function switchTab(id) {
         btn.classList.add('active');
     }
     
-    // Jei perjungiame į Audit - atnaujinti istoriją
+    // Jei atidarome Audit - atnaujiname duomenis
     if (id === 'audit') {
         window.dispatchEvent(new Event('refresh-data'));
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// LAIKRODŽIAI (CST/LT)
+// LAIKRODŽIAI
 // ────────────────────────────────────────────────────────────────
 
 let clockInterval = null;
 
 export function startClocks() {
-    stopClocks(); // Išvalyti seną interval
-    
-    updateClocks(); // Pirmas update iškart
-    clockInterval = setInterval(updateClocks, 1000); // Kas sekundę
+    stopClocks();
+    updateClocks();
+    clockInterval = setInterval(updateClocks, 1000);
 }
 
 export function stopClocks() {
@@ -234,111 +216,23 @@ function updateClocks() {
         
         const primaryTime = new Date().toLocaleTimeString('en-US', {
             timeZone: primaryTZ,
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
+            hour: '2-digit', minute: '2-digit', hour12: false
         });
         
         const secondaryTime = new Date().toLocaleTimeString('en-US', {
             timeZone: secondaryTZ,
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
+            hour: '2-digit', minute: '2-digit', hour12: false
         });
         
-        // Atnaujinti DOM (jei elementai egzistuoja)
         const primaryEl = document.getElementById('clock-primary');
         const secondaryEl = document.getElementById('clock-secondary');
         
         if (primaryEl) primaryEl.textContent = primaryTime;
-        if (secondaryEl) secondaryEl.textContent = secondaryTime; // ✅ PATAISYTA
+        if (secondaryEl) secondaryEl.textContent = secondaryTime;
         
     } catch (error) {
-        // Timezone klaida - ignoruojame
-        console.warn('Clock update failed:', error);
+        // Ignoruojam timezone klaidas
     }
 }
-
-// ────────────────────────────────────────────────────────────────
-// TOAST NOTIFICATIONS (Wrapper)
-// ────────────────────────────────────────────────────────────────
 
 export { showToast } from '../utils.js';
-
-// ────────────────────────────────────────────────────────────────
-// ANIMATIONS (Scroll, Fade, etc.)
-// ────────────────────────────────────────────────────────────────
-
-export function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-export function fadeIn(element, duration = 300) {
-    if (!element) return;
-    
-    element.style.opacity = '0';
-    element.style.display = 'block';
-    
-    let start = null;
-    
-    function animate(timestamp) {
-        if (!start) start = timestamp;
-        const progress = timestamp - start;
-        const opacity = Math.min(progress / duration, 1);
-        
-        element.style.opacity = opacity;
-        
-        if (progress < duration) {
-            requestAnimationFrame(animate);
-        }
-    }
-    
-    requestAnimationFrame(animate);
-}
-
-export function fadeOut(element, duration = 300) {
-    if (!element) return;
-    
-    let start = null;
-    const initialOpacity = parseFloat(element.style.opacity) || 1;
-    
-    function animate(timestamp) {
-        if (!start) start = timestamp;
-        const progress = timestamp - start;
-        const opacity = Math.max(initialOpacity - (progress / duration), 0);
-        
-        element.style.opacity = opacity;
-        
-        if (progress < duration) {
-            requestAnimationFrame(animate);
-        } else {
-            element.style.display = 'none';
-        }
-    }
-    
-    requestAnimationFrame(animate);
-}
-
-// ────────────────────────────────────────────────────────────────
-// UTILITY FUNCTIONS
-// ────────────────────────────────────────────────────────────────
-
-export function formatCurrency(amount, decimals = 0) {
-    return `$${Math.round(amount * Math.pow(10, decimals)) / Math.pow(10, decimals)}`;
-}
-
-export function formatTime(seconds) {
-    const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
-    const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
-    const s = String(seconds % 60).padStart(2, '0');
-    return `${h}:${m}:${s}`;
-}
-
-export function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-    });
-}

@@ -1,155 +1,108 @@
-/* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS v1.7 - STYLE ENGINE (HYBRID FIX)                       */
-/* ════════════════════════════════════════════════════════════════ */
+// ════════════════════════════════════════════════════════════════
+// ROBERT OS - STYLE.CSS v1.7.2 (FINAL)
+// Auto Theme Engine (Day / Night via OS)
+// Logic: prefers-color-scheme → automatic background switch
+// No JS. No hacks. Stable.
+// ════════════════════════════════════════════════════════════════
 
-/* 1. THEME VARIABLES */
+──────────────────────────────────────
+   1. THEME VARIABLES (AUTO SWITCHING)
+──────────────────────────────────────────────────────────────── */
+
+/* DIENOS REŽIMAS (DEFAULT) */
 :root {
-    /* DARK MODE (DEFAULT) */
-    --bg-color: #000000;
-    --card-bg: #111111;
-    --text-main: #ffffff;
-    --text-muted: #9ca3af;
-    --border-color: rgba(255,255,255,0.1);
-    --input-bg: #111827;
-    --track-bg: #1f2937; /* Atitinka bg-gray-800 */
+    --bg-main: #f3f4f6;
+    --bg-card: #ffffff;
+    --bg-header: rgba(255, 255, 255, 0.9);
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --border-color: rgba(0, 0, 0, 0.08);
+    --accent: #14b8a6; /* Teal */
+    --input-bg: #ffffff;
+    --track-bg: #e5e7eb;
     
-    --accent: #14b8a6;
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
 }
 
-/* LIGHT MODE OVERRIDES */
-:root:not(.dark) {
-    --bg-color: #f3f4f6;       /* Šviesiai pilkas fonas */
-    --card-bg: #ffffff;        /* Baltos kortelės */
-    --text-main: #111827;      /* Tamsiai pilkas tekstas */
-    --text-muted: #6b7280;
-    --border-color: rgba(0,0,0,0.1);
-    --input-bg: #ffffff;
-    --track-bg: #e5e7eb;       /* Šviesus takelis progress barui */
+/* NAKTIES REŽIMAS (AUTO VIA OS) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-main: #000000;
+        --bg-card: #111111;
+        --bg-header: rgba(0, 0, 0, 0.9);
+        --text-main: #ffffff;
+        --text-muted: #9ca3af;
+        --border-color: rgba(255, 255, 255, 0.1);
+        --accent: #14b8a6;
+        --input-bg: #111827;
+        --track-bg: #1f2937;
+    }
 }
 
-/* 2. BASE STYLES */
-body {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    overscroll-behavior-y: none;
+/* ────────────────────────────────────────────────────────────────
+   2. BASE & RESET
+──────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* ════════ SAFE AREA & LAYOUT ════════ */
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    height: 100vh;
+    overflow: hidden; /* App-like feel */
+    transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   3. LAYOUT (HEADER & NAV)
+──────────────────────────────────────────────────────────────── */
 
 .global-header {
     position: fixed;
     top: 0; left: 0; right: 0;
     z-index: 50;
-    background-color: rgba(var(--bg-color), 0.9); /* Adaptyvus fonas */
+    background-color: var(--bg-header);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
-    padding-left: 1rem;
-    padding-right: 1rem;
-    padding-top: max(1rem, var(--safe-top)); 
+    padding: max(1rem, var(--safe-top)) 1rem 0;
     height: calc(3.5rem + var(--safe-top));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    transition: background-color 0.3s, border-color 0.3s;
-}
-
-/* Fix header background specifically for glassmorphism in themes */
-:root.dark .global-header { background-color: rgba(0,0,0,0.9); }
-:root:not(.dark) .global-header { background-color: rgba(255,255,255,0.9); }
-
-.container {
-    padding-top: calc(4.5rem + var(--safe-top)); 
-    padding-left: 1rem;
-    padding-right: 1rem;
 }
 
 .bottom-nav {
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    background-color: var(--card-bg);
+    background-color: var(--bg-header);
+    backdrop-filter: blur(12px);
     border-top: 1px solid var(--border-color);
     z-index: 50;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     padding-bottom: max(1rem, var(--safe-bottom)); 
     height: calc(4rem + var(--safe-bottom));
-    transition: background-color 0.3s, border-color 0.3s;
 }
 
-/* ════════ UI COMPONENTS ════════ */
-
-.input-field {
-    width: 100%;
-    background-color: var(--input-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    color: var(--text-main); 
-    font-family: monospace;
-    outline: none;
-    transition: all 0.2s;
-}
-.input-field:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
+.container {
+    padding-top: calc(4.5rem + var(--safe-top)); 
+    padding-bottom: calc(5rem + var(--safe-bottom));
+    padding-left: 1rem;
+    padding-right: 1rem;
+    height: 100%;
+    overflow-y: auto;
 }
 
-/* Placeholder spalva šviesioje temoje */
-:root:not(.dark) .input-field::placeholder { color: #9ca3af; }
+/* ────────────────────────────────────────────────────────────────
+   4. COMPONENTS (Robert OS Specifics)
+──────────────────────────────────────────────────────────────── */
 
-.btn-primary-os {
-    width: 100%;
-    background-color: var(--accent);
-    color: black; /* Visada juodas tekstas ant Teal fono */
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-radius: 0.75rem;
-    padding: 1rem;
-    transition: all 0.2s;
-    box-shadow: 0 0 15px rgba(20,184,166,0.3);
-}
-.btn-primary-os:active { transform: scale(0.98); }
-
-.header-btn {
-    width: 2rem; height: 2rem;
-    border-radius: 0.5rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-    color: var(--text-muted);
-    border: 1px solid transparent;
-}
-.header-btn:hover { color: var(--text-main); transform: scale(1.05); }
-.header-btn:active { transform: scale(0.95); }
-
-/* Šviesios temos header mygtukai */
-:root:not(.dark) .header-btn {
-    background-color: white;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    border-color: rgba(0,0,0,0.05);
-}
-
-.nav-item {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    color: var(--text-muted); 
-    gap: 0.25rem;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    background: none; border: none;
-    transition: color 0.2s;
-}
-.nav-item.active { color: var(--accent); }
-.nav-item i { font-size: 1.125rem; }
-
-/* ════════ BENTO GRID ════════ */
-
+/* KORTELĖS */
 .bento-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -157,185 +110,112 @@ body {
 }
 
 .bento-card {
-    background-color: var(--card-bg);
+    background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 1rem;
-    display: flex; flex-direction: column;
     padding: 1rem;
     position: relative;
-    transition: all 0.2s;
+    display: flex; flex-direction: column;
     color: var(--text-main);
+    transition: transform 0.2s;
 }
+.bento-card.clickable:active { transform: scale(0.98); }
 
-/* Light mode shadow for cards */
-:root:not(.dark) .bento-card {
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border-color: rgba(0,0,0,0.05);
-}
-
-.bento-card.clickable:active {
-    transform: scale(0.98);
-}
-
-.val-timer { 
-    font-size: 3rem; 
-    line-height: 1; 
-    font-weight: 900; 
-    letter-spacing: -0.05em; 
-    font-feature-settings: "tnum"; 
-    color: var(--text-main); 
-}
-
-/* Text shadow only in dark mode */
-:root.dark .val-timer { text-shadow: 0 4px 8px rgba(0,0,0,0.5); }
-
-.val-lg { 
-    font-size: 1.5rem; 
-    line-height: 2rem; 
-    font-weight: 700; 
-    color: var(--text-main);
-}
-
-.label-xs { 
-    font-size: 10px; 
-    font-weight: 700; 
-    color: var(--text-muted); 
-    text-transform: uppercase; 
-    letter-spacing: 0.05em; 
-}
-
-.btn-bento {
-    border-radius: 0.75rem;
-    border: 1px solid var(--border-color);
-    display: flex; align-items: center; justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-main);
-    transition: all 0.2s;
-}
-
-/* ════════ MODALS ════════ */
-
-.modal-overlay {
-    position: fixed; inset: 0;
-    z-index: 100;
-    background-color: rgba(0,0,0,0.8); /* Visada tamsus overlay */
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: flex-end; 
-    justify-content: center;
-}
-@media (min-width: 640px) { .modal-overlay { align-items: center; padding: 1rem; } }
-
-.modal-content {
-    background-color: var(--card-bg);
+/* MYGTUKAI */
+.btn-primary-os {
     width: 100%;
-    max-width: 28rem;
+    background-color: var(--accent);
+    color: #000; /* Visada juodas tekstas ant akcento */
+    font-weight: 900;
+    text-transform: uppercase;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    border: none;
+    box-shadow: 0 0 15px rgba(20, 184, 166, 0.3);
+}
+.btn-primary-os:active { transform: scale(0.97); }
+
+.header-btn {
+    width: 2.2rem; height: 2.2rem;
+    border-radius: 0.6rem;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.nav-item {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--text-muted);
+    background: none; border: none;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    gap: 4px;
+}
+.nav-item.active { color: var(--accent); }
+
+/* ĮVESTIS */
+.input-field {
+    width: 100%;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    color: var(--text-main);
+    outline: none;
+    font-family: monospace;
+}
+
+/* LOGS / LISTS */
+.log-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    display: flex; justify-content: space-between; align-items: center;
+    color: var(--text-main);
+}
+
+/* TYPOGRAPHY */
+.val-timer {
+    font-size: 3rem; font-weight: 900; letter-spacing: -0.05em;
+    color: var(--text-main); line-height: 1;
+}
+.val-lg { font-size: 1.5rem; font-weight: 700; }
+.label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+
+/* ────────────────────────────────────────────────────────────────
+   5. PROGRESS BARS & UTILS
+──────────────────────────────────────────────────────────────── */
+.bg-gray-800 { background-color: var(--track-bg) !important; }
+
+/* MODALS */
+.modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background-color: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+    display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-content {
+    background-color: var(--bg-card);
+    width: 100%; max-width: 28rem;
+    padding: 1.5rem;
     border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;
     border-top: 1px solid var(--border-color);
-    padding: 1.5rem;
-    padding-bottom: max(1.5rem, var(--safe-bottom));
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     color: var(--text-main);
 }
-@media (min-width: 640px) { .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); } }
-
-/* ════════ ANIMATIONS ════════ */
-
-@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-.animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-/* ════════ INTERACTIVE ELEMENTS ════════ */
-
-.weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
-    transition: all 0.2s;
-    border: 1px solid var(--border-color);
-    background-color: rgba(255,255,255,0.03);
-    color: var(--text-main);
+@media (min-width: 640px) {
+    .modal-overlay { align-items: center; }
+    .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); }
 }
 
-:root:not(.dark) .weather-btn, 
-:root:not(.dark) .exp-btn, 
-:root:not(.dark) .inc-btn {
-    background-color: #fff;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    border-color: #e5e7eb;
-}
-
-.inc-btn.active {
-    background-color: rgba(34,197,94,0.15) !important;
-    color: #22c55e !important;
-    border-color: rgba(34,197,94,0.5) !important;
-}
-
-.exp-btn.active {
-    background-color: rgba(239,68,68,0.15) !important;
-    color: #ef4444 !important;
-    border-color: rgba(239,68,68,0.5) !important;
-}
-
-input[type="checkbox"] {
-    accent-color: var(--accent);
-    cursor: pointer;
-}
-
-/* ════════ CRITICAL LIGHT MODE FIXES (TAILWIND OVERRIDES) ════════ */
-
-/* 1. Progress Bar Backgrounds (Takeliai) */
-/* HTML kode yra 'bg-gray-800'. Šviesioje temoje tai per tamsu. */
-:root:not(.dark) .bg-gray-800 {
-    background-color: #e5e7eb !important; /* Šviesiai pilka */
-}
-
-/* 2. Tekstai, kurie HTML'e yra 'text-gray-100' arba 'text-gray-500' */
-:root:not(.dark) .text-gray-100 {
-    color: #111827 !important; /* Juoda */
-}
-
-/* 3. Log/Istorijos kortelės */
-:root:not(.dark) .log-card {
-    background-color: #ffffff !important;
-    border-color: #e5e7eb !important;
-    color: #111827 !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-/* 4. Skaičiai virš progress barų ($0 / $0) */
-:root:not(.dark) #rental-val,
-:root:not(.dark) #grind-val {
-    color: #111827 !important;
-}
-
-/* 5. Auth Screen Inputs (Specific Fix) */
-/* Kad prisijungimo laukai visada atrodytų gerai, net jei tema keičiasi */
-#auth-screen .input-field {
-    background-color: var(--input-bg) !important;
-    color: var(--text-main) !important;
-    border-color: var(--border-color) !important;
-}
-
-/* 6. Delete mygtukai (Red text) */
-:root:not(.dark) .text-red-400 {
-    color: #dc2626 !important; /* Tamsesnė raudona šviesiam fonui */
-}
-:root:not(.dark) .text-teal-400 {
-    color: #0d9488 !important; /* Tamsesnė žalia šviesiam fonui */
-}
-
-/* 7. Footerio mygtukai */
-:root:not(.dark) .nav-item {
-    color: #9ca3af;
-}
-:root:not(.dark) .nav-item.active {
-    color: #0d9488; /* Teal-600 */
-}
-
+/* HELPERS */
 .hidden { display: none !important; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* AUTH FIX */
+#auth-screen { background-color: var(--bg-main); }
+#auth-screen .input-field { background-color: var(--input-bg); }

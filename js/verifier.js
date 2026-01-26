@@ -3,13 +3,6 @@
 // Patikrina visus modulius dėl trūkstamų eksportų
 // ════════════════════════════════════════════════════════════════
 
-// js/verifier-run.js
-import { verifyModules } from './verifier.js';
-
-verifyModules().then(results => {
-    console.log('Verification complete:', results);
-});
-
 const MODULE_TESTS = [
     {
         name: 'db.js',

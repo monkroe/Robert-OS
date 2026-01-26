@@ -13,67 +13,68 @@ import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
 // ────────────────────────────────────────────────────────────────
-// THEME ENGINE (AUTO + MANUAL OVERRIDE)
+// THEME LOGIC (MANUAL PRIORITY)
 // ────────────────────────────────────────────────────────────────
 
+// 1. Įjungimo logika
 function initTheme() {
     const root = document.documentElement;
-    const saved = localStorage.getItem('theme'); // Patikrinam ar vartotojas jau pasirinko
+    const saved = localStorage.getItem('theme'); // 'light', 'dark', arba null
 
-    // 1. Jei vartotojas yra pasirinkęs rankiniu būdu – klausom jo
-    if (saved === 'light') {
-        root.classList.add('light');
-        return;
-    }
     if (saved === 'dark') {
-        root.classList.remove('light');
-        return;
+        root.classList.remove('light'); // Forsuojam tamsią
+        console.log('🌑 Manual Dark Mode');
+    } else if (saved === 'light') {
+        root.classList.add('light'); // Forsuojam šviesią
+        console.log('☀️ Manual Light Mode');
+    } else {
+        // Jei niekas neišsaugota -> Auto pagal laiką
+        checkAutoTheme();
     }
-
-    // 2. Jei nepasirinko (default) – sprendžiam pagal laiką (Auto)
-    checkTimeBasedTheme();
-    // Tikrinam laiką kas minutę
-    setInterval(checkTimeBasedTheme, 60000);
 }
 
-function checkTimeBasedTheme() {
-    // Jei vartotojas jau paspaudė mygtuką, automatinio laiko nebetikrinam
+function checkAutoTheme() {
+    // Jei vartotojas jau pasirinko rankiniu būdu, auto nebeveikia
     if (localStorage.getItem('theme')) return;
 
     const hour = new Date().getHours();
     const root = document.documentElement;
-    
-    // Nuo 7:00 iki 19:00 -> Šviesi
+    // 7:00 - 19:00 Šviesu
     if (hour >= 7 && hour < 19) {
-        if (!root.classList.contains('light')) root.classList.add('light');
+        root.classList.add('light');
     } else {
-        if (root.classList.contains('light')) root.classList.remove('light');
+        root.classList.remove('light');
     }
 }
 
-// Globali funkcija mygtukui (Override)
+// 2. Mygtuko funkcija
 window.cycleTheme = function() {
     const root = document.documentElement;
-    let newTheme = '';
+    let newMode;
 
-    // Perjungimo logika
     if (root.classList.contains('light')) {
+        // Buvo šviesi -> darom tamsią
         root.classList.remove('light');
-        newTheme = 'dark';
+        newMode = 'dark';
     } else {
+        // Buvo tamsi -> darom šviesią
         root.classList.add('light');
-        newTheme = 'light';
+        newMode = 'light';
     }
 
-    // Įrašom į atmintį – nuo šiol Auto režimas išsijungia
-    localStorage.setItem('theme', newTheme);
+    // Išsaugom pasirinkimą visam laikui
+    localStorage.setItem('theme', newMode);
     
-    // Vibracija
+    // Vizualus patvirtinimas
     if (navigator.vibrate) navigator.vibrate(10);
+    // Jei turi showToast funkciją:
+    // showToast(newMode === 'dark' ? 'Dark Mode' : 'Light Mode', 'info');
 };
 
-// Paleidžiam startuojant (įdėk šią eilutę failo pradžioje arba init funkcijoje)
+// Paleidžiam iškart
 initTheme();
+// Tikrinam auto laiką kas minutę (tik jei nėra manual override)
+setInterval(checkAutoTheme, 60000);
 
 // ────────────────────────────────────────────────────────────────
 // 2. MAIN APP INIT (Tavo senas kodas)

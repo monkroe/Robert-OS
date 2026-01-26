@@ -1,33 +1,19 @@
-// ════════════════════════════════════════════════════════════════
-// ROBERT OS - UTILS.JS v1.7.5 (SYSTEM TOOLS)
-// ════════════════════════════════════════════════════════════════
+// Haptic Feedback
+export const vibrate = (pattern = [10]) => {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+};
 
-export function initGlobalErrorHandlers() {
-    window.onunhandledrejection = (event) => {
-        showToast('Asinchroninė klaida: ' + (event.reason?.message || 'Nežinoma'), 'error');
-    };
-}
-
-export function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    const toast = document.createElement('div');
-    const colors = {
-        success: 'bg-teal-500 text-black',
-        error: 'bg-red-600 text-white',
-        warning: 'bg-yellow-500 text-black',
-        info: 'bg-white/10 text-white'
-    };
-
-    toast.className = `${colors[type]} p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl animate-slideUp pointer-events-auto border border-white/10 italic`;
-    toast.innerHTML = message;
-
-    container.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-10px)';
-        toast.style.transition = 'all 0.4s ease';
-        setTimeout(() => toast.remove(), 400);
-    }, 4000);
-}
+// Toast Notification
+export const showToast = (msg, type = 'info') => {
+    const c = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    const color = type === 'error' ? 'bg-red-500' : 'bg-teal-500';
+    
+    t.className = `${color} text-black px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-bold animate-slideUp`;
+    t.innerHTML = `<i class="fa-solid fa-${type === 'error' ? 'triangle-exclamation' : 'check'}"></i> <span>${msg}</span>`;
+    
+    c.appendChild(t);
+    vibrate(type === 'error' ? [50, 50, 50] : [20]);
+    
+    setTimeout(() => t.remove(), 3000);
+};

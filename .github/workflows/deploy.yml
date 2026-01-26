@@ -25,12 +25,12 @@ jobs:
 
       - name: Build Tailwind CSS
         run: |
-          npx tailwindcss@latest \
+          npx @tailwindcss/cli \
             -i ./style.css \
             -o ./public/output.css \
             --minify
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./public

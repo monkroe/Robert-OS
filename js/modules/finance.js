@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - FINANCE MODULE v1.7.2 (FINAL)
+// ROBERT OS - FINANCE MODULE v1.7.2 (FIXED)
 // Transactions & History Management
 // ════════════════════════════════════════════════════════════════
 
@@ -11,17 +11,19 @@ let currentTxType = null;
 let idsToDelete = [];
 
 // ────────────────────────────────────────────────────────────────
-// MODAL INITIALIZATION (REQUIRED FOR APP BOOT)
+// MODAL INITIALIZATION
 // ────────────────────────────────────────────────────────────────
 
 export function initFinanceModals() {
+    // Prevent duplicate injection
+    if (document.getElementById('tx-modal')) return;
+
     console.log('💰 Finance modals injected');
     
     const container = document.getElementById('modals-container');
     if (!container) return;
     
     container.innerHTML += `
-        <!-- Transaction Modal -->
         <div id="tx-modal" class="modal-overlay hidden">
             <div class="modal-card max-w-sm">
                 <div class="modal-header">
@@ -38,7 +40,6 @@ export function initFinanceModals() {
                            min="0" 
                            inputmode="decimal">
                     
-                    <!-- Income Categories -->
                     <div id="income-types" class="grid grid-cols-3 gap-2 mt-4">
                         <button onclick="setExpType('tips', this)" class="inc-btn active">
                             Tips
@@ -51,7 +52,6 @@ export function initFinanceModals() {
                         </button>
                     </div>
                     
-                    <!-- Expense Categories -->
                     <div id="expense-types" class="grid grid-cols-3 gap-2 mt-4 hidden">
                         <button onclick="setExpType('fuel', this)" class="exp-btn">
                             Degalai
@@ -64,7 +64,6 @@ export function initFinanceModals() {
                         </button>
                     </div>
                     
-                    <!-- Fuel Specific Fields -->
                     <div id="fuel-fields" class="mt-4 hidden space-y-2">
                         <input type="number" 
                                id="tx-gal" 
@@ -77,7 +76,6 @@ export function initFinanceModals() {
                                class="input-field text-sm">
                     </div>
                     
-                    <!-- Hidden type field -->
                     <input type="hidden" id="tx-type" value="tips">
                 </div>
                 
@@ -89,7 +87,6 @@ export function initFinanceModals() {
             </div>
         </div>
         
-        <!-- Delete Confirmation Modal -->
         <div id="delete-modal" class="modal-overlay hidden">
             <div class="modal-card max-w-sm">
                 <div class="modal-header">
@@ -155,12 +152,18 @@ export function openTxModal(type) {
         btn.classList.remove('active');
     });
     
-    window.openModal('tx-modal');
+    // Use window.openModal if available (from ui.js)
+    if (window.openModal) {
+        window.openModal('tx-modal');
+    } else {
+        document.getElementById('tx-modal').classList.remove('hidden');
+    }
 }
 
 export function setExpType(type, el) {
     vibrate();
-    document.getElementById('tx-type').value = type;
+    const input = document.getElementById('tx-type');
+    if (input) input.value = type;
     
     document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -205,7 +208,9 @@ export async function confirmTx() {
             await saveExpense(amount, category);
         }
 
-        window.closeModals();
+        if (window.closeModals) window.closeModals();
+        else document.getElementById('tx-modal').classList.add('hidden');
+
         window.dispatchEvent(new Event('refresh-data'));
         
     } catch (error) {
@@ -250,8 +255,10 @@ async function saveIncome(amount, category) {
 }
 
 async function saveExpense(amount, category) {
+    // PATAISYMAS: Leisti expenses ir be aktyvios pamainos (pvz. remontas)
+    // Bet kol kas paliekame reikalavimą, nebent nori pakeisti.
     if (!state.activeShift) {
-        throw new Error('Išlaidoms reikia aktyvios pamainos');
+        throw new Error('Išlaidoms reikia pradėti pamainą');
     }
     
     const expenseData = {
@@ -299,7 +306,9 @@ export async function refreshAudit() {
         // Reset checkbox
         const masterBox = document.getElementById('select-all-logs');
         if (masterBox) masterBox.checked = false;
-        window.updateDeleteButton(); // Hide delete button
+        
+        // Use window function if available
+        if (window.updateDeleteButton) window.updateDeleteButton(); 
 
         if (!shifts || shifts.length === 0) {
             listEl.innerHTML = '<div class="text-center py-10 opacity-50 text-sm">Nėra istorijos</div>';
@@ -345,69 +354,68 @@ export async function refreshAudit() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// GLOBAL FUNCTIONS FOR HTML INTERACTION
+// GLOBAL FUNCTIONS FOR HTML INTERACTION (Window Exports)
 // ────────────────────────────────────────────────────────────────
+
+// Helper helpers
+function getCheckedIds() {
+    const checked = document.querySelectorAll('.log-checkbox:checked');
+    return Array.from(checked).map(c => c.value);
+}
+
+// Main Window Exports
+window.openTxModal = openTxModal;
+window.setExpType = setExpType;
+window.confirmTx = confirmTx;
+window.refreshAudit = refreshAudit;
 
 window.toggleSelectAll = function() {
     vibrate();
     const master = document.getElementById('select-all-logs');
     const boxes = document.querySelectorAll('.log-checkbox');
-    
-    boxes.forEach(b => {
-        b.checked = master.checked;
-    });
-    
+    boxes.forEach(b => b.checked = master.checked);
     window.updateDeleteButton();
 };
 
 window.updateDeleteButton = function() {
-    const checked = document.querySelectorAll('.log-checkbox:checked');
+    const ids = getCheckedIds();
     const btn = document.getElementById('btn-delete-logs');
     const count = document.getElementById('delete-count');
     
     if (btn && count) {
-        count.textContent = checked.length;
-        
-        if (checked.length > 0) {
-            btn.classList.remove('hidden');
-        } else {
-            btn.classList.add('hidden');
-        }
+        count.textContent = ids.length;
+        if (ids.length > 0) btn.classList.remove('hidden');
+        else btn.classList.add('hidden');
     }
 };
 
 window.requestDelete = function() {
     vibrate();
-    const checked = document.querySelectorAll('.log-checkbox:checked');
+    idsToDelete = getCheckedIds();
     
-    if (checked.length === 0) return;
-    
-    idsToDelete = Array.from(checked).map(c => c.value);
+    if (idsToDelete.length === 0) return;
     
     const countEl = document.getElementById('del-modal-count');
     if (countEl) countEl.textContent = idsToDelete.length;
     
-    window.openModal('delete-modal');
+    if (window.openModal) window.openModal('delete-modal');
+    else document.getElementById('delete-modal').classList.remove('hidden');
 };
 
 window.confirmDelete = async function() {
     vibrate([20]);
-    
     if (idsToDelete.length === 0) return;
     
     state.loading = true;
-    
     try {
-        // Pirma ištriname expenses (foreign key constraint)
         await db.from('expenses').delete().in('shift_id', idsToDelete);
-        
-        // Tada shifts
         const { error } = await db.from('finance_shifts').delete().in('id', idsToDelete);
         
         if (error) throw error;
         
         showToast(`${idsToDelete.length} įrašai ištrinti`, 'success');
-        window.closeModals();
+        
+        if(window.closeModals) window.closeModals();
         idsToDelete = [];
         
         refreshAudit();
@@ -420,18 +428,3 @@ window.confirmDelete = async function() {
         state.loading = false;
     }
 };
-
-// ────────────────────────────────────────────────────────────────
-// DEBUG
-// ────────────────────────────────────────────────────────────────
-
-if (typeof window !== 'undefined' && location.hostname === 'localhost') {
-    window.financeModule = {
-        openTxModal,
-        setExpType,
-        confirmTx,
-        refreshAudit,
-        currentTxType,
-        idsToDelete
-    };
-}

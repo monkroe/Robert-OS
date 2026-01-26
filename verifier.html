@@ -1,0 +1,19 @@
+<!-- verifier.html -->
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Robert OS Module Verifier</h1>
+    <button onclick="runTests()">Run Tests</button>
+    <div id="results"></div>
+    
+    <script type="module">
+        import { verifyModules } from './js/verifier.js';
+        
+        window.runTests = async () => {
+            const results = await verifyModules();
+            document.getElementById('results').innerHTML = 
+                `<pre>${JSON.stringify(results, null, 2)}</pre>`;
+        };
+    </script>
+</body>
+</html>

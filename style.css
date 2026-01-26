@@ -4,22 +4,18 @@
 // System Orchestrator - Delegates to Specialized Modules
 // ════════════════════════════════════════════════════════════════
 
-/* ────────────────────────────────────────────────────────────────
-   1. THEME VARIABLES & SETTINGS
-──────────────────────────────────────────────────────────────── */
+/* 1. THEME VARIABLES */
 :root {
     /* DARK MODE (DEFAULT) */
     --bg-main: #000000;
     --bg-card: #111111;
-    --bg-header: rgba(0, 0, 0, 0.85);
+    --bg-header: rgba(0, 0, 0, 0.9);
     --text-main: #ffffff;
     --text-muted: #9ca3af;
-    --border-color: rgba(255, 255, 255, 0.1);
-    --accent: #14b8a6; /* Teal */
+    --border-color: rgba(255, 255, 255, 0.15); /* Ryškesnis rėmelis */
+    --accent: #14b8a6;
     --input-bg: #111827;
     --track-bg: #1f2937;
-    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 15px rgba(20, 184, 166, 0.2);
     
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
@@ -29,56 +25,158 @@
 :root.light {
     --bg-main: #f3f4f6;
     --bg-card: #ffffff;
-    --bg-header: rgba(255, 255, 255, 0.9);
+    --bg-header: rgba(255, 255, 255, 0.95);
     --text-main: #111827;
-    --text-muted: #6b7280;
-    --border-color: rgba(0, 0, 0, 0.08);
+    --text-muted: #4b5563; /* Tamsesnis pilkas tekstas */
+    --border-color: rgba(0, 0, 0, 0.1);
     --input-bg: #ffffff;
     --track-bg: #e5e7eb;
-    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    --shadow-glow: 0 4px 12px rgba(20, 184, 166, 0.15);
 }
 
-/* ────────────────────────────────────────────────────────────────
-   2. GLOBAL TRANSITIONS & RESET
-──────────────────────────────────────────────────────────────── */
-*, *::before, *::after {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-}
-
+/* 2. BASE RESET */
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body {
     background-color: var(--bg-main);
     color: var(--text-main);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    margin: 0;
-    height: 100vh;
-    overflow: hidden;
-    transition: background-color 0.4s ease, color 0.4s ease;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; height: 100vh; overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* ────────────────────────────────────────────────────────────────
-   3. LAYOUT (HEADER & NAV)
-──────────────────────────────────────────────────────────────── */
+/* 3. LAYOUT (HEADER & NAV - RESTORED SIZES) */
 .global-header {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 50;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
     background-color: var(--bg-header);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
     padding: max(1rem, var(--safe-top)) 1rem 0;
-    height: calc(3.5rem + var(--safe-top));
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: border-color 0.3s ease, background-color 0.4s ease;
+    height: calc(4rem + var(--safe-top)); /* Šiek tiek aukštesnis headeris */
+    display: flex; align-items: center; justify-content: space-between;
 }
 
 .bottom-nav {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
     background-color: var(--bg-header);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-color);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    /* GRĄŽINTAS DYDIS */
+    padding-bottom: max(1rem, var(--safe-bottom)); 
+    height: calc(5rem + var(--safe-bottom)); 
+}
+
+.container {
+    padding-top: calc(5rem + var(--safe-top)); 
+    padding-bottom: calc(6rem + var(--safe-bottom));
+    padding-left: 1rem; padding-right: 1rem;
+    height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; 
+}
+
+/* 4. BUTTONS & NAV ITEMS (BIGGER ICONS) */
+.header-btn {
+    width: 2.5rem; height: 2.5rem; /* Didesni mygtukai viršuje */
+    border-radius: 0.75rem;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-color);
+    background: rgba(255,255,255,0.05);
+    color: var(--text-muted);
+    font-size: 1.1rem; /* Didesnė ikona */
+}
+:root.light .header-btn { background: white; }
+
+.nav-item {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--text-muted);
+    background: none; border: none;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    gap: 6px;
+    transition: all 0.2s;
+}
+/* GRĄŽINTOS DIDELĖS IKONOS */
+.nav-item i { font-size: 1.5rem; margin-bottom: 2px; } 
+.nav-item.active { color: var(--accent); transform: translateY(-2px); }
+
+/* 5. CARDS & GRID */
+.bento-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.bento-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 1.25rem; /* Apvalesni kampai */
+    padding: 1.25rem;
+    position: relative;
+    display: flex; flex-direction: column;
+    color: var(--text-main);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.bento-card.clickable:active { transform: scale(0.98); }
+
+.btn-primary-os {
+    width: 100%; background-color: var(--accent); color: #000;
+    font-weight: 900; text-transform: uppercase; border-radius: 0.75rem;
+    padding: 1rem; border: none; box-shadow: 0 4px 15px rgba(20, 184, 166, 0.3);
+}
+.btn-primary-os:active { transform: scale(0.97); }
+
+/* 6. MODALS (FIXED Z-INDEX & CANCEL) */
+.modal-overlay {
+    position: fixed; inset: 0; 
+    z-index: 100; /* Bazinis lygis */
+    background-color: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+    display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay:not(.hidden) { opacity: 1; pointer-events: auto; }
+
+/* SVARBU: Delete modalai turi būti aukščiau už kitus */
+#delete-modal, #delete-vehicle-modal { z-index: 110 !important; }
+
+.modal-content {
+    background-color: var(--bg-card);
+    width: 100%; max-width: 28rem; padding: 1.5rem;
+    border-top-left-radius: 1.75rem; border-top-right-radius: 1.75rem;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-main);
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
+}
+.modal-overlay:not(.hidden) .modal-content { transform: translateY(0); }
+
+@media (min-width: 640px) {
+    .modal-overlay { align-items: center; }
+    .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); transform: scale(0.95); opacity: 0; }
+    .modal-overlay:not(.hidden) .modal-content { transform: scale(1); opacity: 1; }
+}
+
+/* 7. UTILS */
+.hidden { display: none !important; }
+.tab-content { display: none !important; opacity: 0; transition: opacity 0.2s; }
+.tab-content.active { display: block !important; opacity: 1; animation: slideUp 0.3s; }
+
+.input-field {
+    width: 100%; background-color: var(--input-bg);
+    border: 1px solid var(--border-color); border-radius: 0.75rem;
+    padding: 1rem; color: var(--text-main); outline: none;
+}
+
+/* Light Mode Overrides */
+.bg-gray-800 { background-color: var(--track-bg) !important; }
+.text-gray-100 { color: var(--text-main) !important; }
+.text-red-400 { color: #ef4444 !important; }
+.text-teal-400 { color: #14b8a6 !important; }
+.text-green-400 { color: #22c55e !important; }
+
+.val-timer { font-size: 3rem; font-weight: 900; color: var(--text-main); }
+.val-lg { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+.label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+
+/* Auth Screen */
+#auth-screen { background-color: var(--bg-main); z-index: 500; }
+#auth-screen .input-field { background-color: var(--input-bg); color: var(--text-main); }
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.animate-slideUp { animation: slideUp 0.3s; }
+
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border-color);
     z-index: 50;

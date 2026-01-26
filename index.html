@@ -27,9 +27,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
 
     <style>
-        :root {
-            --os-radius: 2.5rem;
-        }
+        :root { --os-radius: 2.5rem; }
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: black; 
@@ -42,12 +40,16 @@
             border: 1px solid rgba(255,255,255,0.05); 
             border-radius: var(--os-radius); 
         }
-        /* Pataisyta animacija, kurios trūko originale */
         @keyframes slideUp {
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
         .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* Shimmer animacija krovimosi indikatoriui */
+        @keyframes shimmer {
+            100% { transform: translateX(100%); }
+        }
     </style>
 </head>
 
@@ -60,7 +62,6 @@
     </noscript>
 
     <div id="toast-container" class="fixed top-6 right-6 z-[2000] flex flex-col gap-3 pointer-events-none w-full max-w-sm"></div>
-    
     <div id="modals-container" class="relative z-[1500]"></div>
 
     <main id="app" class="min-h-[100dvh] flex flex-col p-4 md:p-8 max-w-5xl mx-auto">
@@ -69,8 +70,8 @@
                 <div class="animate-pulse text-teal-500 font-black tracking-tighter text-3xl uppercase">
                     Robert OS
                 </div>
-                <div class="w-12 h-[2px] bg-white/10 overflow-hidden">
-                    <div class="w-full h-full bg-teal-500 -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+                <div class="w-12 h-[2px] bg-white/10 overflow-hidden relative">
+                    <div class="absolute inset-0 bg-teal-500 -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
                 </div>
             </div>
         </div>
@@ -91,14 +92,32 @@
     </template>
 
     <script type="module">
-        // Importuojame Supabase kaip modulį, kad išvengtume window.supabase "undefined" klaidų krovimosi metu
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        // ROOT CAUSE FIX: Naudojame esm.sh vietoj jsdelivr, nes jis teisingai eksportuoja createClient
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
         
-        // Prikabiname prie lango tik jei app.js naudoja globalų kintamąjį
-        window.supabaseClient = createClient;
-        
-        // Inicijuojame pagrindinę logiką
-        import './js/app.js';
+        async function boot() {
+            try {
+                // Saugome globaliai, kad js/app.js galėtų pasiekti
+                window.supabaseClient = createClient;
+                
+                // Patikriname ar pavyko inicializuoti prieš kraunant app logiką
+                if (typeof window.supabaseClient !== 'function') {
+                    throw new Error("Supabase SDK failed to load properly from ESM provider.");
+                }
+
+                // Dinaminis importas užtikrina, kad app.js nepasileis be Supabase
+                await import('./js/app.js');
+                console.log("🚀 Robert OS: Sistema sėkmingai paleista.");
+            } catch (err) {
+                console.error("❌ Boot failure:", err);
+                // Rankiniu būdu iškviečiame klaidų atvaizdavimą, jei tai nebuvo rejection
+                if (window.onunhandledrejection) {
+                    window.onunhandledrejection({ reason: err });
+                }
+            }
+        }
+
+        boot();
     </script>
 
 </body>

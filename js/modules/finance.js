@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - FINANCE MODULE v1.8.1 (DELETE FIX)
+// ROBERT OS - FINANCE MODULE v1.8.2 (FIXED & RENAMED)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -11,13 +11,13 @@ import { showToast, vibrate } from '../utils.js';
 ---------------------------------------------------------------- */
 
 let txDraft = { direction: 'in', category: 'tips' };
-let itemsToDelete = []; // Saugosime ką trinti
+let itemsToDelete = [];
 
 /* ────────────────────────────────────────────────────────────────
-   WINDOW BINDINGS (SVARBU: TIESIAI ČIA)
-   Tai garantuoja, kad HTML mygtukai ras šias funkcijas.
+   WINDOW BINDINGS (UNIKALŪS PAVADINIMAI)
 ---------------------------------------------------------------- */
 
+// Atidaryti transakcijos modalą
 window.openTxModal = (dir) => {
     vibrate();
     txDraft.direction = dir;
@@ -28,24 +28,25 @@ window.openTxModal = (dir) => {
     if(window.openModal) window.openModal('tx-modal');
 };
 
+// Pasirinkti kategoriją
 window.setExpType = (cat, el) => {
     vibrate();
     txDraft.category = cat;
     updateCategoryUI(cat, el);
 };
 
+// Select All checkbox
 window.toggleSelectAll = () => {
     const master = document.getElementById('select-all-logs');
     document.querySelectorAll('.log-checkbox').forEach(b => b.checked = master.checked);
     updateDeleteButtonLocal();
 };
 
-// 1. PASPAUDUS "ŠIUKŠLIADĖŽĘ" (Atidaro modalą)
-window.requestDelete = () => {
+// 1. PRAŠYTI TRINTI LOGUS (Pervadinta, kad nesipjautų su garažu)
+window.requestLogDelete = () => {
     vibrate();
     const checked = document.querySelectorAll('.log-checkbox:checked');
     
-    // Surenkame duomenis iš checkbox'ų value="type:id"
     itemsToDelete = Array.from(checked).map(el => {
         const parts = el.value.split(':');
         return { type: parts[0], id: parts[1] };
@@ -53,15 +54,15 @@ window.requestDelete = () => {
 
     if (itemsToDelete.length === 0) return;
     
-    // Atnaujiname skaičių modale
     const countEl = document.getElementById('del-modal-count');
     if(countEl) countEl.textContent = itemsToDelete.length;
     
+    // Atidarome modalą
     if (window.openModal) window.openModal('delete-modal');
 };
 
-// 2. PASPAUDUS "DELETE" MODALE (Vykdo trynimą)
-window.confirmDelete = async () => {
+// 2. PATVIRTINTI TRYNIMĄ (Pervadinta)
+window.confirmLogDelete = async () => {
     vibrate([20]);
     if (itemsToDelete.length === 0) return window.closeModals();
     
@@ -70,32 +71,31 @@ window.confirmDelete = async () => {
         const shiftIds = itemsToDelete.filter(i => i.type === 'shift').map(i => i.id);
         const txIds = itemsToDelete.filter(i => i.type === 'tx').map(i => i.id);
 
-        // Triname pamainas
         if (shiftIds.length > 0) {
             await db.from('expenses').delete().in('shift_id', shiftIds);
             await db.from('finance_shifts').delete().in('id', shiftIds);
         }
 
-        // Triname pavienes operacijas
         if (txIds.length > 0) {
             await db.from('expenses').delete().in('id', txIds);
         }
 
         showToast(`${itemsToDelete.length} įrašai ištrinti`, 'success');
-        itemsToDelete = []; // Išvalome
+        itemsToDelete = [];
         
         if (window.closeModals) window.closeModals();
-        refreshAudit(); // Perkrauname sąrašą
+        refreshAudit();
         window.dispatchEvent(new Event('refresh-data'));
 
     } catch (e) {
         console.error(e);
-        showToast('Klaida trinant: ' + e.message, 'error');
+        showToast('Klaida: ' + e.message, 'error');
     } finally {
         state.loading = false;
     }
 };
 
+// Patvirtinti transakciją (IN/OUT)
 window.confirmTx = async () => {
     vibrate([20]);
     const amountEl = document.getElementById('tx-amount');
@@ -173,7 +173,7 @@ async function recordTransaction(type, { amount, category, meta }) {
 }
 
 /* ────────────────────────────────────────────────────────────────
-   AUDIT LIST RENDERER
+   AUDIT LIST RENDERER (SU SPALVŲ PATAISYMAIS)
 ---------------------------------------------------------------- */
 
 export async function refreshAudit() {
@@ -181,15 +181,12 @@ export async function refreshAudit() {
     if (!state.user?.id) return;
 
     try {
-        // 1. Pamainos
         const { data: shifts } = await db.from('finance_shifts')
             .select('*').eq('user_id', state.user.id).order('start_time', { ascending: false }).limit(30);
 
-        // 2. Pavienės operacijos
         const { data: txs } = await db.from('expenses')
             .select('*').eq('user_id', state.user.id).is('shift_id', null).order('created_at', { ascending: false }).limit(30);
 
-        // 3. Sujungiam
         const combined = [
             ...(shifts || []).map(s => ({ ...s, _kind: 'shift', _date: new Date(s.start_time) })),
             ...(txs || []).map(t => ({ ...t, _kind: 'tx', _date: new Date(t.created_at) }))
@@ -207,7 +204,6 @@ function renderAuditList(items) {
     const listEl = document.getElementById('audit-list');
     if (!listEl) return;
     
-    // Reset checkbox master
     const master = document.getElementById('select-all-logs');
     if (master) master.checked = false;
     updateDeleteButtonLocal();
@@ -224,6 +220,7 @@ function renderAuditList(items) {
         
         let icon, title, valueVal, colorClass;
 
+        // Nuimta 'text-white' klasė nuo laiko, kad CSS galėtų valdyti spalvą (šviesioj temoj bus tamsi)
         if (item._kind === 'shift') {
             icon = 'fa-clock';
             title = 'Pamaina';
@@ -244,13 +241,12 @@ function renderAuditList(items) {
             }
         }
 
-        // GENERUOJAME UNIKALŲ VALUE: "tipas:id"
         const checkboxValue = `${item._kind}:${item.id}`;
 
         return `
-        <div class="log-card flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5 mb-2">
+        <div class="log-card flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5 mb-2 transition-colors">
             <div class="flex gap-3 items-center">
-                <input type="checkbox" class="log-checkbox w-5 h-5 rounded bg-gray-800 border-gray-600 text-teal-500 focus:ring-0" 
+                <input type="checkbox" class="log-checkbox w-5 h-5 rounded bg-gray-800 border-gray-600 text-teal-500 focus:ring-0 cursor-pointer" 
                        value="${checkboxValue}">
                 
                 <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs opacity-70">
@@ -259,14 +255,13 @@ function renderAuditList(items) {
                 
                 <div>
                     <div class="text-[10px] opacity-50 uppercase tracking-wide">${date} • ${title}</div>
-                    <div class="text-sm font-bold text-white">${time}</div>
+                    <div class="text-sm font-bold text-gray-100 dark:text-white time-val">${time}</div>
                 </div>
             </div>
             <div class="font-mono font-bold ${colorClass}">${valueVal}</div>
         </div>`;
     }).join('');
 
-    // Pridedame event listeners rankiniu būdu
     document.querySelectorAll('.log-checkbox').forEach(box => {
         box.addEventListener('change', updateDeleteButtonLocal);
     });

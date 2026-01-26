@@ -1,5 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - FINANCE MODULE v1.2 (INCOME FIX)
+// ROBERT OS - FINANCE MODULE v1.6.0
+// Transactions & History Management (No Alerts)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -7,165 +8,156 @@ import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
 
 let currentTxType = null;
+let idsToDelete = [];
 
 // ────────────────────────────────────────────────────────────────
-// TRANSACTION MODAL
+// TRANSACTION MODAL LOGIC
 // ────────────────────────────────────────────────────────────────
 
 export function openTxModal(type) {
     vibrate();
     currentTxType = type;
     
-    const modal = document.getElementById('tx-modal');
+    // UI Update
     const title = document.getElementById('tx-title');
-    const amountInput = document.getElementById('tx-amount');
+    const incomeTypes = document.getElementById('income-types');
     const expenseTypes = document.getElementById('expense-types');
     const fuelFields = document.getElementById('fuel-fields');
     
-    if (!modal || !title || !amountInput) return;
+    if (title) title.textContent = type === 'in' ? 'PAJAMOS' : 'IŠLAIDOS';
     
-    if (type === 'in') {
-        title.textContent = 'PAJAMOS';
-        if (expenseTypes) expenseTypes.classList.add('hidden');
-        if (fuelFields) fuelFields.classList.add('hidden');
-    } else {
-        title.textContent = 'IŠLAIDOS';
-        if (expenseTypes) expenseTypes.classList.remove('hidden');
-        if (fuelFields) fuelFields.classList.add('hidden');
-    }
+    if (incomeTypes) incomeTypes.classList.toggle('hidden', type !== 'in');
+    if (expenseTypes) expenseTypes.classList.toggle('hidden', type === 'in');
+    if (fuelFields) fuelFields.classList.add('hidden'); // Reset fuel
+
+    // Reset inputs
+    const amountInput = document.getElementById('tx-amount');
+    if (amountInput) amountInput.value = '';
     
-    amountInput.value = '';
-    document.getElementById('tx-type').value = 'other';
+    const typeInput = document.getElementById('tx-type');
+    if (typeInput) typeInput.value = 'tips'; // Default
+
+    // Reset visuals
+    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => btn.classList.remove('active'));
     
-    document.querySelectorAll('.exp-btn').forEach(btn => {
-        btn.classList.remove('bg-teal-500', 'text-black', 'border-teal-500');
-    });
-    
-    modal.classList.remove('hidden');
+    window.openModal('tx-modal');
 }
 
-export function setExpType(type) {
+export function setExpType(type, el) {
     vibrate();
     document.getElementById('tx-type').value = type;
     
-    document.querySelectorAll('.exp-btn').forEach(btn => {
-        btn.classList.remove('bg-teal-500', 'text-black', 'border-teal-500');
-    });
-    
-    event.currentTarget.classList.add('bg-teal-500', 'text-black', 'border-teal-500');
-    
+    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => btn.classList.remove('active'));
+    if (el) el.classList.add('active');
+
     const fuelFields = document.getElementById('fuel-fields');
     if (fuelFields) {
-        if (type === 'fuel') {
-            fuelFields.classList.remove('hidden');
-        } else {
-            fuelFields.classList.add('hidden');
-        }
+        if (type === 'fuel') fuelFields.classList.remove('hidden');
+        else fuelFields.classList.add('hidden');
     }
 }
+
+// ────────────────────────────────────────────────────────────────
+// SAVE TRANSACTION
+// ────────────────────────────────────────────────────────────────
 
 export async function confirmTx() {
     vibrate([20]);
-    
-    const amount = parseFloat(document.getElementById('tx-amount').value);
-    
-    if (!amount || amount <= 0) {
-        return showToast('Įvesk sumą', 'error');
-    }
-    
+    const amountEl = document.getElementById('tx-amount');
+    const amount = parseFloat(amountEl.value);
+    const category = document.getElementById('tx-type').value;
+
+    if (!amount || amount <= 0) return showToast('Įvesk sumą', 'error');
+    if (!category) return showToast('Pasirink kategoriją', 'error');
+
+    state.loading = true;
     try {
         if (currentTxType === 'in') {
-            await saveIncome(amount);
+            await saveIncome(amount, category);
         } else {
-            await saveExpense(amount);
+            await saveExpense(amount, category);
         }
-        
-        closeModals();
+
+        window.closeModals();
         window.dispatchEvent(new Event('refresh-data'));
         
     } catch (error) {
-        console.error('Transaction error:', error);
+        console.error('Tx Error:', error);
         showToast(error.message, 'error');
+    } finally {
+        state.loading = false;
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// INCOME (PAJAMOS) - VEIKIA BE AKTYVIOS PAMAINOS
-// ────────────────────────────────────────────────────────────────
-
-async function saveIncome(amount) {
-    const shiftId = state.activeShift?.id || null;
-    
+async function saveIncome(amount, category) {
+    // 1. Įrašome į expenses lentelę (kaip income įrašą)
     const { error } = await db.from('expenses').insert({
         user_id: state.user.id,
-        shift_id: shiftId,
+        shift_id: state.activeShift?.id || null,
         vehicle_id: state.activeShift?.vehicle_id || null,
         type: 'income',
-        category: 'tips',
+        category: category,
         amount: amount,
         created_at: new Date().toISOString()
     });
     
     if (error) throw error;
-    
-    if (shiftId) {
+
+    // 2. Jei yra aktyvi pamaina, atnaujiname jos gross_earnings
+    // Robert OS Logika: Tips ir Bonus SKAIČIUOJAMI į Daily Target (Gross Earnings)
+    if (state.activeShift?.id) {
         const { data: shift } = await db
             .from('finance_shifts')
             .select('gross_earnings')
-            .eq('id', shiftId)
+            .eq('id', state.activeShift.id)
             .single();
-        
+            
         if (shift) {
+            const newTotal = (shift.gross_earnings || 0) + amount;
             await db.from('finance_shifts')
-                .update({ gross_earnings: (shift.gross_earnings || 0) + amount })
-                .eq('id', shiftId);
+                .update({ gross_earnings: newTotal })
+                .eq('id', state.activeShift.id);
         }
     }
     
-    showToast(`+$${amount.toFixed(2)} 💰`, 'success');
+    showToast(`+$${amount.toFixed(2)}`, 'success');
 }
 
-// ────────────────────────────────────────────────────────────────
-// EXPENSE (IŠLAIDOS)
-// ────────────────────────────────────────────────────────────────
-
-async function saveExpense(amount) {
-    const type = document.getElementById('tx-type').value;
-    
-    if (!state.activeShift) {
-        return showToast('Pradėk pamainą pirma!', 'error');
-    }
+async function saveExpense(amount, category) {
+    if (!state.activeShift) throw new Error('Išlaidoms reikia aktyvios pamainos');
     
     const expenseData = {
         user_id: state.user.id,
         shift_id: state.activeShift.id,
         vehicle_id: state.activeShift.vehicle_id,
         type: 'expense',
-        category: type,
+        category: category,
         amount: amount,
         created_at: new Date().toISOString()
     };
     
-    if (type === 'fuel') {
-        const gallons = document.getElementById('tx-gal').value;
-        const odometer = document.getElementById('tx-odo').value;
-        
-        if (gallons) expenseData.gallons = parseFloat(gallons);
-        if (odometer) expenseData.odometer = parseInt(odometer);
+    if (category === 'fuel') {
+        const gal = document.getElementById('tx-gal').value;
+        const odo = document.getElementById('tx-odo').value;
+        if (gal) expenseData.gallons = parseFloat(gal);
+        if (odo) expenseData.odometer = parseInt(odo);
     }
     
     const { error } = await db.from('expenses').insert(expenseData);
-    
     if (error) throw error;
     
-    showToast(`-$${amount.toFixed(2)} 💸`, 'info');
+    showToast(`-$${amount.toFixed(2)}`, 'info');
 }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT (ISTORIJA)
+// HISTORY & DELETION (NO ALERTS)
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
+    // Audit list generavimas yra App.js / UI lygmenyje arba čia, 
+    // bet kadangi tavo ankstesniame faile tai buvo čia, paliekame.
+    // TIK SVARBU: Čia turi būti švarus HTML generavimas.
+    
     try {
         const { data: shifts, error } = await db
             .from('finance_shifts')
@@ -173,62 +165,106 @@ export async function refreshAudit() {
             .eq('user_id', state.user.id)
             .order('start_time', { ascending: false })
             .limit(50);
-        
+            
         if (error) throw error;
         
         const listEl = document.getElementById('audit-list');
         if (!listEl) return;
         
+        // Reset checkbox
+        const masterBox = document.getElementById('select-all-logs');
+        if (masterBox) masterBox.checked = false;
+        window.updateDeleteButton(); // Hide delete button
+
         if (!shifts || shifts.length === 0) {
             listEl.innerHTML = '<div class="text-center py-10 opacity-50 text-sm">Nėra istorijos</div>';
             return;
         }
-        
+
         listEl.innerHTML = shifts.map(shift => {
-            const date = new Date(shift.start_time);
-            const dateStr = date.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
-            const timeStr = date.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
-            const earnings = shift.gross_earnings || 0;
-            const type = shift.status === 'completed' ? 'SHIFT' : 'ACTIVE';
+            const start = new Date(shift.start_time);
+            const dateStr = start.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
+            const timeStr = start.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+            const earn = shift.gross_earnings || 0;
+            const statusColor = shift.status === 'completed' ? 'text-gray-400' : 'text-teal-500 animate-pulse';
             
             return `
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <input type="checkbox" class="w-5 h-5 rounded accent-teal-500">
-                        <div>
-                            <p class="text-xs opacity-50">${date.getFullYear()}-${dateStr} ${timeStr}</p>
-                            <p class="font-bold">${type}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm opacity-50">${type}</span>
-                        <span class="text-lg font-bold text-green-400">+$${earnings}</span>
-                        <button class="text-gray-500 hover:text-white">✏️</button>
+            <div class="log-card group relative bg-white dark:bg-[#111] rounded-xl p-4 border border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <input type="checkbox" value="${shift.id}" onchange="updateDeleteButton()" class="log-checkbox w-5 h-5 rounded border-gray-600 bg-gray-800 text-teal-500 accent-teal-500">
+                    <div>
+                        <div class="text-xs font-bold text-gray-500">${dateStr}</div>
+                        <div class="text-sm font-bold ${statusColor}">${timeStr}</div>
                     </div>
                 </div>
-            `;
+                <div class="font-mono font-bold text-green-500">+$${earn}</div>
+            </div>`;
         }).join('');
         
-    } catch (error) {
-        console.error('Audit refresh error:', error);
-        const listEl = document.getElementById('audit-list');
-        if (listEl) {
-            listEl.innerHTML = '<div class="text-center py-10 text-red-500 text-sm">Nepavyko užkrauti istorijos</div>';
-        }
+    } catch (e) {
+        console.error(e);
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// EXPORT AI
-// ────────────────────────────────────────────────────────────────
-
-export async function exportAI() {
+// Global functions for HTML interaction
+window.toggleSelectAll = function() {
     vibrate();
-    showToast('AI Export - Coming Soon', 'info');
-}
+    const master = document.getElementById('select-all-logs');
+    const boxes = document.querySelectorAll('.log-checkbox');
+    boxes.forEach(b => b.checked = master.checked);
+    window.updateDeleteButton();
+};
 
-function closeModals() {
-    document.querySelectorAll('.modal-overlay').forEach(el => {
-        el.classList.add('hidden');
-    });
-}
+window.updateDeleteButton = function() {
+    const checked = document.querySelectorAll('.log-checkbox:checked');
+    const btn = document.getElementById('btn-delete-logs');
+    const count = document.getElementById('delete-count');
+    
+    if (btn && count) {
+        count.textContent = checked.length;
+        if (checked.length > 0) btn.classList.remove('hidden');
+        else btn.classList.add('hidden');
+    }
+};
+
+window.requestDelete = function() {
+    vibrate();
+    const checked = document.querySelectorAll('.log-checkbox:checked');
+    if (checked.length === 0) return;
+    
+    idsToDelete = Array.from(checked).map(c => c.value);
+    
+    const countEl = document.getElementById('del-modal-count');
+    if (countEl) countEl.textContent = idsToDelete.length;
+    
+    // Čia atidarome TAVO stilingą modalą
+    window.openModal('delete-modal');
+};
+
+window.confirmDelete = async function() {
+    vibrate([20]);
+    if (idsToDelete.length === 0) return;
+    
+    state.loading = true;
+    try {
+        // Pirma ištriname expenses (foreign key constraint)
+        await db.from('expenses').delete().in('shift_id', idsToDelete);
+        // Tada shifts
+        const { error } = await db.from('finance_shifts').delete().in('id', idsToDelete);
+        
+        if (error) throw error;
+        
+        showToast(`${idsToDelete.length} įrašai ištrinti`, 'success');
+        window.closeModals();
+        idsToDelete = [];
+        
+        refreshAudit();
+        window.dispatchEvent(new Event('refresh-data'));
+        
+    } catch (error) {
+        showToast('Klaida trinant', 'error');
+        console.error(error);
+    } finally {
+        state.loading = false;
+    }
+};

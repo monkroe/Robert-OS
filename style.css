@@ -1,47 +1,46 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - STYLE.CSS v1.7.2 (FINAL)
-// Auto Theme Engine (Day / Night via OS)
-// Logic: prefers-color-scheme → automatic background switch
-// No JS. No hacks. Stable.
+// ROBERT OS - STYLE. CSS v1.9 (FINAL)
+// Features: Auto Theme + Layout Fixes + Smooth Animations + Auto Dark/Light
+// System Orchestrator - Delegates to Specialized Modules
 // ════════════════════════════════════════════════════════════════
 
-──────────────────────────────────────
-   1. THEME VARIABLES (AUTO SWITCHING)
+/* ────────────────────────────────────────────────────────────────
+   1. THEME VARIABLES & SETTINGS
 ──────────────────────────────────────────────────────────────── */
-
-/* DIENOS REŽIMAS (DEFAULT) */
 :root {
+    /* DARK MODE (DEFAULT) */
+    --bg-main: #000000;
+    --bg-card: #111111;
+    --bg-header: rgba(0, 0, 0, 0.85);
+    --text-main: #ffffff;
+    --text-muted: #9ca3af;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --accent: #14b8a6; /* Teal */
+    --input-bg: #111827;
+    --track-bg: #1f2937;
+    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 15px rgba(20, 184, 166, 0.2);
+    
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+}
+
+/* LIGHT MODE */
+:root.light {
     --bg-main: #f3f4f6;
     --bg-card: #ffffff;
     --bg-header: rgba(255, 255, 255, 0.9);
     --text-main: #111827;
     --text-muted: #6b7280;
     --border-color: rgba(0, 0, 0, 0.08);
-    --accent: #14b8a6; /* Teal */
     --input-bg: #ffffff;
     --track-bg: #e5e7eb;
-    
-    --safe-top: env(safe-area-inset-top);
-    --safe-bottom: env(safe-area-inset-bottom);
-}
-
-/* NAKTIES REŽIMAS (AUTO VIA OS) */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-main: #000000;
-        --bg-card: #111111;
-        --bg-header: rgba(0, 0, 0, 0.9);
-        --text-main: #ffffff;
-        --text-muted: #9ca3af;
-        --border-color: rgba(255, 255, 255, 0.1);
-        --accent: #14b8a6;
-        --input-bg: #111827;
-        --track-bg: #1f2937;
-    }
+    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    --shadow-glow: 0 4px 12px rgba(20, 184, 166, 0.15);
 }
 
 /* ────────────────────────────────────────────────────────────────
-   2. BASE & RESET
+   2. GLOBAL TRANSITIONS & RESET
 ──────────────────────────────────────────────────────────────── */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -54,14 +53,13 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     height: 100vh;
-    overflow: hidden; /* App-like feel */
-    transition: background-color 0.5s ease, color 0.5s ease;
+    overflow: hidden;
+    transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 /* ────────────────────────────────────────────────────────────────
    3. LAYOUT (HEADER & NAV)
 ──────────────────────────────────────────────────────────────── */
-
 .global-header {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -74,6 +72,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    transition: border-color 0.3s ease, background-color 0.4s ease;
 }
 
 .bottom-nav {
@@ -96,13 +95,34 @@ body {
     padding-right: 1rem;
     height: 100%;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch; 
 }
 
 /* ────────────────────────────────────────────────────────────────
-   4. COMPONENTS (Robert OS Specifics)
+   4. TABS & CONTENT
 ──────────────────────────────────────────────────────────────── */
+.tab-content {
+    display: none !important;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
 
-/* KORTELĖS */
+.tab-content.active {
+    display: block !important;
+    opacity: 1;
+    transform: translateY(0);
+    animation: tabEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tabEnter {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   5. COMPONENTS (Cards & Buttons)
+──────────────────────────────────────────────────────────────── */
 .bento-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -114,27 +134,38 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 1rem;
     padding: 1rem;
-    position: relative;
     display: flex; flex-direction: column;
     color: var(--text-main);
-    transition: transform 0.2s;
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                background-color 0.3s, 
+                border-color 0.3s,
+                box-shadow 0.3s;
 }
-.bento-card.clickable:active { transform: scale(0.98); }
 
-/* MYGTUKAI */
+.bento-card.clickable:active { 
+    transform: scale(0.96); 
+    filter: brightness(0.95);
+}
+
 .btn-primary-os {
     width: 100%;
     background-color: var(--accent);
-    color: #000; /* Visada juodas tekstas ant akcento */
+    color: #000;
     font-weight: 900;
     text-transform: uppercase;
     border-radius: 0.75rem;
     padding: 1rem;
     border: none;
-    box-shadow: 0 0 15px rgba(20, 184, 166, 0.3);
+    box-shadow: 0 4px 15px rgba(20, 184, 166, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.3s ease;
 }
-.btn-primary-os:active { transform: scale(0.97); }
+.btn-primary-os:active { 
+    transform: scale(0.97); 
+    box-shadow: 0 2px 8px rgba(20, 184, 166, 0.2);
+}
 
+/* Header & Nav Buttons */
 .header-btn {
     width: 2.2rem; height: 2.2rem;
     border-radius: 0.6rem;
@@ -142,7 +173,10 @@ body {
     border: 1px solid var(--border-color);
     background: transparent;
     color: var(--text-muted);
+    transition: all 0.2s ease;
 }
+.header-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+.header-btn:active { transform: scale(0.9); }
 
 .nav-item {
     display: flex; flex-direction: column;
@@ -151,10 +185,15 @@ body {
     background: none; border: none;
     font-size: 10px; font-weight: 700; text-transform: uppercase;
     gap: 4px;
+    transition: color 0.3s ease, transform 0.2s;
 }
-.nav-item.active { color: var(--accent); }
+.nav-item.active { 
+    color: var(--accent); 
+    transform: translateY(-2px);
+}
+.nav-item:active { transform: scale(0.9); }
 
-/* ĮVESTIS */
+/* Form Elements */
 .input-field {
     width: 100%;
     background-color: var(--input-bg);
@@ -164,9 +203,37 @@ body {
     color: var(--text-main);
     outline: none;
     font-family: monospace;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-field:focus { 
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2); 
 }
 
-/* LOGS / LISTS */
+/* ────────────────────────────────────────────────────────────────
+   6. INTERACTIVE & FX
+──────────────────────────────────────────────────────────────── */
+.weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    transition: all 0.2s;
+}
+.weather-btn:active, .exp-btn:active, .inc-btn:active { transform: scale(0.95); }
+
+.inc-btn.active { 
+    border-color: #22c55e; 
+    color: #22c55e; 
+    background: rgba(34,197,94,0.1); 
+    box-shadow: 0 0 10px rgba(34,197,94,0.2);
+}
+.exp-btn.active { 
+    border-color: #ef4444; 
+    color: #ef4444; 
+    background: rgba(239,68,68,0.1);
+    box-shadow: 0 0 10px rgba(239,68,68,0.2);
+}
+
 .log-card {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -175,28 +242,29 @@ body {
     margin-bottom: 0.5rem;
     display: flex; justify-content: space-between; align-items: center;
     color: var(--text-main);
+    animation: fadeIn 0.3s ease forwards;
 }
 
-/* TYPOGRAPHY */
-.val-timer {
-    font-size: 3rem; font-weight: 900; letter-spacing: -0.05em;
-    color: var(--text-main); line-height: 1;
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
-.val-lg { font-size: 1.5rem; font-weight: 700; }
-.label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
 /* ────────────────────────────────────────────────────────────────
-   5. PROGRESS BARS & UTILS
+   7. MODALS
 ──────────────────────────────────────────────────────────────── */
-.bg-gray-800 { background-color: var(--track-bg) !important; }
-
-/* MODALS */
 .modal-overlay {
     position: fixed; inset: 0; z-index: 100;
     background-color: rgba(0,0,0,0.8);
-    backdrop-filter: blur(5px);
+    backdrop-filter: blur(8px);
     display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease;
 }
+.modal-overlay:not(.hidden) {
+    opacity: 1; pointer-events: auto;
+}
+
 .modal-content {
     background-color: var(--bg-card);
     width: 100%; max-width: 28rem;
@@ -204,18 +272,49 @@ body {
     border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;
     border-top: 1px solid var(--border-color);
     color: var(--text-main);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.modal-overlay:not(.hidden) .modal-content {
+    transform: translateY(0);
+}
+
 @media (min-width: 640px) {
     .modal-overlay { align-items: center; }
-    .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); }
+    .modal-content { 
+        border-radius: 1.5rem; 
+        border: 1px solid var(--border-color);
+        transform: scale(0.95);
+        opacity: 0;
+    }
+    .modal-overlay:not(.hidden) .modal-content {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
-/* HELPERS */
+/* ────────────────────────────────────────────────────────────────
+   8. UTILS & TYPOGRAPHY
+──────────────────────────────────────────────────────────────── */
+.val-timer { font-size: 3rem; font-weight: 900; letter-spacing: -0.05em; color: var(--text-main); line-height: 1; }
+.val-lg { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+.label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+
+.bg-gray-800 { background-color: var(--track-bg) !important; transition: background-color 0.4s; }
+.text-gray-100 { color: var(--text-main) !important; }
+.text-red-400 { color: #f87171 !important; }
+.text-teal-400 { color: var(--accent) !important; }
+
+@keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.animate-pulse { animation: pulse-soft 2s infinite; }
+
+#auth-screen { background-color: var(--bg-main); z-index: 500; }
 .hidden { display: none !important; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
-.animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-/* AUTH FIX */
-#auth-screen { background-color: var(--bg-main); }
-#auth-screen .input-field { background-color: var(--input-bg); }
+/* ────────────────────────────────────────────────────────────────
+   9. AUTO THEME SCRIPT (USAGE IN app.js)
+──────────────────────────────────────────────────────────────── */

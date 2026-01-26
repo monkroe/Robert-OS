@@ -379,5 +379,13 @@
             });
         }
     </script>
+<script>
+    window.onerror = function(message, source, lineno, colno, error) {
+        // Rodo klaidą kaip pranešimą
+        alert("🚨 KLAIDA:\n" + message + "\n\nFailas: " + source + "\nEilutė: " + lineno);
+        return false;
+    };
+</script>
+
 </body>
 </html>

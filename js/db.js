@@ -1,25 +1,49 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - DB.JS v1.7.5 (DATABASE CONNECTION)
+// ROBERT OS - DB.JS v1.5.0
+// Database Connection & Configuration
 // ════════════════════════════════════════════════════════════════
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const CONFIG = {
     SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co',
-    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy'
+    SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy',
 };
 
-export let db = null;
+// ────────────────────────────────────────────────────────────────
+// VALIDATION - Prevents silent failures
+// ────────────────────────────────────────────────────────────────
 
-export function initSupabase() {
-    if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('pakeičiau')) {
-        throw new Error('Konfigūracijos klaida: Nustatykite SUPABASE_URL db.js faile');
-    }
-    try {
-        db = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
-        console.log('🔌 DB: Inicializuota sėkmingai');
-    } catch (err) {
-        console.error('❌ DB Init Fail:', err);
-        throw err;
-    }
+if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL === 'JŪSŲ_URL_ČIA') {
+    console.error('❌ ROBERT OS: Supabase URL not configured!');
+    console.error('📍 Please update CONFIG.SUPABASE_URL in js/db.js');
+    throw new Error('Database configuration error: Missing SUPABASE_URL');
 }
+
+if (!CONFIG.SUPABASE_KEY || CONFIG.SUPABASE_KEY === 'JŪSŲ_KEY_ČIA') {
+    console.error('❌ ROBERT OS: Supabase KEY not configured!');
+    console.error('📍 Please update CONFIG.SUPABASE_KEY in js/db.js');
+    throw new Error('Database configuration error: Missing SUPABASE_KEY');
+}
+
+// ────────────────────────────────────────────────────────────────
+// CREATE CLIENT
+// ────────────────────────────────────────────────────────────────
+
+export const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+
+// ────────────────────────────────────────────────────────────────
+// CONNECTION CHECK (Optional - helps debug production issues)
+// ────────────────────────────────────────────────────────────────
+
+db.auth.getSession()
+    .then(({ data, error }) => {
+        if (error) {
+            console.warn('⚠️ ROBERT OS: Database connection issue');
+            console.warn('Details:', error.message);
+        } else {
+            console.log('✅ ROBERT OS v1.5.0: Database connected');
+        }
+    })
+    .catch(err => {
+        console.error('❌ ROBERT OS: Fatal database error');
+        console.error('Details:', err);
+    });

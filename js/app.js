@@ -187,6 +187,8 @@ window.saveVehicle = Garage.saveVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
 window.setVehType = Garage.setVehType;
 window.toggleTestMode = Garage.toggleTestMode;
+window.confirmDeleteVehicle = Garage.confirmDeleteVehicle; 
+window.cancelDeleteVehicle = Garage.cancelDeleteVehicle; 
 
 // Shifts
 window.openStartModal = Shifts.openStartModal;

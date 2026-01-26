@@ -1,32 +1,53 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS v1.2 - STYLE ENGINE (HYBRID) - FINAL FIX              */
+/* ROBERT OS v1.7 - STYLE ENGINE (HYBRID FIX)                       */
 /* ════════════════════════════════════════════════════════════════ */
 
+/* 1. THEME VARIABLES */
 :root {
+    /* DARK MODE (DEFAULT) */
     --bg-color: #000000;
     --card-bg: #111111;
+    --text-main: #ffffff;
+    --text-muted: #9ca3af;
+    --border-color: rgba(255,255,255,0.1);
+    --input-bg: #111827;
+    --track-bg: #1f2937; /* Atitinka bg-gray-800 */
+    
     --accent: #14b8a6;
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
 }
 
+/* LIGHT MODE OVERRIDES */
+:root:not(.dark) {
+    --bg-color: #f3f4f6;       /* Šviesiai pilkas fonas */
+    --card-bg: #ffffff;        /* Baltos kortelės */
+    --text-main: #111827;      /* Tamsiai pilkas tekstas */
+    --text-muted: #6b7280;
+    --border-color: rgba(0,0,0,0.1);
+    --input-bg: #ffffff;
+    --track-bg: #e5e7eb;       /* Šviesus takelis progress barui */
+}
+
+/* 2. BASE STYLES */
 body {
     background-color: var(--bg-color);
-    color: white;
+    color: var(--text-main);
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* ════════ SAFE AREA HANDLING ════════ */
+/* ════════ SAFE AREA & LAYOUT ════════ */
 
 .global-header {
     position: fixed;
     top: 0; left: 0; right: 0;
     z-index: 50;
-    background-color: rgba(0,0,0,0.9);
+    background-color: rgba(var(--bg-color), 0.9); /* Adaptyvus fonas */
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid var(--border-color);
     padding-left: 1rem;
     padding-right: 1rem;
     padding-top: max(1rem, var(--safe-top)); 
@@ -37,6 +58,10 @@ body {
     transition: background-color 0.3s, border-color 0.3s;
 }
 
+/* Fix header background specifically for glassmorphism in themes */
+:root.dark .global-header { background-color: rgba(0,0,0,0.9); }
+:root:not(.dark) .global-header { background-color: rgba(255,255,255,0.9); }
+
 .container {
     padding-top: calc(4.5rem + var(--safe-top)); 
     padding-left: 1rem;
@@ -46,9 +71,8 @@ body {
 .bottom-nav {
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    background-color: rgba(0,0,0,0.9);
-    backdrop-filter: blur(12px);
-    border-top: 1px solid rgba(255,255,255,0.1);
+    background-color: var(--card-bg);
+    border-top: 1px solid var(--border-color);
     z-index: 50;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -61,11 +85,11 @@ body {
 
 .input-field {
     width: 100%;
-    background-color: #111827;
-    border: 1px solid #374151;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
     border-radius: 0.75rem;
     padding: 1rem;
-    color: white; 
+    color: var(--text-main); 
     font-family: monospace;
     outline: none;
     transition: all 0.2s;
@@ -75,10 +99,13 @@ body {
     box-shadow: 0 0 0 1px var(--accent);
 }
 
+/* Placeholder spalva šviesioje temoje */
+:root:not(.dark) .input-field::placeholder { color: #9ca3af; }
+
 .btn-primary-os {
     width: 100%;
     background-color: var(--accent);
-    color: black;
+    color: black; /* Visada juodas tekstas ant Teal fono */
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -94,15 +121,23 @@ body {
     border-radius: 0.5rem;
     display: flex; align-items: center; justify-content: center;
     transition: all 0.2s;
-    color: #9ca3af;
+    color: var(--text-muted);
+    border: 1px solid transparent;
 }
-.header-btn:hover { color: white; transform: scale(1.05); }
+.header-btn:hover { color: var(--text-main); transform: scale(1.05); }
 .header-btn:active { transform: scale(0.95); }
+
+/* Šviesios temos header mygtukai */
+:root:not(.dark) .header-btn {
+    background-color: white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    border-color: rgba(0,0,0,0.05);
+}
 
 .nav-item {
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    color: #6b7280; 
+    color: var(--text-muted); 
     gap: 0.25rem;
     font-size: 10px;
     font-weight: 700;
@@ -122,18 +157,24 @@ body {
 }
 
 .bento-card {
-    background-color: #111;
-    border: 1px solid rgba(255,255,255,0.04);
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: 1rem;
     display: flex; flex-direction: column;
     padding: 1rem;
     position: relative;
     transition: all 0.2s;
-    color: white;
+    color: var(--text-main);
 }
+
+/* Light mode shadow for cards */
+:root:not(.dark) .bento-card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border-color: rgba(0,0,0,0.05);
+}
+
 .bento-card.clickable:active {
-    background-color: rgba(255,255,255,0.05);
-    box-shadow: 0 0 0 1px rgba(20,184,166,0.25), 0 6px 16px rgba(20,184,166,0.15);
+    transform: scale(0.98);
 }
 
 .val-timer { 
@@ -142,34 +183,36 @@ body {
     font-weight: 900; 
     letter-spacing: -0.05em; 
     font-feature-settings: "tnum"; 
-    color: white; 
-    text-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    color: var(--text-main); 
 }
+
+/* Text shadow only in dark mode */
+:root.dark .val-timer { text-shadow: 0 4px 8px rgba(0,0,0,0.5); }
 
 .val-lg { 
     font-size: 1.5rem; 
     line-height: 2rem; 
     font-weight: 700; 
-    color: white;
+    color: var(--text-main);
 }
 
 .label-xs { 
     font-size: 10px; 
     font-weight: 700; 
-    color: #6b7280; 
+    color: var(--text-muted); 
     text-transform: uppercase; 
     letter-spacing: 0.05em; 
 }
 
 .btn-bento {
     border-radius: 0.75rem;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--border-color);
     display: flex; align-items: center; justify-content: center;
     gap: 0.5rem;
     padding: 0.75rem;
     font-size: 0.75rem;
     font-weight: 700;
-    color: white;
+    color: var(--text-main);
     transition: all 0.2s;
 }
 
@@ -178,7 +221,7 @@ body {
 .modal-overlay {
     position: fixed; inset: 0;
     z-index: 100;
-    background-color: rgba(0,0,0,0.9);
+    background-color: rgba(0,0,0,0.8); /* Visada tamsus overlay */
     backdrop-filter: blur(4px);
     display: flex;
     align-items: flex-end; 
@@ -187,239 +230,112 @@ body {
 @media (min-width: 640px) { .modal-overlay { align-items: center; padding: 1rem; } }
 
 .modal-content {
-    background-color: #111;
+    background-color: var(--card-bg);
     width: 100%;
     max-width: 28rem;
     border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;
-    border-top: 1px solid rgba(255,255,255,0.1);
+    border-top: 1px solid var(--border-color);
     padding: 1.5rem;
     padding-bottom: max(1.5rem, var(--safe-bottom));
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    color: white;
+    color: var(--text-main);
 }
-@media (min-width: 640px) { .modal-content { border-radius: 1.5rem; border: 1px solid rgba(255,255,255,0.1); } }
+@media (min-width: 640px) { .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); } }
 
 /* ════════ ANIMATIONS ════════ */
 
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 
-@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-.animate-scaleIn { animation: scaleIn 0.2s ease-out; }
-
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* ════════ TAB SYSTEM ════════ */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
-.tab-content {
-    display: none;
-}
-.tab-content.active {
-    display: block;
-}
+/* ════════ INTERACTIVE ELEMENTS ════════ */
 
-/* ════════ MODAL BUTTONS (3rd Example Style) ════════ */
-
-.weather-btn,
-.exp-btn,
-.inc-btn {
+.weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
     transition: all 0.2s;
-    border: none;
-    background-color: rgba(255,255,255,0.05);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-}
-.weather-btn:active,
-.exp-btn:active,
-.inc-btn:active { 
-    transform: scale(0.95); 
+    border: 1px solid var(--border-color);
+    background-color: rgba(255,255,255,0.03);
+    color: var(--text-main);
 }
 
-/* ACTIVE TX TYPE – INCOME (GREEN) */
+:root:not(.dark) .weather-btn, 
+:root:not(.dark) .exp-btn, 
+:root:not(.dark) .inc-btn {
+    background-color: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    border-color: #e5e7eb;
+}
+
 .inc-btn.active {
     background-color: rgba(34,197,94,0.15) !important;
     color: #22c55e !important;
-    box-shadow: 0 0 0 1px rgba(34,197,94,0.35), 0 6px 16px rgba(34,197,94,0.25) !important;
+    border-color: rgba(34,197,94,0.5) !important;
 }
 
-/* ACTIVE TX TYPE – EXPENSE (RED) */
 .exp-btn.active {
     background-color: rgba(239,68,68,0.15) !important;
     color: #ef4444 !important;
-    box-shadow: 0 0 0 1px rgba(239,68,68,0.35), 0 6px 16px rgba(239,68,68,0.25) !important;
+    border-color: rgba(239,68,68,0.5) !important;
 }
 
-/* Progress Bars Glow */
-.shadow-glow {
-    box-shadow: 0 0 12px rgba(20,184,166,0.6);
-}
-
-/* Garage Type Buttons */
-.veh-type-btn {
-    transition: all 0.2s;
-    font-weight: 700;
-    font-size: 0.75rem;
-    border: none;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-}
-.veh-type-btn:active { 
-    transform: scale(0.95); 
-}
-
-/* Settings Toggle Checkboxes */
 input[type="checkbox"] {
     accent-color: var(--accent);
     cursor: pointer;
 }
 
-/* ════════ LIGHT MODE OVERRIDES ════════ */
+/* ════════ CRITICAL LIGHT MODE FIXES (TAILWIND OVERRIDES) ════════ */
 
-:root:not(.dark) body {
-    color: #111827;
-    --bg-color: #f3f4f6;
-    --card-bg: #ffffff;
+/* 1. Progress Bar Backgrounds (Takeliai) */
+/* HTML kode yra 'bg-gray-800'. Šviesioje temoje tai per tamsu. */
+:root:not(.dark) .bg-gray-800 {
+    background-color: #e5e7eb !important; /* Šviesiai pilka */
 }
 
-:root:not(.dark) .global-header,
-:root:not(.dark) .bottom-nav {
-    background-color: rgba(255,255,255,0.95);
-    border-color: rgba(0,0,0,0.1);
+/* 2. Tekstai, kurie HTML'e yra 'text-gray-100' arba 'text-gray-500' */
+:root:not(.dark) .text-gray-100 {
+    color: #111827 !important; /* Juoda */
 }
 
-:root:not(.dark) .bento-card {
-    background-color: var(--card-bg);
-    border: none;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
-    color: #111827;
+/* 3. Log/Istorijos kortelės */
+:root:not(.dark) .log-card {
+    background-color: #ffffff !important;
+    border-color: #e5e7eb !important;
+    color: #111827 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-:root:not(.dark) .modal-content {
-    background-color: var(--card-bg);
-    border: none;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-    color: #111827;
+/* 4. Skaičiai virš progress barų ($0 / $0) */
+:root:not(.dark) #rental-val,
+:root:not(.dark) #grind-val {
+    color: #111827 !important;
 }
 
-:root:not(.dark) .input-field {
-    background-color: #ffffff;
-    border-color: #d1d5db;
-    color: #111827;
-}
-:root:not(.dark) .input-field::placeholder { color: #9ca3af; }
-
-:root:not(.dark) .val-timer { 
-    color: #111827; 
-    text-shadow: none;
-}
-:root:not(.dark) .val-lg { color: #111827; }
-
-:root:not(.dark) .btn-bento {
-    color: #374151;
-    border: none;
-    background-color: white;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-}
-
-:root:not(.dark) .weather-btn,
-:root:not(.dark) .exp-btn,
-:root:not(.dark) .inc-btn,
-:root:not(.dark) .veh-type-btn {
-    border: none;
-    background-color: #ffffff;
-    color: #374151;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
-}
-
-:root:not(.dark) .header-btn { 
-    color: #6b7280; 
-    background-color: white;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-}
-
-:root:not(.dark) .shadow-glow {
-    box-shadow: 0 0 8px rgba(20,184,166,0.4);
-}
-
-/* Auth screen dark mode (FIXED) */
+/* 5. Auth Screen Inputs (Specific Fix) */
+/* Kad prisijungimo laukai visada atrodytų gerai, net jei tema keičiasi */
 #auth-screen .input-field {
-    background-color: #0b1220 !important;
-    color: white !important;
-    border: 1px solid rgba(56,189,248,0.25) !important;
+    background-color: var(--input-bg) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
 }
 
-#auth-screen .input-field:focus {
-    border-color: rgba(56,189,248,0.6) !important;
-    box-shadow: 0 0 0 1px rgba(56,189,248,0.5) !important;
+/* 6. Delete mygtukai (Red text) */
+:root:not(.dark) .text-red-400 {
+    color: #dc2626 !important; /* Tamsesnė raudona šviesiam fonui */
+}
+:root:not(.dark) .text-teal-400 {
+    color: #0d9488 !important; /* Tamsesnė žalia šviesiam fonui */
 }
 
-.hidden {
-    display: none !important;
+/* 7. Footerio mygtukai */
+:root:not(.dark) .nav-item {
+    color: #9ca3af;
+}
+:root:not(.dark) .nav-item.active {
+    color: #0d9488; /* Teal-600 */
 }
 
-/* ════════ v1.7 PRO UI ANIMATIONS ════════ */
-
-/* Pulse efektas mygtukams */
-.pulse-animation {
-    animation: pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
-}
-@keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: .8; transform: scale(0.95); }
-}
-
-/* Modal Fade & Scale */
-.fade-in { 
-    animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
-}
-.fade-out { 
-    animation: modalFadeOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
-}
-
-@keyframes modalFadeIn { 
-    from { opacity: 0; transform: scale(0.95) translateY(10px); } 
-    to { opacity: 1; transform: scale(1) translateY(0); } 
-}
-@keyframes modalFadeOut { 
-    from { opacity: 1; transform: scale(1); } 
-    to { opacity: 0; transform: scale(0.95); } 
-}
-
-/* Tab Slide Up & Fade */
-.tab-content.fade-in { 
-    animation: tabSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
-}
-@keyframes tabSlideUp { 
-    from { opacity: 0; transform: translateY(15px); } 
-    to { opacity: 1; transform: translateY(0); } 
-}
-
-/* Smooth Theme Transition for Body */
-body {
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* ════════ 1.7.1 PRO UI ANIMATIONS ════════ */
-
-/* Pulse Text (Laikmačiui per pauzę) */
-.pulse-text {
-    animation: textPulse 1.5s infinite ease-in-out;
-    color: #fbbf24; /* Yellow-400 */
-    text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
-}
-
-@keyframes textPulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.98); }
-}
-
-/* Log kortelės Dark Mode Fix */
-.dark .log-card {
-    background-color: #111111 !important;
-    border-color: rgba(255, 255, 255, 0.05) !important;
-}
-
-/* Checkbox Accent Fix */
-.log-checkbox:checked {
-    background-color: #14b8a6; /* Teal-500 */
-    border-color: #14b8a6;
-        }
+.hidden { display: none !important; }

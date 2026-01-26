@@ -13,31 +13,67 @@ import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
 // ────────────────────────────────────────────────────────────────
-// 1. AUTO THEME LOGIC (Laiko pagrindu)
+// THEME ENGINE (AUTO + MANUAL OVERRIDE)
 // ────────────────────────────────────────────────────────────────
 
-function initAutoTheme() {
-    const rootEl = document.documentElement;
-    const now = new Date();
-    const hour = now.getHours();
+function initTheme() {
+    const root = document.documentElement;
+    const saved = localStorage.getItem('theme'); // Patikrinam ar vartotojas jau pasirinko
 
-    // Nuo 7:00 ryto iki 19:00 vakaro - Šviesi tema
-    // Kitu laiku - Tamsi tema (default)
+    // 1. Jei vartotojas yra pasirinkęs rankiniu būdu – klausom jo
+    if (saved === 'light') {
+        root.classList.add('light');
+        return;
+    }
+    if (saved === 'dark') {
+        root.classList.remove('light');
+        return;
+    }
+
+    // 2. Jei nepasirinko (default) – sprendžiam pagal laiką (Auto)
+    checkTimeBasedTheme();
+    // Tikrinam laiką kas minutę
+    setInterval(checkTimeBasedTheme, 60000);
+}
+
+function checkTimeBasedTheme() {
+    // Jei vartotojas jau paspaudė mygtuką, automatinio laiko nebetikrinam
+    if (localStorage.getItem('theme')) return;
+
+    const hour = new Date().getHours();
+    const root = document.documentElement;
+    
+    // Nuo 7:00 iki 19:00 -> Šviesi
     if (hour >= 7 && hour < 19) {
-        rootEl.classList.add('light');
-        console.log('☀️ Day Mode Active');
+        if (!root.classList.contains('light')) root.classList.add('light');
     } else {
-        rootEl.classList.remove('light');
-        console.log('🌙 Night Mode Active');
+        if (root.classList.contains('light')) root.classList.remove('light');
     }
 }
 
-// Paleidžiame temą iškart
-initAutoTheme();
+// Globali funkcija mygtukui (Override)
+window.cycleTheme = function() {
+    const root = document.documentElement;
+    let newTheme = '';
 
-// Tikriname kas 15 min (jei programa atidaryta ilgai)
-setInterval(initAutoTheme, 900000);
+    // Perjungimo logika
+    if (root.classList.contains('light')) {
+        root.classList.remove('light');
+        newTheme = 'dark';
+    } else {
+        root.classList.add('light');
+        newTheme = 'light';
+    }
 
+    // Įrašom į atmintį – nuo šiol Auto režimas išsijungia
+    localStorage.setItem('theme', newTheme);
+    
+    // Vibracija
+    if (navigator.vibrate) navigator.vibrate(10);
+};
+
+// Paleidžiam startuojant (įdėk šią eilutę failo pradžioje arba init funkcijoje)
+initTheme();
 
 // ────────────────────────────────────────────────────────────────
 // 2. MAIN APP INIT (Tavo senas kodas)

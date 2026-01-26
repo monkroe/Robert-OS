@@ -61,3 +61,7 @@ Saugumo taisyklės:
  * ENV: Užtikrink, kad db.js konfigūracijoje nėra testinių raktų.
 Robert OS v1.7.5: Paruošta gamybai.
 Architektūra patvirtinta. Dokumentacija pilna. Visi sluoksniai suderinti.
+
+## 📜 SISTEMOS KONSTITUCIJA
+Išsamus sistemos vizijos, filosofijos ir Agento Beno veikimo principų aprašymas pateikiamas oficialiame [Technical White Paper](./docs/WHITE_PAPER.md).
+

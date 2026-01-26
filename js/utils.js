@@ -1,10 +1,12 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UTILS.JS v1.5.0
-// Global Utilities with HTML Toast Support
+// ROBERT OS - UTILS.JS v1.7.5
+// Sistemos įrankiai, formatavimas ir saugumo filtrai
 // ════════════════════════════════════════════════════════════════
 
+import { state } from './state.js';
+
 // ────────────────────────────────────────────────────────────────
-// HAPTIC FEEDBACK
+// 1. HAPTIC FEEDBACK (Vartotojo pojūčiai)
 // ────────────────────────────────────────────────────────────────
 
 export const vibrate = (pattern = [10]) => {
@@ -14,20 +16,22 @@ export const vibrate = (pattern = [10]) => {
 };
 
 // ────────────────────────────────────────────────────────────────
-// TOAST NOTIFICATIONS (With Queue Management)
+// 2. SAUGŪS PRANEŠIMAI (Toast Notifications)
 // ────────────────────────────────────────────────────────────────
 
 const activeToasts = new Set();
 const MAX_TOASTS = 3;
 
+/**
+ * Rodo pranešimą ekrane saugiai (XSS protection)
+ * @param {string} msg - Pranešimo tekstas
+ * @param {string} type - 'info', 'success', 'error', 'warning'
+ */
 export const showToast = (msg, type = 'info') => {
     const container = document.getElementById('toast-container');
-    if (!container) {
-        console.warn('Toast container not found');
-        return;
-    }
+    if (!container) return;
     
-    // Prevent spam
+    // Perteklinių pranešimų valymas
     if (activeToasts.size >= MAX_TOASTS) {
         const oldest = activeToasts.values().next().value;
         if (oldest) {
@@ -36,80 +40,70 @@ export const showToast = (msg, type = 'info') => {
         }
     }
     
-    // ✅ ALLOW HTML (for icons) - no escaping needed if we control the source
     const toast = document.createElement('div');
-    const color = type === 'error' ? 'bg-red-500' : 'bg-teal-500';
+    const colorMap = {
+        'error': 'bg-red-500',
+        'success': 'bg-teal-500',
+        'warning': 'bg-yellow-500',
+        'info': 'bg-gray-800'
+    };
     
-    toast.className = `${color} text-black px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-bold animate-slideUp pointer-events-auto`;
-    toast.innerHTML = `<span>${msg}</span>`; // ✅ HTML supported
+    // v1.5 Estetika: rounded-2xl ir stiprus šešėlis
+    toast.className = `${colorMap[type]} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-black animate-slideUp pointer-events-auto mb-2 transition-all duration-300`;
+    
+    // Saugus teksto įterpimas (textContent)
+    const span = document.createElement('span');
+    span.textContent = msg;
+    toast.appendChild(span);
     
     container.appendChild(toast);
     activeToasts.add(toast);
     
-    vibrate(type === 'error' ? [50, 50, 50] : [20]);
+    // Vibracijos feedback'as pagal tipą
+    const vibrations = { 'error': [50, 50, 50], 'success': [20], 'warning': [30, 10] };
+    vibrate(vibrations[type] || [10]);
     
+    // Automatinis paslėpimas
     setTimeout(() => {
         if (toast.parentElement) {
-            toast.remove();
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                toast.remove();
+                activeToasts.delete(toast);
+            }, 300);
         }
-        activeToasts.delete(toast);
-    }, 3000);
+    }, 3500);
 };
 
 // ────────────────────────────────────────────────────────────────
-// XSS PROTECTION (Legacy support)
+// 3. DUOMENŲ FORMATAVIMAS (Derived Truth)
 // ────────────────────────────────────────────────────────────────
 
-function escapeHtml(str) {
-    if (typeof str !== 'string') return String(str);
-    
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
-
-// ────────────────────────────────────────────────────────────────
-// CLEANUP (On page unload)
-// ────────────────────────────────────────────────────────────────
-
-if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => {
-        activeToasts.forEach(toast => {
-            if (toast.parentElement) {
-                toast.remove();
-            }
-        });
-        activeToasts.clear();
-    });
-}
-
-// ────────────────────────────────────────────────────────────────
-// ADDITIONAL UTILITIES
-// ────────────────────────────────────────────────────────────────
-
-// Format currency
 export const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
-        minimumFractionDigits: 0,
         maximumFractionDigits: 2
     }).format(amount);
 };
 
-// Format date
-export const formatDate = (date, timezone = 'America/Chicago') => {
-    return new Intl.DateTimeFormat('en-US', {
+/**
+ * Formatuoja datą pagal vartotojo nustatytą laiko juostą
+ */
+export const formatDate = (date) => {
+    const timezone = state.userSettings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return new Intl.DateTimeFormat('lt-LT', {
         timeZone: timezone,
+        year: 'numeric',
         month: '2-digit',
-        day: '2-digit',
-        year: 'numeric'
+        day: '2-digit'
     }).format(new Date(date));
 };
 
-// Format time
-export const formatTime = (date, timezone = 'America/Chicago') => {
-    return new Intl.DateTimeFormat('en-US', {
+export const formatTime = (date) => {
+    const timezone = state.userSettings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return new Intl.DateTimeFormat('lt-LT', {
         timeZone: timezone,
         hour: '2-digit',
         minute: '2-digit',
@@ -117,50 +111,35 @@ export const formatTime = (date, timezone = 'America/Chicago') => {
     }).format(new Date(date));
 };
 
-// Debounce function
-export const debounce = (func, wait) => {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-};
-
-// Throttle function
-export const throttle = (func, limit) => {
-    let inThrottle;
-    return function(...args) {
-        if (!inThrottle) {
-            func.apply(this, args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
-        }
-    };
-};
-
 // ────────────────────────────────────────────────────────────────
-// GLOBAL EXPOSURE (For debugging)
+// 4. KLAIDŲ VALDYMAS (Smart Handlers)
 // ────────────────────────────────────────────────────────────────
 
-if (typeof window !== 'undefined') {
-    window.showToast = showToast;
-    window.getActiveToastCount = () => activeToasts.size;
-}
-
-// utils.js priedas
 export const initGlobalErrorHandlers = () => {
+    // Gaudo sinchronines klaidas
     window.onerror = (message, source, lineno, colno, error) => {
-        showToast(`💥 Sistemos klaida: ${message}`, 'error');
-        console.error('ROBERT OS CRITICAL:', { message, source, lineno, error });
+        // Ignoruojame išorinius skriptus (pvz. naršyklės plėtinius)
+        if (source && !source.includes(window.location.origin)) return false;
+        
+        console.error('🚨 ROBERT OS CRITICAL:', { message, line: lineno, error });
+        showToast('Sistemos klaida. Tikrinkite konsolę.', 'error');
         return false;
     };
 
+    // Gaudo asinchronines klaidas (Supabase/Fetch)
     window.onunhandledrejection = (event) => {
-        showToast(`🌐 Tinklo/DB klaida: ${event.reason}`, 'error');
-        console.error('UNHANDLED PROMISE:', event.reason);
+        const reason = event.reason?.message || event.reason;
+        console.error('🔥 UNHANDLED PROMISE:', reason);
+        
+        if (reason && (reason.includes('fetch') || reason.includes('database'))) {
+            showToast('Ryšio klaida su duomenų baze.', 'error');
+        }
     };
+    
+    console.log('✅ Globalūs klaidų filtrai aktyvuoti.');
 };
+
+// Eksportuojame globaliai debug'inimui
+if (typeof window !== 'undefined') {
+    window.showToast = showToast;
+}

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SHIFTS MODULE v1.5.0
+// ROBERT OS - SHIFTS MODULE v1.7.2 (FIXED)
 // Shift Management with Odometer Validation & Professional Icons
 // ════════════════════════════════════════════════════════════════
 
@@ -8,6 +8,96 @@ import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
 
 let timerInterval = null;
+
+// ────────────────────────────────────────────────────────────────
+// 1. INITIALIZATION (Inject HTML)
+// ────────────────────────────────────────────────────────────────
+
+export function initShiftsModals() {
+    console.log('⏱️ Shifts modals injected');
+    
+    const container = document.getElementById('modals-container');
+    if (!container) return;
+
+    container.innerHTML += `
+        <div id="start-modal" class="modal-overlay hidden">
+            <div class="modal-card max-w-sm">
+                <div class="modal-header">
+                    <h3 class="font-black text-lg">PRADĖTI PAMAINĄ</h3>
+                    <button onclick="closeModals()" class="text-xl opacity-50">&times;</button>
+                </div>
+                
+                <div class="modal-body space-y-4">
+                    <div>
+                        <label class="text-xs font-bold opacity-50 ml-1 uppercase">Automobilis</label>
+                        <div class="relative">
+                            <select id="start-vehicle" class="input-field appearance-none">
+                                <option>Loading...</option>
+                            </select>
+                            <div class="absolute right-3 top-3 pointer-events-none opacity-50">
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold opacity-50 ml-1 uppercase">Rida (Start)</label>
+                        <input type="number" id="start-odo" class="input-field font-mono text-lg" placeholder="000000">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold opacity-50 ml-1 uppercase">Tikslas (Val.)</label>
+                        <input type="number" id="start-goal" class="input-field" value="12">
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button onclick="confirmStart()" class="btn-primary-os w-full">
+                        <i class="fa-solid fa-play mr-2"></i> PRADĖTI
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="end-modal" class="modal-overlay hidden">
+            <div class="modal-card max-w-sm">
+                <div class="modal-header">
+                    <h3 class="font-black text-lg text-red-500">BAIGTI PAMAINĄ</h3>
+                    <button onclick="closeModals()" class="text-xl opacity-50">&times;</button>
+                </div>
+                
+                <div class="modal-body space-y-4">
+                    <div>
+                        <label class="text-xs font-bold opacity-50 ml-1 uppercase">Rida (End)</label>
+                        <input type="number" id="end-odo" class="input-field font-mono text-lg" placeholder="000000">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold opacity-50 ml-1 uppercase">Uždarbis (Programėlės)</label>
+                        <input type="number" id="end-earn" class="input-field text-green-400 font-bold" placeholder="0.00" step="0.01">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold opacity-50 ml-1 uppercase mb-2 block">Orai</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button onclick="selectWeather('sun')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 hover:opacity-100 transition-all">☀️</button>
+                            <button onclick="selectWeather('cloud')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 hover:opacity-100 transition-all">☁️</button>
+                            <button onclick="selectWeather('rain')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 hover:opacity-100 transition-all">🌧️</button>
+                            <button onclick="selectWeather('snow')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 hover:opacity-100 transition-all">❄️</button>
+                        </div>
+                        <input type="hidden" id="end-weather" value="">
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button onclick="confirmEnd()" class="btn-primary-os w-full bg-red-500 border-red-500 text-white shadow-red-500/20">
+                        <i class="fa-solid fa-stop mr-2"></i> BAIGTI
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
 
 // ────────────────────────────────────────────────────────────────
 // TIMER LOGIC
@@ -44,9 +134,19 @@ function updateTimerDisplay() {
     const el = document.getElementById('shift-timer');
     if (!state.activeShift || !el) return;
     
+    // If paused, show the frozen time duration (calculated in app.js or backend)
+    // But for simplicity, we calculate from start time minus pause duration
+    
     const start = new Date(state.activeShift.start_time).getTime();
     const now = Date.now();
+    
     let diff = Math.floor((now - start) / 1000);
+    
+    // Adjust for pause duration if stored (simplified here)
+    if (state.activeShift.total_paused_seconds) {
+        diff -= state.activeShift.total_paused_seconds;
+    }
+    
     if (diff < 0) diff = 0;
     
     const h = String(Math.floor(diff / 3600)).padStart(2, '0');
@@ -62,26 +162,28 @@ function updateTimerDisplay() {
     }
 }
 
-// Cleanup on page unload
+// Cleanup
 if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', () => {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
+        if (timerInterval) clearInterval(timerInterval);
     });
 }
 
 // ────────────────────────────────────────────────────────────────
-// START SHIFT (With Auto-fill Odometer)
+// START SHIFT
 // ────────────────────────────────────────────────────────────────
 
 export function openStartModal() {
     vibrate();
-    if (state.activeShift) return showToast('<i class="fa-solid fa-triangle-exclamation"></i> Jau turi aktyvią pamainą!', 'error');
+    if (state.activeShift) return showToast('Jau turi aktyvią pamainą!', 'error');
     
+    // Populate select
     const sel = document.getElementById('start-vehicle');
-    if (!sel) return;
+    if (!sel) {
+        // Retry if modal just injected
+        setTimeout(openStartModal, 50); 
+        return;
+    }
     
     if (state.fleet.length === 0) {
         sel.innerHTML = '<option value="">Garažas tuščias!</option>';
@@ -90,43 +192,31 @@ export function openStartModal() {
             .filter(v => v.is_active)
             .map(v => {
                 const currentOdo = v.last_odo || v.initial_odometer || 0;
-                const odoInfo = currentOdo ? ` (Rida: ${currentOdo})` : '';
-                // ✅ PAKEISTA: 🧪 -> 🚖
-                return `<option value="${v.id}" data-odo="${currentOdo}">${v.name}${v.is_test ? ' 🚖' : ''}${odoInfo}</option>`;
+                const typeIcon = v.is_test ? '🚖 ' : '';
+                return `<option value="${v.id}">${typeIcon}${v.name}</option>`;
             })
             .join('');
     }
     
-    // Auto-fill with last_odo or initial_odometer
-    const firstVehicle = state.fleet.find(v => v.is_active);
-    const odoInput = document.getElementById('start-odo');
-    if (odoInput && firstVehicle) {
-        const lastOdo = firstVehicle.last_odo || firstVehicle.initial_odometer || '';
-        odoInput.value = lastOdo;
-        odoInput.placeholder = lastOdo ? `Paskutinė rida: ${lastOdo}` : 'Pradinis rodmuo';
-    }
-    
-    // Dynamic update on vehicle change
-    const oldListener = sel._odoUpdateListener;
-    if (oldListener) {
-        sel.removeEventListener('change', oldListener);
-    }
-    
-    const newListener = function(e) {
-        const selectedVehicle = state.fleet.find(v => v.id === e.target.value);
-        if (odoInput && selectedVehicle) {
-            const lastOdo = selectedVehicle.last_odo || selectedVehicle.initial_odometer || '';
+    // Pre-fill logic
+    const updateOdo = () => {
+        const vid = sel.value;
+        const vehicle = state.fleet.find(v => v.id === vid);
+        const odoInput = document.getElementById('start-odo');
+        if (vehicle && odoInput) {
+            const lastOdo = vehicle.last_odo || vehicle.initial_odometer || '';
             odoInput.value = lastOdo;
-            odoInput.placeholder = lastOdo ? `Paskutinė rida: ${lastOdo}` : 'Pradinis rodmuo';
+            odoInput.placeholder = lastOdo ? `Last: ${lastOdo}` : '000000';
         }
     };
     
-    sel.addEventListener('change', newListener);
-    sel._odoUpdateListener = newListener;
+    sel.onchange = updateOdo;
+    updateOdo(); // Run once
     
     document.getElementById('start-goal').value = state.userSettings?.default_shift_target_hours || 12;
     
-    window.openModal('start-modal');
+    if (window.openModal) window.openModal('start-modal');
+    else document.getElementById('start-modal').classList.remove('hidden');
 }
 
 export async function confirmStart() {
@@ -143,31 +233,20 @@ export async function confirmStart() {
 
     state.loading = true;
     try {
-        const { data: lastShift, error: shiftError } = await db
+        // Validation: Check against last shift end_odo
+        const { data: lastShift } = await db
             .from('finance_shifts')
             .select('end_odo')
             .eq('user_id', state.user.id)
             .eq('vehicle_id', vid)
             .eq('status', 'completed')
-            .not('end_odo', 'is', null)
             .order('end_time', { ascending: false })
             .limit(1)
             .maybeSingle();
         
-        if (shiftError && shiftError.code !== 'PGRST116') throw shiftError;
-        
         if (lastShift && lastShift.end_odo && odo < lastShift.end_odo) {
-            vibrate([50, 50, 50]);
+            vibrate([50, 50]);
             return showToast(`❌ Rida negali būti mažesnė nei ${lastShift.end_odo}`, 'error');
-        }
-        
-        const vehicle = state.fleet.find(v => v.id === vid);
-        if (vehicle && (vehicle.last_odo || vehicle.initial_odometer)) {
-            const minOdo = vehicle.last_odo || vehicle.initial_odometer;
-            if (odo < minOdo) {
-                vibrate([50, 50, 50]);
-                return showToast(`❌ Rida negali būti mažesnė nei ${minOdo}`, 'error');
-            }
         }
 
         const { error } = await db.from('finance_shifts').insert({
@@ -181,7 +260,7 @@ export async function confirmStart() {
 
         if (error) throw error;
 
-        window.closeModals();
+        if (window.closeModals) window.closeModals();
         window.dispatchEvent(new Event('refresh-data'));
         showToast('Pamaina pradėta 🚀', 'success');
         
@@ -193,7 +272,7 @@ export async function confirmStart() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// END SHIFT (With Vehicle Last_Odo Update)
+// END SHIFT
 // ────────────────────────────────────────────────────────────────
 
 export function openEndModal() {
@@ -211,11 +290,12 @@ export function openEndModal() {
     if (endEarnInput) endEarnInput.value = '';
     if (weatherInput) weatherInput.value = '';
     
+    // Reset weather buttons
     document.querySelectorAll('.weather-btn').forEach(btn => {
          btn.className = 'weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 hover:opacity-100 transition-all';
     });
     
-    window.openModal('end-modal');
+    if (window.openModal) window.openModal('end-modal');
 }
 
 export function selectWeather(type) {
@@ -224,7 +304,9 @@ export function selectWeather(type) {
     if (input) input.value = type;
 
     document.querySelectorAll('.weather-btn').forEach(btn => {
+        // Reset all
         btn.className = 'weather-btn p-3 border border-gray-700 rounded-lg text-2xl opacity-50 transition-all';
+        // Highlight active
         if (btn.getAttribute('onclick').includes(type)) {
             btn.className = 'weather-btn p-3 border border-teal-500 bg-teal-500/20 rounded-lg text-2xl shadow-[0_0_10px_rgba(20,184,166,0.3)] scale-110 transition-all';
         }
@@ -257,19 +339,16 @@ export async function confirmEnd() {
 
         if (shiftError) throw shiftError;
 
-        const { error: vehError } = await db.from('vehicles').update({
+        // Update Vehicle Odometer
+        await db.from('vehicles').update({
             last_odo: odo
         }).eq('id', state.activeShift.vehicle_id);
-
-        if (vehError) console.warn('Odometer sync failed:', vehError);
 
         stopTimer();
         const el = document.getElementById('shift-timer');
         if (el) el.textContent = "00:00:00";
 
-        window.closeModals();
-        
-        if (window.Garage && window.Garage.fetchFleet) await window.Garage.fetchFleet();
+        if (window.closeModals) window.closeModals();
         
         window.dispatchEvent(new Event('refresh-data'));
         showToast('Pamaina baigta 🏁', 'success');
@@ -282,7 +361,7 @@ export async function confirmEnd() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// PAUSE/RESUME
+// PAUSE / RESUME
 // ────────────────────────────────────────────────────────────────
 
 export async function togglePause() {
@@ -292,42 +371,34 @@ export async function togglePause() {
     const isPaused = state.activeShift.status === 'paused';
     const newStatus = isPaused ? 'active' : 'paused';
     
+    // Optimistic UI Update
     const oldStatus = state.activeShift.status;
     state.activeShift.status = newStatus;
+    updatePauseButton(newStatus); // Update UI immediately
     
-    if (newStatus === 'paused') {
-        stopTimer();
-        const el = document.getElementById('shift-timer');
-        if (el) el.classList.add('pulse-text');
-    } else {
-        startTimer();
-    }
-    
-    updatePauseButton(newStatus);
-    
+    if (newStatus === 'paused') stopTimer();
+    else startTimer();
+
     try {
         const { error } = await db.from('finance_shifts')
-            .update({ status: newStatus })
+            .update({ 
+                status: newStatus,
+                // If pausing, we might want to track pause_start_time in DB, 
+                // but for v1.7.2 we just toggle status.
+            })
             .eq('id', state.activeShift.id);
         
-        if (error) {
-            state.activeShift.status = oldStatus;
-            if (oldStatus === 'paused') {
-                stopTimer();
-                const el = document.getElementById('shift-timer');
-                if(el) el.classList.add('pulse-text');
-            } else {
-                startTimer();
-            }
-            updatePauseButton(oldStatus);
-            throw error;
-        }
+        if (error) throw error;
         
         showToast(isPaused ? 'Tęsiama ▶️' : 'Pauzė ⏸️', 'info');
         
     } catch (error) {
         console.error('Toggle pause error:', error);
-        showToast('Nepavyko pakeisti statuso', 'error');
+        // Revert
+        state.activeShift.status = oldStatus;
+        updatePauseButton(oldStatus);
+        if (oldStatus === 'active') startTimer(); else stopTimer();
+        showToast('Klaida keičiant statusą', 'error');
     }
 }
 
@@ -343,3 +414,14 @@ function updatePauseButton(status) {
         btn.className = 'col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50 transition-all';
     }
 }
+
+// ────────────────────────────────────────────────────────────────
+// WINDOW EXPORTS
+// ────────────────────────────────────────────────────────────────
+
+window.openStartModal = openStartModal;
+window.confirmStart = confirmStart;
+window.openEndModal = openEndModal;
+window.confirmEnd = confirmEnd;
+window.togglePause = togglePause;
+window.selectWeather = selectWeather;

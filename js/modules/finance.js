@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - FINANCE MODULE v1.7.8 (LOGIC FIX)
+// ROBERT OS - FINANCE MODULE v1.7.9 (HISTORY FIX)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -14,7 +14,8 @@ let txDraft = {
     direction: 'in', // 'in' arba 'out'
     category: 'tips'
 };
-let idsToDelete = [];
+// Saugosime objektus: { id: '123', type: 'shift' | 'tx' }
+let itemsToDelete = [];
 
 /* ────────────────────────────────────────────────────────────────
    UI → CORE BRIDGE
@@ -23,7 +24,6 @@ let idsToDelete = [];
 export function openTxModal(direction) {
     vibrate();
     txDraft.direction = direction;
-    // Nustatome default kategoriją pagal kryptį
     txDraft.category = direction === 'in' ? 'tips' : 'fuel';
 
     updateTxModalUI(direction);
@@ -31,7 +31,6 @@ export function openTxModal(direction) {
     const amountInput = document.getElementById('tx-amount');
     if (amountInput) {
         amountInput.value = '';
-        // Mažas delay, kad klaviatūra mobiliame telefone gražiai iššoktų
         setTimeout(() => amountInput.focus(), 100);
     }
     
@@ -59,10 +58,8 @@ function updateTxModalUI(direction) {
     if (incomeTypes) incomeTypes.classList.toggle('hidden', direction !== 'in');
     if (expenseTypes) expenseTypes.classList.toggle('hidden', direction === 'in');
 
-    // Paslepiame kuro laukus atidarant (kad nebūtų likę nuo praeito karto)
     if (fuelFields) fuelFields.classList.add('hidden');
     
-    // Vizualiai nuimame ryškius rėmelius ir active klases
     document.querySelectorAll('.inc-btn, .exp-btn').forEach(btn => {
         btn.classList.remove('active');
         btn.classList.remove('border-gray-800'); 
@@ -102,7 +99,6 @@ export async function confirmTx() {
 
     try {
         let meta = {};
-        // Jei tai kuras, paimame papildomus duomenis
         if (txDraft.category === 'fuel') {
             const gal = document.getElementById('tx-gal').value;
             const odo = document.getElementById('tx-odo').value;
@@ -123,6 +119,8 @@ export async function confirmTx() {
         }
 
         if (window.closeModals) window.closeModals();
+        
+        // Atnaujinam viską
         window.dispatchEvent(new Event('refresh-data'));
 
     } catch (err) {
@@ -133,14 +131,9 @@ export async function confirmTx() {
     }
 }
 
-/* ────────────────────────────────────────────────────────────────
-   CORE FINANCE OPERATIONS (UNIFIED LOGIC)
----------------------------------------------------------------- */
-
 async function recordTransaction(type, { amount, category, meta = {} }) {
     if (!state.user?.id) throw new Error('Vartotojas nerastas');
 
-    // Leidžiame įvesti be pamainos (null), bet jei pamaina yra - pririšame
     const shiftId = state.activeShift?.id ?? null;
     const vehicleId = state.activeShift?.vehicle_id ?? null;
 
@@ -148,7 +141,7 @@ async function recordTransaction(type, { amount, category, meta = {} }) {
         user_id: state.user.id,
         shift_id: shiftId,
         vehicle_id: vehicleId,
-        type: type, // 'income' arba 'expense'
+        type: type, 
         category,
         amount,
         ...meta,
@@ -158,9 +151,7 @@ async function recordTransaction(type, { amount, category, meta = {} }) {
     const { error } = await db.from('expenses').insert(payload);
     if (error) throw error;
 
-    // Jei turime aktyvią pamainą, atnaujiname jos balansą
     if (shiftId) {
-        // Pajamos didina (+), Išlaidos mažina (-)
         const delta = type === 'income' ? amount : -amount;
         await updateShiftEarnings(delta);
     }
@@ -170,7 +161,6 @@ async function recordTransaction(type, { amount, category, meta = {} }) {
 }
 
 async function updateShiftEarnings(delta) {
-    // 1. Gauname dabartinę sumą
     const { data, error } = await db
         .from('finance_shifts')
         .select('gross_earnings')
@@ -178,16 +168,13 @@ async function updateShiftEarnings(delta) {
         .single();
 
     if (!error && data) {
-        // 2. Pridedame delta (jei išlaidos, delta yra neigiamas, todėl sumažės)
         const next = (data.gross_earnings || 0) + delta;
-        
-        // 3. Išsaugome
         await db.from('finance_shifts').update({ gross_earnings: next }).eq('id', state.activeShift.id);
     }
 }
 
 /* ────────────────────────────────────────────────────────────────
-   AUDIT & DELETE
+   AUDIT & DELETE (UNIFIED HISTORY)
 ---------------------------------------------------------------- */
 
 export async function refreshAudit() {
@@ -199,15 +186,34 @@ export async function refreshAudit() {
     }
 
     try {
-        const { data, error } = await db
+        // 1. Gauname pamainas
+        const { data: shifts, error: shiftError } = await db
             .from('finance_shifts')
             .select('*')
             .eq('user_id', state.user.id)
             .order('start_time', { ascending: false })
-            .limit(50);
+            .limit(30);
 
-        if (error) throw error;
-        renderAuditList(data);
+        if (shiftError) throw shiftError;
+
+        // 2. Gauname pavienes operacijas (kurios neturi shift_id)
+        const { data: txs, error: txError } = await db
+            .from('expenses')
+            .select('*')
+            .eq('user_id', state.user.id)
+            .is('shift_id', null) // Tik tos, kurios be pamainos
+            .order('created_at', { ascending: false })
+            .limit(30);
+
+        if (txError) throw txError;
+
+        // 3. Sujungiame ir surikiuojame
+        const combined = [
+            ...(shifts || []).map(s => ({ ...s, _kind: 'shift', _date: new Date(s.start_time) })),
+            ...(txs || []).map(t => ({ ...t, _kind: 'tx', _date: new Date(t.created_at) }))
+        ].sort((a, b) => b._date - a._date); // Naujausi viršuje
+
+        renderAuditList(combined);
 
     } catch (e) { 
         console.error('Audit Load Error:', e);
@@ -215,7 +221,7 @@ export async function refreshAudit() {
     }
 }
 
-function renderAuditList(shifts) {
+function renderAuditList(items) {
     const listEl = document.getElementById('audit-list');
     if (!listEl) return;
     
@@ -223,32 +229,63 @@ function renderAuditList(shifts) {
     if (master) master.checked = false;
     updateDeleteButtonLocal();
 
-    if (!shifts || shifts.length === 0) {
+    if (!items || items.length === 0) {
         listEl.innerHTML = `<div class="py-10 text-center opacity-50 text-sm">Nėra istorijos</div>`;
         return;
     }
 
-    listEl.innerHTML = shifts.map(shift => {
-        const start = new Date(shift.start_time);
-        const date = start.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
-        const time = start.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
-        const earn = shift.gross_earnings || 0;
-        const statusClass = shift.status === 'completed' ? 'text-gray-400' : 'text-teal-500 animate-pulse';
+    listEl.innerHTML = items.map(item => {
+        const dateObj = item._date;
+        const date = dateObj.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
+        const time = dateObj.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+        
+        // Logika pagal tipą (Shift vs Transaction)
+        let icon, title, amount, colorClass, valueVal;
 
-        // Spalviname sumą: Jei teigiama - žalia, jei neigiama ar 0 - pilka/raudona
-        const earnClass = earn >= 0 ? 'text-green-500' : 'text-red-400';
-        const sign = earn >= 0 ? '+' : '';
+        if (item._kind === 'shift') {
+            // PAMAINOS KORTELĖ
+            icon = 'fa-clock';
+            title = 'Shift';
+            amount = item.gross_earnings || 0;
+            valueVal = `${amount >= 0 ? '+' : ''}$${amount.toFixed(2)}`;
+            colorClass = item.status === 'active' ? 'text-teal-500 animate-pulse' : 'text-gray-400';
+            if (amount < 0) colorClass = 'text-red-400';
+            else if (amount > 0) colorClass = 'text-green-500';
+        } else {
+            // PAVIENĖS OPERACIJOS KORTELĖ
+            title = item.category.toUpperCase();
+            amount = item.amount;
+            
+            if (item.type === 'income') {
+                icon = 'fa-arrow-down';
+                valueVal = `+$${amount.toFixed(2)}`;
+                colorClass = 'text-green-500';
+            } else {
+                icon = 'fa-arrow-up';
+                valueVal = `-$${amount.toFixed(2)}`;
+                colorClass = 'text-red-400';
+            }
+        }
+
+        // Checkbox value turi nurodyti tipą ir ID (pvz: "shift:123" arba "tx:456")
+        const checkboxValue = `${item._kind}:${item.id}`;
 
         return `
         <div class="log-card flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/5 mb-2">
             <div class="flex gap-4 items-center">
-                <input type="checkbox" class="log-checkbox w-5 h-5 rounded bg-gray-800 border-gray-600 text-teal-500 focus:ring-0" value="${shift.id}">
+                <input type="checkbox" class="log-checkbox w-5 h-5 rounded bg-gray-800 border-gray-600 text-teal-500 focus:ring-0" 
+                       value="${checkboxValue}">
+                
+                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs opacity-70">
+                    <i class="fa-solid ${icon}"></i>
+                </div>
+                
                 <div>
-                    <div class="text-xs opacity-50">${date}</div>
-                    <div class="text-sm font-bold ${statusClass}">${time}</div>
+                    <div class="text-xs opacity-50">${date} • ${title}</div>
+                    <div class="text-sm font-bold text-white">${time}</div>
                 </div>
             </div>
-            <div class="font-mono font-bold ${earnClass}">${sign}$${earn.toFixed(2)}</div>
+            <div class="font-mono font-bold ${colorClass}">${valueVal}</div>
         </div>`;
     }).join('');
 
@@ -287,26 +324,48 @@ window.toggleSelectAll = () => {
 
 window.requestDelete = () => {
     vibrate();
-    idsToDelete = Array.from(document.querySelectorAll('.log-checkbox:checked')).map(el => el.value);
-    if (idsToDelete.length === 0) return;
-    document.getElementById('del-modal-count').textContent = idsToDelete.length;
+    const checked = document.querySelectorAll('.log-checkbox:checked');
+    itemsToDelete = Array.from(checked).map(el => {
+        const [type, id] = el.value.split(':');
+        return { type, id };
+    });
+
+    if (itemsToDelete.length === 0) return;
+    
+    document.getElementById('del-modal-count').textContent = itemsToDelete.length;
     if (window.openModal) window.openModal('delete-modal');
 };
 
 window.confirmDelete = async () => {
     vibrate([20]);
-    if (idsToDelete.length === 0) return;
+    if (itemsToDelete.length === 0) return;
+    
     state.loading = true;
     try {
-        await db.from('expenses').delete().in('shift_id', idsToDelete);
-        await db.from('finance_shifts').delete().in('id', idsToDelete);
-        showToast(`${idsToDelete.length} įrašai ištrinti`, 'success');
-        idsToDelete = [];
+        const shiftIds = itemsToDelete.filter(i => i.type === 'shift').map(i => i.id);
+        const txIds = itemsToDelete.filter(i => i.type === 'tx').map(i => i.id);
+
+        // 1. Triname pamainas (ir jų vaikus)
+        if (shiftIds.length > 0) {
+            await db.from('expenses').delete().in('shift_id', shiftIds); // Saugumo dėlei pirma išlaidas
+            await db.from('finance_shifts').delete().in('id', shiftIds);
+        }
+
+        // 2. Triname pavienes operacijas
+        if (txIds.length > 0) {
+            await db.from('expenses').delete().in('id', txIds);
+        }
+
+        showToast(`${itemsToDelete.length} įrašai ištrinti`, 'success');
+        itemsToDelete = [];
         if (window.closeModals) window.closeModals();
+        
         refreshAudit();
         window.dispatchEvent(new Event('refresh-data'));
+
     } catch (e) {
         showToast('Klaida trinant', 'error');
+        console.error(e);
     } finally {
         state.loading = false;
     }

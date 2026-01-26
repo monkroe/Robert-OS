@@ -1,259 +1,176 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SETTINGS MODULE v1.2 FIXED
+// ROBERT OS — SETTINGS MODULE v1.7.0 (STABLE)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
 
+// ────────────────────────────────────────────────────────────────
+// DEFAULTS
+// ────────────────────────────────────────────────────────────────
+
+const DEFAULT_SETTINGS = {
+    timezone_primary: 'America/Chicago',
+    timezone_secondary: 'Europe/Vilnius',
+    clock_position: 'cockpit',
+    monthly_fixed_expenses: 0,
+    rental_week_start_day: 2, // Tuesday
+    default_shift_target_hours: 12,
+    notifications_enabled: true,
+    compact_mode: false
+};
+
+// ────────────────────────────────────────────────────────────────
+// LOAD & SYNC
+// ────────────────────────────────────────────────────────────────
+
 export async function loadSettings() {
     try {
+        if (!state.user?.id) {
+            console.warn('⚠️ loadSettings skipped: user not ready');
+            return null;
+        }
+
         const { data, error } = await db
             .from('user_settings')
             .select('*')
             .eq('user_id', state.user.id)
             .maybeSingle();
-        
-        if (error && error.code !== 'PGRST116') {
-            throw error;
-        }
-        
+
+        if (error) throw error;
+
+        // Jei nėra — sukuriam defaultus
         if (!data) {
-            await createDefaultSettings();
-            return await loadSettings();
+            const created = await ensureDefaultSettings();
+            state.userSettings = created;
+            return created;
         }
-        
+
         state.userSettings = data;
         return data;
-        
-    } catch (error) {
-        console.error('Error loading settings:', error);
-        showToast('Nepavyko užkrauti nustatymų', 'error');
-        return null;
+
+    } catch (err) {
+        console.error('❌ loadSettings failed:', err);
+        return null; // NIEKADA nelaužom UI
     }
 }
 
-async function createDefaultSettings() {
-    try {
-        const { error } = await db
-            .from('user_settings')
-            .insert({
-                user_id: state.user.id,
-                timezone_primary: 'America/Chicago',
-                timezone_secondary: 'Europe/Vilnius',
-                clock_position: 'cockpit',
-                monthly_fixed_expenses: 0,
-                weekly_rental_cost: 350,
-                rental_week_start_day: 2,
-                default_shift_target_hours: 12,
-                notifications_enabled: true,
-                compact_mode: false
-            });
-        
-        if (error) throw error;
-        
-    } catch (error) {
-        console.error('Error creating default settings:', error);
+async function ensureDefaultSettings() {
+    const payload = {
+        user_id: state.user.id,
+        ...DEFAULT_SETTINGS,
+        updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await db
+        .from('user_settings')
+        .upsert(payload, { onConflict: 'user_id' })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('❌ Failed to create default settings:', error);
+        throw error;
     }
+
+    return data;
 }
 
-export async function updateSettings(updates) {
-    try {
-        const { error } = await db
-            .from('user_settings')
-            .update({
-                ...updates,
-                updated_at: new Date().toISOString()
-            })
-            .eq('user_id', state.user.id);
-        
-        if (error) throw error;
-        
-        state.userSettings = { ...state.userSettings, ...updates };
-        showToast('Nustatymai išsaugoti', 'success');
-        return true;
-        
-    } catch (error) {
-        console.error('Error updating settings:', error);
-        showToast('Nepavyko išsaugoti', 'error');
-        return false;
-    }
-}
+// ────────────────────────────────────────────────────────────────
+// UI
+// ────────────────────────────────────────────────────────────────
 
 export async function openSettings() {
     vibrate();
-    
-    const settings = await loadSettings();
-    if (!settings) return;
-    
-    document.getElementById('settings-tz-primary').value = settings.timezone_primary || 'America/Chicago';
-    document.getElementById('settings-tz-secondary').value = settings.timezone_secondary || 'Europe/Vilnius';
-    document.getElementById('settings-clock-pos').value = settings.clock_position || 'cockpit';
-    document.getElementById('settings-fixed-expenses').value = settings.monthly_fixed_expenses || 0;
-    document.getElementById('settings-rental-cost').value = settings.weekly_rental_cost || 0;
-    document.getElementById('settings-rental-start-day').value = settings.rental_week_start_day || 2;
-    document.getElementById('settings-shift-target').value = settings.default_shift_target_hours || 12;
-    document.getElementById('settings-notifications').checked = settings.notifications_enabled !== false;
-    document.getElementById('settings-compact-mode').checked = settings.compact_mode === true;
-    
-    document.getElementById('settings-modal').classList.remove('hidden');
+
+    const settings = state.userSettings || await loadSettings();
+    if (!settings) {
+        showToast('Nepavyko užkrauti nustatymų', 'error');
+        return;
+    }
+
+    setVal('settings-tz-primary', settings.timezone_primary);
+    setVal('settings-tz-secondary', settings.timezone_secondary);
+    setVal('settings-clock-pos', settings.clock_position);
+    setVal('settings-fixed-expenses', settings.monthly_fixed_expenses);
+    setVal('settings-rental-start-day', settings.rental_week_start_day);
+    setVal('settings-shift-target', settings.default_shift_target_hours);
+
+    setChecked('settings-notifications', settings.notifications_enabled);
+    setChecked('settings-compact-mode', settings.compact_mode);
+
+    window.openModal('settings-modal');
 }
 
 export async function saveSettings() {
     vibrate([20]);
-    
+
+    if (!state.user?.id) return;
+
     const updates = {
-        timezone_primary: document.getElementById('settings-tz-primary').value,
-        timezone_secondary: document.getElementById('settings-tz-secondary').value,
-        clock_position: document.getElementById('settings-clock-pos').value,
-        monthly_fixed_expenses: parseFloat(document.getElementById('settings-fixed-expenses').value) || 0,
-        weekly_rental_cost: parseFloat(document.getElementById('settings-rental-cost').value) || 0,
-        rental_week_start_day: parseInt(document.getElementById('settings-rental-start-day').value) || 2,
-        default_shift_target_hours: parseFloat(document.getElementById('settings-shift-target').value) || 12,
-        notifications_enabled: document.getElementById('settings-notifications').checked,
-        compact_mode: document.getElementById('settings-compact-mode').checked
+        timezone_primary: getVal('settings-tz-primary'),
+        timezone_secondary: getVal('settings-tz-secondary'),
+        clock_position: getVal('settings-clock-pos'),
+        monthly_fixed_expenses: num('settings-fixed-expenses', 0),
+        rental_week_start_day: num('settings-rental-start-day', 2),
+        default_shift_target_hours: num('settings-shift-target', 12),
+        notifications_enabled: isChecked('settings-notifications'),
+        compact_mode: isChecked('settings-compact-mode'),
+        updated_at: new Date().toISOString()
     };
-    
-    const success = await updateSettings(updates);
-    
-    if (success) {
-        // PATAISYMAS: Inline close (no circular import)
-        document.querySelectorAll('.modal-overlay').forEach(el => {
-            el.classList.add('hidden');
-        });
+
+    state.loading = true;
+
+    try {
+        const { error } = await db
+            .from('user_settings')
+            .update(updates)
+            .eq('user_id', state.user.id);
+
+        if (error) throw error;
+
+        state.userSettings = {
+            ...state.userSettings,
+            ...updates
+        };
+
+        window.closeModals();
+        showToast('Nustatymai išsaugoti ✅', 'success');
+
         window.dispatchEvent(new Event('refresh-data'));
+
+    } catch (err) {
+        console.error('❌ saveSettings failed:', err);
+        showToast('Klaida saugant nustatymus', 'error');
+    } finally {
+        state.loading = false;
     }
 }
 
-export async function loadCarWashMembership() {
-    try {
-        const { data, error } = await db
-            .from('car_wash_memberships')
-            .select('*')
-            .eq('user_id', state.user.id)
-            .eq('is_active', true)
-            .maybeSingle();
-        
-        if (error && error.code !== 'PGRST116') {
-            throw error;
-        }
-        
-        return data;
-        
-    } catch (error) {
-        console.error('Error loading car wash membership:', error);
-        return null;
-    }
+// ────────────────────────────────────────────────────────────────
+// UTILS
+// ────────────────────────────────────────────────────────────────
+
+function getVal(id) {
+    return document.getElementById(id)?.value ?? '';
 }
 
-export async function saveCarWashMembership(name, monthlyCost, startDate) {
-    try {
-        await db
-            .from('car_wash_memberships')
-            .update({ is_active: false })
-            .eq('user_id', state.user.id)
-            .eq('is_active', true);
-        
-        const { error } = await db
-            .from('car_wash_memberships')
-            .insert({
-                user_id: state.user.id,
-                name: name,
-                monthly_cost: monthlyCost,
-                start_date: startDate,
-                is_active: true
-            });
-        
-        if (error) throw error;
-        
-        showToast('Membership išsaugotas', 'success');
-        return true;
-        
-    } catch (error) {
-        console.error('Error saving car wash membership:', error);
-        showToast('Nepavyko išsaugoti', 'error');
-        return false;
-    }
+function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el != null) el.value = val;
 }
 
-export async function deactivateCarWashMembership() {
-    try {
-        const { error } = await db
-            .from('car_wash_memberships')
-            .update({ is_active: false })
-            .eq('user_id', state.user.id)
-            .eq('is_active', true);
-        
-        if (error) throw error;
-        
-        showToast('Membership deaktyvuotas', 'success');
-        return true;
-        
-    } catch (error) {
-        console.error('Error deactivating membership:', error);
-        showToast('Nepavyko deaktyvuoti', 'error');
-        return false;
-    }
+function num(id, fallback = 0) {
+    const n = parseFloat(getVal(id));
+    return Number.isFinite(n) ? n : fallback;
 }
 
-export async function loadFixedExpenses() {
-    try {
-        const { data, error } = await db
-            .from('fixed_expense_categories')
-            .select('*')
-            .eq('user_id', state.user.id)
-            .eq('is_active', true)
-            .order('category', { ascending: true });
-        
-        if (error) throw error;
-        
-        return data || [];
-        
-    } catch (error) {
-        console.error('Error loading fixed expenses:', error);
-        return [];
-    }
+function setChecked(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!val;
 }
 
-export async function addFixedExpense(name, category, amountMonthly) {
-    try {
-        const { error } = await db
-            .from('fixed_expense_categories')
-            .insert({
-                user_id: state.user.id,
-                name: name,
-                category: category,
-                amount_monthly: amountMonthly,
-                is_active: true
-            });
-        
-        if (error) throw error;
-        
-        showToast('Išlaida pridėta', 'success');
-        return true;
-        
-    } catch (error) {
-        console.error('Error adding fixed expense:', error);
-        showToast('Nepavyko pridėti', 'error');
-        return false;
-    }
-}
-
-export async function deleteFixedExpense(id) {
-    try {
-        const { error } = await db
-            .from('fixed_expense_categories')
-            .update({ is_active: false })
-            .eq('id', id);
-        
-        if (error) throw error;
-        
-        showToast('Išlaida ištrinta', 'success');
-        return true;
-        
-    } catch (error) {
-        console.error('Error deleting fixed expense:', error);
-        showToast('Nepavyko ištrinti', 'error');
-        return false;
-    }
+function isChecked(id) {
+    return document.getElementById(id)?.checked === true;
 }

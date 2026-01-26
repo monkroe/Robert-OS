@@ -238,3 +238,4 @@ if (typeof window !== 'undefined' && window.location.pathname.includes('verifier
 
 // Variantas 3: Paleisti automatiškai (išjungti komentarą)
 // verifyModules().catch(console.error);
+export { verifyModules };

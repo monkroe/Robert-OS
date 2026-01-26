@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE v1.7.2
+// ROBERT OS - UI MODULE v1.7.2 (FIXED)
 // Theme Management, Modals, Tabs, Animations
 // ════════════════════════════════════════════════════════════════
 
@@ -22,7 +22,9 @@ export function cycleTheme() {
     
     localStorage.setItem('theme', currentTheme);
     applyTheme();
-    showToast(`Theme: ${currentTheme.toUpperCase()}`, 'info');
+    
+    let label = currentTheme === 'auto' ? 'AUTO' : (currentTheme === 'dark' ? 'DARK' : 'LIGHT');
+    showToast(`Theme: ${label}`, 'info');
 }
 
 export function applyTheme() {
@@ -153,7 +155,7 @@ export function updateShiftControlsUI() {
         if (activeControls) activeControls.classList.remove('hidden');
         
         // Pause State UI
-        if (state.activeShift.paused_at) {
+        if (state.activeShift.paused_at) { // Checks if paused_at timestamp exists
             timerEl?.classList.add('pulse-text');
             if (pauseBtnIcon) {
                 pauseBtnIcon.classList.remove('fa-pause');
@@ -176,3 +178,13 @@ export function updateShiftControlsUI() {
         }
     }
 }
+
+// ────────────────────────────────────────────────────────────────
+// WINDOW EXPORTS (Svarbu HTML mygtukams)
+// ────────────────────────────────────────────────────────────────
+
+window.cycleTheme = cycleTheme;
+window.applyTheme = applyTheme;
+window.openModal = openModal;
+window.closeModals = closeModals;
+window.switchTab = switchTab;

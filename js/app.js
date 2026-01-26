@@ -52,19 +52,19 @@ async function bootSystem() {
     console.log('🚀 Robert OS v1.7.5: Booting...');
 
     // A. Saugumo sargyba ir DB jungtis
-    initGlobalErrorHandlers(); //
-    initSupabase();             //
+    initGlobalErrorHandlers();
+    initSupabase(); // ✅ KOREKCIJA: Pašalintas 'await' (funkcija sinchroninė)
 
     // B. UI paruošimas
     hydrateSystemUI();
 
     // C. MODULIŲ REGISTRACIJA (Action Mapper)
     // Sujungiame HTML data-action su JS funkcijomis
-    binder.registerModule('auth', auth.actions);       //
-    binder.registerModule('ui', ui.actions);           //
-    binder.registerModule('garage', garage.actions);   //
-    binder.registerModule('finance', finance.actions); //
-    binder.registerModule('shifts', shifts.actions);   //
+    binder.registerModule('auth', auth.actions);
+    binder.registerModule('ui', ui.actions);
+    binder.registerModule('garage', garage.actions);
+    binder.registerModule('finance', finance.actions);
+    binder.registerModule('shifts', shifts.actions);
 
     // D. AUTH PATIKRA
     try {
@@ -89,8 +89,8 @@ async function onUserAuthenticated() {
 
     // Lygiagretus duomenų užkrovimas (Performance Boost)
     await Promise.all([
-        garage.loadFleet(),   //
-        shifts.loadActive(),  //
+        garage.loadFleet(),
+        shifts.loadActive(),
         finance.loadSettings()
     ]);
 

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - FINANCE MODULE v1.6.0
-// Transactions & History Management (No Alerts)
+// ROBERT OS - FINANCE MODULE v1.7.2 (FINAL)
+// Transactions & History Management
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -9,6 +9,119 @@ import { showToast, vibrate } from '../utils.js';
 
 let currentTxType = null;
 let idsToDelete = [];
+
+// ────────────────────────────────────────────────────────────────
+// MODAL INITIALIZATION (REQUIRED FOR APP BOOT)
+// ────────────────────────────────────────────────────────────────
+
+export function initFinanceModals() {
+    console.log('💰 Finance modals injected');
+    
+    const container = document.getElementById('modals-container');
+    if (!container) return;
+    
+    container.innerHTML += `
+        <!-- Transaction Modal -->
+        <div id="tx-modal" class="modal-overlay hidden">
+            <div class="modal-card max-w-sm">
+                <div class="modal-header">
+                    <h3 id="tx-title" class="font-black text-lg">PAJAMOS</h3>
+                    <button onclick="closeModals()" class="text-xl opacity-50">&times;</button>
+                </div>
+                
+                <div class="modal-body">
+                    <input type="number" 
+                           id="tx-amount" 
+                           placeholder="0.00" 
+                           class="input-field text-3xl font-bold text-center" 
+                           step="0.01" 
+                           min="0" 
+                           inputmode="decimal">
+                    
+                    <!-- Income Categories -->
+                    <div id="income-types" class="grid grid-cols-3 gap-2 mt-4">
+                        <button onclick="setExpType('tips', this)" class="inc-btn active">
+                            Tips
+                        </button>
+                        <button onclick="setExpType('bonus', this)" class="inc-btn">
+                            Bonus
+                        </button>
+                        <button onclick="setExpType('other', this)" class="inc-btn">
+                            Kitas
+                        </button>
+                    </div>
+                    
+                    <!-- Expense Categories -->
+                    <div id="expense-types" class="grid grid-cols-3 gap-2 mt-4 hidden">
+                        <button onclick="setExpType('fuel', this)" class="exp-btn">
+                            Degalai
+                        </button>
+                        <button onclick="setExpType('repair', this)" class="exp-btn">
+                            Remontas
+                        </button>
+                        <button onclick="setExpType('toll', this)" class="exp-btn">
+                            Keliai
+                        </button>
+                    </div>
+                    
+                    <!-- Fuel Specific Fields -->
+                    <div id="fuel-fields" class="mt-4 hidden space-y-2">
+                        <input type="number" 
+                               id="tx-gal" 
+                               placeholder="Galonai" 
+                               class="input-field text-sm" 
+                               step="0.1">
+                        <input type="number" 
+                               id="tx-odo" 
+                               placeholder="Odometras" 
+                               class="input-field text-sm">
+                    </div>
+                    
+                    <!-- Hidden type field -->
+                    <input type="hidden" id="tx-type" value="tips">
+                </div>
+                
+                <div class="modal-footer">
+                    <button onclick="confirmTx()" class="btn-primary-os w-full">
+                        IŠSAUGOTI
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Delete Confirmation Modal -->
+        <div id="delete-modal" class="modal-overlay hidden">
+            <div class="modal-card max-w-sm">
+                <div class="modal-header">
+                    <h3 class="font-black text-lg text-red-500">IŠTRINTI ĮRAŠUS</h3>
+                    <button onclick="closeModals()" class="text-xl opacity-50">&times;</button>
+                </div>
+                
+                <div class="modal-body text-center">
+                    <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-2xl">
+                        <i class="fa-solid fa-trash"></i>
+                    </div>
+                    <p class="text-sm opacity-75">
+                        Ar tikrai norite ištrinti 
+                        <span id="del-modal-count" class="font-bold">0</span> 
+                        įrašus?
+                    </p>
+                    <p class="text-xs opacity-50 mt-2">Šio veiksmo atšaukti negalima</p>
+                </div>
+                
+                <div class="modal-footer grid grid-cols-2 gap-3">
+                    <button onclick="closeModals()" class="btn-secondary">
+                        ATŠAUKTI
+                    </button>
+                    <button onclick="confirmDelete()" 
+                            class="btn-primary-os bg-red-500 text-white border-red-500">
+                        IŠTRINTI
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
 
 // ────────────────────────────────────────────────────────────────
 // TRANSACTION MODAL LOGIC
@@ -38,7 +151,9 @@ export function openTxModal(type) {
     if (typeInput) typeInput.value = 'tips'; // Default
 
     // Reset visuals
-    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
     
     window.openModal('tx-modal');
 }
@@ -47,13 +162,19 @@ export function setExpType(type, el) {
     vibrate();
     document.getElementById('tx-type').value = type;
     
-    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.exp-btn, .inc-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
     if (el) el.classList.add('active');
 
     const fuelFields = document.getElementById('fuel-fields');
     if (fuelFields) {
-        if (type === 'fuel') fuelFields.classList.remove('hidden');
-        else fuelFields.classList.add('hidden');
+        if (type === 'fuel') {
+            fuelFields.classList.remove('hidden');
+        } else {
+            fuelFields.classList.add('hidden');
+        }
     }
 }
 
@@ -64,13 +185,19 @@ export function setExpType(type, el) {
 export async function confirmTx() {
     vibrate([20]);
     const amountEl = document.getElementById('tx-amount');
-    const amount = parseFloat(amountEl.value);
-    const category = document.getElementById('tx-type').value;
+    const amount = parseFloat(amountEl?.value);
+    const category = document.getElementById('tx-type')?.value;
 
-    if (!amount || amount <= 0) return showToast('Įvesk sumą', 'error');
-    if (!category) return showToast('Pasirink kategoriją', 'error');
+    if (!amount || amount <= 0) {
+        return showToast('Įvesk sumą', 'error');
+    }
+    
+    if (!category) {
+        return showToast('Pasirink kategoriją', 'error');
+    }
 
     state.loading = true;
+    
     try {
         if (currentTxType === 'in') {
             await saveIncome(amount, category);
@@ -104,7 +231,6 @@ async function saveIncome(amount, category) {
     if (error) throw error;
 
     // 2. Jei yra aktyvi pamaina, atnaujiname jos gross_earnings
-    // Robert OS Logika: Tips ir Bonus SKAIČIUOJAMI į Daily Target (Gross Earnings)
     if (state.activeShift?.id) {
         const { data: shift } = await db
             .from('finance_shifts')
@@ -124,7 +250,9 @@ async function saveIncome(amount, category) {
 }
 
 async function saveExpense(amount, category) {
-    if (!state.activeShift) throw new Error('Išlaidoms reikia aktyvios pamainos');
+    if (!state.activeShift) {
+        throw new Error('Išlaidoms reikia aktyvios pamainos');
+    }
     
     const expenseData = {
         user_id: state.user.id,
@@ -137,8 +265,9 @@ async function saveExpense(amount, category) {
     };
     
     if (category === 'fuel') {
-        const gal = document.getElementById('tx-gal').value;
-        const odo = document.getElementById('tx-odo').value;
+        const gal = document.getElementById('tx-gal')?.value;
+        const odo = document.getElementById('tx-odo')?.value;
+        
         if (gal) expenseData.gallons = parseFloat(gal);
         if (odo) expenseData.odometer = parseInt(odo);
     }
@@ -150,14 +279,10 @@ async function saveExpense(amount, category) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// HISTORY & DELETION (NO ALERTS)
+// HISTORY & DELETION
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
-    // Audit list generavimas yra App.js / UI lygmenyje arba čia, 
-    // bet kadangi tavo ankstesniame faile tai buvo čia, paliekame.
-    // TIK SVARBU: Čia turi būti švarus HTML generavimas.
-    
     try {
         const { data: shifts, error } = await db
             .from('finance_shifts')
@@ -183,15 +308,28 @@ export async function refreshAudit() {
 
         listEl.innerHTML = shifts.map(shift => {
             const start = new Date(shift.start_time);
-            const dateStr = start.toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' });
-            const timeStr = start.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+            const dateStr = start.toLocaleDateString('lt-LT', { 
+                month: '2-digit', 
+                day: '2-digit' 
+            });
+            
+            const timeStr = start.toLocaleTimeString('lt-LT', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
             const earn = shift.gross_earnings || 0;
-            const statusColor = shift.status === 'completed' ? 'text-gray-400' : 'text-teal-500 animate-pulse';
+            const statusColor = shift.status === 'completed' 
+                ? 'text-gray-400' 
+                : 'text-teal-500 animate-pulse';
             
             return `
             <div class="log-card group relative bg-white dark:bg-[#111] rounded-xl p-4 border border-gray-200 dark:border-gray-800 flex items-center justify-between">
                 <div class="flex items-center gap-4">
-                    <input type="checkbox" value="${shift.id}" onchange="updateDeleteButton()" class="log-checkbox w-5 h-5 rounded border-gray-600 bg-gray-800 text-teal-500 accent-teal-500">
+                    <input type="checkbox" 
+                           value="${shift.id}" 
+                           onchange="updateDeleteButton()" 
+                           class="log-checkbox w-5 h-5 rounded border-gray-600 bg-gray-800 text-teal-500 accent-teal-500">
                     <div>
                         <div class="text-xs font-bold text-gray-500">${dateStr}</div>
                         <div class="text-sm font-bold ${statusColor}">${timeStr}</div>
@@ -206,12 +344,19 @@ export async function refreshAudit() {
     }
 }
 
-// Global functions for HTML interaction
+// ────────────────────────────────────────────────────────────────
+// GLOBAL FUNCTIONS FOR HTML INTERACTION
+// ────────────────────────────────────────────────────────────────
+
 window.toggleSelectAll = function() {
     vibrate();
     const master = document.getElementById('select-all-logs');
     const boxes = document.querySelectorAll('.log-checkbox');
-    boxes.forEach(b => b.checked = master.checked);
+    
+    boxes.forEach(b => {
+        b.checked = master.checked;
+    });
+    
     window.updateDeleteButton();
 };
 
@@ -222,14 +367,19 @@ window.updateDeleteButton = function() {
     
     if (btn && count) {
         count.textContent = checked.length;
-        if (checked.length > 0) btn.classList.remove('hidden');
-        else btn.classList.add('hidden');
+        
+        if (checked.length > 0) {
+            btn.classList.remove('hidden');
+        } else {
+            btn.classList.add('hidden');
+        }
     }
 };
 
 window.requestDelete = function() {
     vibrate();
     const checked = document.querySelectorAll('.log-checkbox:checked');
+    
     if (checked.length === 0) return;
     
     idsToDelete = Array.from(checked).map(c => c.value);
@@ -237,18 +387,20 @@ window.requestDelete = function() {
     const countEl = document.getElementById('del-modal-count');
     if (countEl) countEl.textContent = idsToDelete.length;
     
-    // Čia atidarome TAVO stilingą modalą
     window.openModal('delete-modal');
 };
 
 window.confirmDelete = async function() {
     vibrate([20]);
+    
     if (idsToDelete.length === 0) return;
     
     state.loading = true;
+    
     try {
         // Pirma ištriname expenses (foreign key constraint)
         await db.from('expenses').delete().in('shift_id', idsToDelete);
+        
         // Tada shifts
         const { error } = await db.from('finance_shifts').delete().in('id', idsToDelete);
         
@@ -268,3 +420,18 @@ window.confirmDelete = async function() {
         state.loading = false;
     }
 };
+
+// ────────────────────────────────────────────────────────────────
+// DEBUG
+// ────────────────────────────────────────────────────────────────
+
+if (typeof window !== 'undefined' && location.hostname === 'localhost') {
+    window.financeModule = {
+        openTxModal,
+        setExpType,
+        confirmTx,
+        refreshAudit,
+        currentTxType,
+        idsToDelete
+    };
+}

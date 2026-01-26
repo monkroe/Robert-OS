@@ -1,2 +1,1 @@
-      - name: Build CSS
-        run: npx -y tailwindcss@latest -i ./style.css -o ./dist/output.css --minify
+

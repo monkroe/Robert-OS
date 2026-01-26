@@ -10,13 +10,43 @@
   <pre id="out"></pre>
 
   <script type="module">
-    import { verifyModules } from './js/verifier.js';
+    const out = document.getElementById('out');
+    const btn = document.getElementById('run');
 
-    document.getElementById('run').addEventListener('click', async () => {
-      const result = await verifyModules();
-      document.getElementById('out').textContent =
-        JSON.stringify(result, null, 2);
+    out.textContent = 'Script loaded...';
+
+    btn.addEventListener('click', () => {
+      out.textContent = 'Button click works, trying to import...';
     });
+
+    // pabandom importą po truputį
+    (async () => {
+      try {
+        const mod = await import('./js/verifier.js');
+        out.textContent += '
+verifier.js import OK';
+
+        if (!mod.verifyModules) {
+          out.textContent += '
+verifyModules NOT FOUND in module exports';
+          return;
+        }
+
+        btn.addEventListener('click', async () => {
+          out.textContent = 'Running verification...';
+          try {
+            const result = await mod.verifyModules();
+            out.textContent = JSON.stringify(result, null, 2);
+          } catch (e) {
+            out.textContent = 'Error in verifyModules(): ' + e.message;
+          }
+        });
+
+      } catch (e) {
+        out.textContent += '
+Import error: ' + e.message;
+      }
+    })();
   </script>
 </body>
 </html>

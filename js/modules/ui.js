@@ -1,190 +1,112 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UI MODULE v1.7.2 (FIXED)
-// Theme Management, Modals, Tabs, Animations
+// ROBERT OS - UI.JS v1.7.5
+// Vaizdo valdymas, Skeleton Screens ir Temos
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
 import { vibrate, showToast } from '../utils.js';
 
-// ────────────────────────────────────────────────────────────────
-// THEME SYSTEM (Auto/Dark/Light)
-// ────────────────────────────────────────────────────────────────
+export const actions = {
+    // Tab'ų perjungimas (per data-action="ui:switchTab")
+    switchTab: (tabId) => {
+        vibrate([5]);
+        
+        // Deaktyvuojam visus
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        
+        // Aktyvuojam pasirinktą
+        const targetTab = document.getElementById(`tab-${tabId}`);
+        const targetBtn = document.getElementById(`btn-${tabId}`);
+        
+        if (targetTab) targetTab.classList.remove('hidden');
+        if (targetBtn) targetBtn.classList.add('active');
+        
+        state.currentTab = tabId;
+    },
 
-let currentTheme = localStorage.getItem('theme') || 'dark';
-
-export function cycleTheme() {
-    vibrate();
-    
-    // Cycle: dark → light → auto → dark
-    if (currentTheme === 'dark') currentTheme = 'light';
-    else if (currentTheme === 'light') currentTheme = 'auto';
-    else currentTheme = 'dark';
-    
-    localStorage.setItem('theme', currentTheme);
-    applyTheme();
-    
-    let label = currentTheme === 'auto' ? 'AUTO' : (currentTheme === 'dark' ? 'DARK' : 'LIGHT');
-    showToast(`Theme: ${label}`, 'info');
-}
-
-export function applyTheme() {
-    const html = document.documentElement;
-    const themeBtn = document.getElementById('btn-theme');
-    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    
-    let isDark = false;
-    
-    if (currentTheme === 'dark') {
-        isDark = true;
-    } else if (currentTheme === 'light') {
-        isDark = false;
-    } else if (currentTheme === 'auto') {
-        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // Modalo uždarymas (per data-action="ui:closeModals")
+    closeModals: () => {
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.classList.add('fade-out');
+            setTimeout(() => el.classList.add('hidden'), 200);
+        });
     }
-    
-    if (isDark) html.classList.add('dark');
-    else html.classList.remove('dark');
-    
-    // Update PWA status bar color
-    if (metaThemeColor) {
-        metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
-    }
-    
-    // Update theme button icon
-    if (themeBtn) {
-        let iconClass = 'fa-circle-half-stroke'; // auto
-        if (currentTheme === 'dark') iconClass = 'fa-moon';
-        if (currentTheme === 'light') iconClass = 'fa-sun';
-        themeBtn.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
-    }
-}
+};
 
 // ────────────────────────────────────────────────────────────────
-// MODAL MANAGEMENT (with Fade Animations)
+// 1. MODALŲ VALDYMAS (With Hydration & Skeletons)
 // ────────────────────────────────────────────────────────────────
 
-export function openModal(modalId) {
-    vibrate();
-    const modal = document.getElementById(modalId);
+/**
+ * Atidaro modalą ir, jei reikia, užpildo jį skeletonais
+ */
+export function openModal(id, options = { loading: false }) {
+    const modal = document.getElementById(`${id}-modal`);
     if (!modal) return;
-    
+
     modal.classList.remove('hidden', 'fade-out');
     modal.classList.add('fade-in');
-    
-    // Prevent body scroll
-    document.body.style.overflow = 'hidden';
+    vibrate([10]);
+
+    if (options.loading) {
+        renderSkeletons(modal);
+    }
 }
 
-export function closeModals() {
-    vibrate();
-    
-    document.querySelectorAll('.modal-overlay').forEach(el => {
-        if (!el.classList.contains('hidden')) {
-            // Add fade-out animation
-            el.classList.add('fade-out');
-            el.classList.remove('fade-in');
-            
-            // Remove after animation completes
-            setTimeout(() => {
-                el.classList.add('hidden');
-                el.classList.remove('fade-out');
-            }, 200);
-        }
+/**
+ * Užpildo modalą "Skeleton" blokeliais (Placeholders)
+ */
+function renderSkeletons(modalElement) {
+    const container = modalElement.querySelector('.modal-body') || modalElement.querySelector('.modal-content');
+    if (!container) return;
+
+    // Ieškome vietų, kur bus kraunami duomenys (pvz. #garage-list)
+    const lists = container.querySelectorAll('[id$="-list"]');
+    lists.forEach(list => {
+        list.innerHTML = `
+            <div class="animate-pulse space-y-3">
+                <div class="h-16 bg-white/5 rounded-2xl w-full"></div>
+                <div class="h-16 bg-white/5 rounded-2xl w-full opacity-50"></div>
+                <div class="h-16 bg-white/5 rounded-2xl w-full opacity-20"></div>
+            </div>
+        `;
     });
-    
-    // Restore body scroll
-    setTimeout(() => {
-        document.body.style.overflow = '';
-    }, 200);
 }
 
 // ────────────────────────────────────────────────────────────────
-// TAB NAVIGATION
+// 2. TEMŲ VALDYMAS (v1.5 Aesthetic)
 // ────────────────────────────────────────────────────────────────
 
-export function switchTab(tabName) {
-    vibrate();
+export function applyTheme() {
+    const isDark = state.userSettings?.theme !== 'light';
+    document.documentElement.classList.toggle('dark', isDark);
     
-    // Update state
-    state.currentTab = tabName;
-    
-    // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(t => {
-        t.classList.remove('active', 'fade-in');
-    });
-    
-    // Remove active from all nav items
-    document.querySelectorAll('.nav-item').forEach(n => {
-        n.classList.remove('active');
-    });
-    
-    // Show selected tab with fade
-    const targetTab = document.getElementById(`tab-${tabName}`);
-    if (targetTab) {
-        targetTab.classList.add('active', 'fade-in');
-    }
-    
-    // Activate nav button
-    const targetBtn = document.getElementById(`btn-${tabName}`);
-    if (targetBtn) {
-        targetBtn.classList.add('active');
-    }
-    
-    // Special actions per tab
-    if (tabName === 'audit') {
-        window.dispatchEvent(new Event('refresh-audit'));
-    }
-    
-    // Smooth scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Atnaujiname Status Bar spalvą PWA režimui
+    const themeColor = isDark ? '#000000' : '#f3f4f6';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
 }
 
 // ────────────────────────────────────────────────────────────────
-// UI STATE UPDATES
+// 3. DASHBOARD REFRESH (The Pulse of OS)
 // ────────────────────────────────────────────────────────────────
 
-export function updateShiftControlsUI() {
-    const startBtn = document.getElementById('btn-start');
-    const activeControls = document.getElementById('active-controls');
-    const timerEl = document.getElementById('shift-timer');
-    const pauseBtnIcon = document.querySelector('#btn-pause i');
+export function refreshDashboard() {
+    // Ši funkcija orkestruoja visų Cockpit elementų atnaujinimą
+    // Naudojama po sėkmingų DB operacijų
+    console.log('🔄 UI Dashboard Refreshing...');
     
-    if (state.activeShift) {
-        // Shift Active
-        if (startBtn) startBtn.classList.add('hidden');
-        if (activeControls) activeControls.classList.remove('hidden');
-        
-        // Pause State UI
-        if (state.activeShift.paused_at) { // Checks if paused_at timestamp exists
-            timerEl?.classList.add('pulse-text');
-            if (pauseBtnIcon) {
-                pauseBtnIcon.classList.remove('fa-pause');
-                pauseBtnIcon.classList.add('fa-play');
-            }
-        } else {
-            timerEl?.classList.remove('pulse-text');
-            if (pauseBtnIcon) {
-                pauseBtnIcon.classList.remove('fa-play');
-                pauseBtnIcon.classList.add('fa-pause');
-            }
-        }
-    } else {
-        // No Active Shift
-        if (startBtn) startBtn.classList.remove('hidden');
-        if (activeControls) activeControls.classList.add('hidden');
-        if (timerEl) {
-            timerEl.textContent = '00:00:00';
-            timerEl.classList.remove('pulse-text');
-        }
-    }
+    // Atnaujiname progress bars, timerius ir t.t.
+    // Čia bus kviečiami costs.js skaičiavimai
 }
 
-// ────────────────────────────────────────────────────────────────
-// WINDOW EXPORTS (Svarbu HTML mygtukams)
-// ────────────────────────────────────────────────────────────────
-
-window.cycleTheme = cycleTheme;
-window.applyTheme = applyTheme;
-window.openModal = openModal;
-window.closeModals = closeModals;
-window.switchTab = switchTab;
+/**
+ * Pagalbinė funkcija formos duomenims surinkti
+ */
+export function getFormData(formSelector) {
+    const form = document.querySelector(formSelector);
+    if (!form) return {};
+    
+    const formData = new FormData(form);
+    return Object.fromEntries(formData.entries());
+}

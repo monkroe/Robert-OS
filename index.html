@@ -1,104 +1,63 @@
 <!DOCTYPE html>
-<html lang="lt" class="dark">
+<html lang="lt">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    ​<script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#000000">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Robert OS v1.7.5</title>
 
-    <title>ROBERT OS</title>
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-    // Šis kodas pasakys mums TIKRĄJĄ klaidos priežastį telefone
-    window.onerror = function(msg, url, line) {
-        alert("🚨 ROBERT OS DIAGNOSTIKA:\n" + msg + "\n\nEilutė: " + line);
-        return false;
-    };
-</script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    borderRadius: { 'os': '2.5rem' }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: black; color: white; }
+        .bento-card { background: #111; border: 1px solid rgba(255,255,255,0.05); border-radius: 2.5rem; }
+    </style>
 
-    <link rel="stylesheet" href="dist/output.css?v=1.7.1">
+    <script>
+        window.onerror = function(msg, url, line) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style = "position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:20px; z-index:9999; font-family:monospace; font-size:12px;";
+            errorDiv.innerHTML = "🚨 ROBERT OS KLAIDA:<br>" + msg + "<br><br>Vieta: " + url + ":" + line;
+            document.body.appendChild(errorDiv);
+            return false;
+        };
+    </script>
 </head>
-
-<body class="antialiased selection:bg-teal-500 selection:text-black bg-black text-white overflow-hidden">
+<body class="bg-black text-white antialiased overflow-x-hidden">
 
     <div id="toast-container" class="fixed top-4 left-4 right-4 z-[2000] flex flex-col gap-2 pointer-events-none"></div>
+    <div id="modals-container" class="z-[1000]"></div>
 
-    <div id="auth-screen" class="fixed inset-0 z-[500] bg-black flex items-center justify-center p-6 hidden">
-        <div class="w-full max-w-sm text-center space-y-8 animate-slideUp">
-            <div class="w-24 h-24 mx-auto bg-teal-500 rounded-[2.5rem] flex items-center justify-center shadow-[0_20px_50px_rgba(20,184,166,0.3)] rotate-3">
-                <i class="fa-solid fa-bolt text-black text-5xl"></i>
-            </div>
-            <h1 class="text-4xl font-black uppercase tracking-tighter italic">Robert <span class="text-teal-500 font-normal">OS</span></h1>
-            <div class="space-y-4">
-                <input type="email" id="auth-email" placeholder="El. paštas" class="input-field">
-                <input type="password" id="auth-pass" placeholder="Slaptažodis" class="input-field">
-                <button data-action="auth:login" class="btn-primary-os py-5">PRISIJUNGTI</button>
+    <main id="app" class="min-h-screen p-4 md:p-8 max-w-4xl mx-auto">
+        <div class="flex items-center justify-center h-[80vh]">
+            <div class="animate-pulse text-teal-500 font-black tracking-tighter text-2xl">
+                ROBERT OS BOOTING...
             </div>
         </div>
-    </div>
+    </main>
 
-    <div id="app-content" class="hidden h-full flex flex-col">
-        <header class="global-header">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs shadow-glow">R</div>
-                <span class="font-bold uppercase tracking-widest text-xs italic opacity-80">Robert OS</span>
-            </div>
-            <div class="flex gap-2">
-                <button data-action="garage:open" class="header-btn text-teal-500"><i class="fa-solid fa-car"></i></button>
-                <button data-action="settings:open" class="header-btn text-purple-500"><i class="fa-solid fa-gear"></i></button>
-                <button data-action="auth:logout" class="header-btn text-red-500"><i class="fa-solid fa-power-off"></i></button>
-            </div>
-        </header>
-
-        <main class="container flex-1 overflow-y-auto pb-24 no-scrollbar">
-            <section id="tab-cockpit" class="tab-content active space-y-6">
-                <div class="bento-grid">
-                    <div class="bento-card col-span-2 text-center py-8 relative overflow-hidden bg-[#111] rounded-[2rem] border border-white/5">
-                        <span class="label-xs opacity-50">Active Session</span>
-                        <h2 id="shift-timer" class="val-timer my-2 tracking-tighter text-6xl font-black">00:00:00</h2>
-                        <div id="shift-controls" class="mt-4 px-6">
-                            <button id="btn-start" data-action="shifts:openStart" class="btn-primary-os py-4 shadow-[0_15px_40px_rgba(20,184,166,0.4)]">
-                                <i class="fa-solid fa-play mr-2"></i> START SHIFT
-                            </button>
-                        </div>
-                    </div>
-                    <div data-action="ui:switchTab" data-payload="runway" class="bento-card clickable aspect-square flex flex-col justify-center items-center bg-[#111] rounded-[2rem]">
-                        <div class="w-12 h-12 rounded-full bg-teal-500/10 flex items-center justify-center mb-3 text-teal-500 text-xl"><i class="fa-solid fa-wallet"></i></div>
-                        <p id="runway-months" class="text-2xl font-black mt-1">0.0</p>
-                    </div>
+    <template id="modal-template">
+        <div class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[1500]">
+            <div class="bento-card w-full max-w-lg animate-slideUp">
+                <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                    <h2 class="modal-title font-bold text-xl uppercase tracking-widest"></h2>
+                    <button class="close-modal p-2 hover:bg-white/5 rounded-full">✕</button>
                 </div>
-            </section>
-        </main>
-
-        <nav class="bottom-nav">
-            <button data-action="ui:switchTab" data-payload="cockpit" class="nav-item active"><i class="fa-solid fa-layer-group"></i><span>Home</span></button>
-            <button data-action="ui:switchTab" data-payload="runway" class="nav-item"><i class="fa-solid fa-chart-simple"></i><span>Runway</span></button>
-            <button data-action="ui:switchTab" data-payload="audit" class="nav-item"><i class="fa-solid fa-clock-rotate-left"></i><span>Log</span></button>
-        </nav>
-    </div>
-
-    <div id="modals-container"></div>
-
-    <template id="tmpl-tx-modal">
-        <div id="tx-modal" class="modal-overlay hidden">
-            <div class="modal-content animate-slideUp text-center bg-[#111] rounded-[2.5rem] p-8 border border-white/5 shadow-2xl">
-                <h3 id="tx-title" class="text-xl font-black uppercase mb-6 tracking-tighter italic">Transaction</h3>
-                <input type="number" id="tx-amount" class="w-full bg-transparent text-6xl font-black text-center outline-none py-4 border-b-2 border-teal-500/20 mb-8" placeholder="$0.00">
-                <div id="tx-categories" class="grid grid-cols-3 gap-4 mb-10">
-                    </div>
-                <button data-action="finance:save" class="btn-primary-os py-5 shadow-[0_15px_40px_rgba(20,184,166,0.4)]">IŠSAUGOTI</button>
-                <button data-action="ui:closeModals" class="mt-8 text-xs font-bold uppercase opacity-30">Atšaukti</button>
+                <div class="modal-content p-6"></div>
             </div>
         </div>
     </template>
 
-    <script type="module" src="js/app.js?v=1.7.5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/app.js"></script>
+
 </body>
 </html>

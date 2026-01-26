@@ -1,129 +1,60 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - AUTH MODULE v1.7.2
-// Authentication with Memory Cleanup & Timer Management
+// ROBERT OS - AUTH.JS v1.4.0 (STABLE)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
-import { state } from '../state.js';
-import { showToast, vibrate } from '../utils.js';
+import { showToast } from '../utils.js';
 
-// ────────────────────────────────────────────────────────────────
-// LOGIN
-// ────────────────────────────────────────────────────────────────
+// 1. ACTION MAPPER (Būtinas EventBinderiui)
+export const actions = {
+    'login': async () => {
+        console.log('🔐 Bandoma prisijungti...');
+        try {
+            await login();
+        } catch (err) {
+            console.error('Login Action Error:', err);
+            showToast('Prisijungimas nepavyko: ' + err.message, 'error');
+        }
+    }
+};
 
-async function login() {
-    vibrate();
-    
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-pass').value;
-    
-    if (!email || !password) {
-        return showToast('Įvesk email ir slaptažodį', 'error');
+// 2. PAGRINDINĖ LOGIN LOGIKA
+export async function login() {
+    // Patikriname, ar DB klientas paruoštas
+    if (!db) {
+        throw new Error("Duomenų bazės ryšys nėra sukonfigūruotas.");
     }
-    
-    state.loading = true;
-    try {
-        const { data, error } = await db.auth.signInWithPassword({ email, password });
-        
-        if (error) throw error;
-        
-        state.user = data.user;
-        showToast('Sveiki sugrįžę! 👋', 'success');
-        
-        // Trigger post-login flow in app.js
-        window.dispatchEvent(new CustomEvent('user-logged-in'));
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        showToast('Prisijungimo klaida. Bandykite dar kartą.', 'error');
-    } finally {
-        state.loading = false;
-    }
+
+    // Robert OS naudoja standartinį Supabase Auth (pvz., Google OAuth)
+    // Jei naudoji el. paštą/slaptažodį, čia turėtų būti db.auth.signInWithPassword()
+    const { data, error } = await db.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+            redirectTo: window.location.origin
+        }
+    });
+
+    if (error) throw error;
+    return data;
 }
 
-// ────────────────────────────────────────────────────────────────
-// LOGOUT (With Memory Cleanup)
-// ────────────────────────────────────────────────────────────────
-
-async function logout() {
-    vibrate();
-    
-    // Save theme preference before clearing
-    const savedTheme = localStorage.getItem('theme');
-    
-    // ✅ CLEANUP MEMORY LEAKS
-    try {
-        // Stop timer interval (exposed from app.js)
-        if (window.stopTimer) {
-            window.stopTimer();
-            console.log('🧹 Timer stopped');
-        }
-        
-        // Clear any realtime subscriptions
-        if (window.cleanupRealtime) {
-            window.cleanupRealtime();
-            console.log('🧹 Realtime cleaned');
-        }
-        
-    } catch (cleanupError) {
-        console.warn('Cleanup warning:', cleanupError);
-    }
-    
-    try {
-        // ✅ SUPABASE LOGOUT
-        await db.auth.signOut();
-        
-        // ✅ CLEAR STATE
-        state.user = null;
-        state.userSettings = null;
-        state.fleet = [];
-        state.activeShift = null;
-        
-        // ✅ CLEAR STORAGE
-        localStorage.clear();
-        
-        // ✅ RESTORE THEME
-        if (savedTheme) {
-            localStorage.setItem('theme', savedTheme);
-        }
-        
-        showToast('Atsijungta sėkmingai', 'info');
-        
-        // ✅ RELOAD
-        setTimeout(() => location.reload(), 500);
-        
-    } catch (error) {
-        console.error('Logout error:', error);
-    }
-}
-
-// ────────────────────────────────────────────────────────────────
-// SESSION CHECK
-// ────────────────────────────────────────────────────────────────
-
+// 3. SESIJOS PATIKRA (Kviečiama iš app.js boot metu)
 export async function checkSession() {
+    if (!db) return null;
+    
     try {
         const { data: { session }, error } = await db.auth.getSession();
-        
-        if (error) {
-            console.error('Session check error:', error);
-            return null;
-        }
-        
+        if (error) throw error;
         return session;
-        
-    } catch (error) {
-        console.error('Session check failed:', error);
+    } catch (err) {
+        console.error("Session Check Error:", err);
         return null;
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// ACTIONS EXPORT (Required for EventBinder)
-// ────────────────────────────────────────────────────────────────
-
-export const actions = {
-    login,
-    logout
-    // Pastaba: checkSession nėra čia, nes ji iškviečiama tiesiogiai app.js
-};
+// 4. ATSIJUNGIMAS
+export async function logout() {
+    if (!db) return;
+    await db.auth.signOut();
+    location.reload();
+}

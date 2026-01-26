@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS (ORCHESTRATOR) 1.7.5 (FINAL STABLE)
+// ROBERT OS - APP.JS v1.7.7
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -7,53 +7,45 @@ import { state } from './state.js';
 import * as Auth from './modules/auth.js';
 import * as Garage from './modules/garage.js';
 import * as Shifts from './modules/shifts.js';
-import * as Finance from './modules/finance.js';
+import * as Finance from './modules/finance.js'; // Įsitikink, kad importuojama
 import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
-// 1. TEMOS VALDYMAS (AUTO + MANUAL)
+// 1. TEMOS VALDYMAS
 function initTheme() {
     const root = document.documentElement;
     const saved = localStorage.getItem('theme');
     const hour = new Date().getHours();
 
-    // Jei vartotojas yra pasirinkęs rankiniu būdu
     if (saved === 'dark') {
         root.classList.remove('light');
     } else if (saved === 'light') {
         root.classList.add('light');
     } else {
-        // Auto režimas: 7:00 - 19:00 Šviesu
-        if (hour >= 7 && hour < 19) {
-            root.classList.add('light');
-        } else {
-            root.classList.remove('light');
-        }
+        if (hour >= 7 && hour < 19) root.classList.add('light');
+        else root.classList.remove('light');
     }
-    
-    // UI atnaujinimas (jei reikia specifinių UI pakeitimų)
-    if (UI && UI.applyTheme) UI.applyTheme();
 }
 
 // 2. SISTEMOS INICIALIZAVIMAS
 async function init() {
-    // Pirmiausia nustatome temą, kad nesimatytų "blykstėjimo"
     initTheme();
     
-    // Tikriname sesiją
+    const authScreen = document.getElementById('auth-screen');
+    const appContent = document.getElementById('app-content');
+
     const { data: { session } } = await db.auth.getSession();
     
     if (session) {
         state.user = session.user;
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-content').classList.remove('hidden');
+        if(authScreen) authScreen.classList.add('hidden');
+        if(appContent) appContent.classList.remove('hidden');
         
-        // Nustatymų krovimas
         try {
             await Settings.loadSettings();
         } catch (error) {
-            console.warn('Settings load failed, using defaults');
+            console.warn('Defaults loaded');
             state.userSettings = {
                 timezone_primary: 'America/Chicago',
                 timezone_secondary: 'Europe/Vilnius',
@@ -62,25 +54,23 @@ async function init() {
             };
         }
         
-        // Duomenų krovimas
         await Garage.fetchFleet();
         await refreshAll();
-        setupRealtime();
         
-        // Jei esame audit tab'e, atnaujiname jį
+        // Priverstinis Audit užkrovimas jei vartotojas refreshino puslapį būdamas audit tabe
         const auditTab = document.getElementById('tab-audit');
         if (auditTab && !auditTab.classList.contains('hidden')) {
-            Finance.refreshAudit();
+            setTimeout(() => Finance.refreshAudit(), 500);
         }
 
+        setupRealtime();
     } else {
-        document.getElementById('auth-screen').classList.remove('hidden');
+        if(authScreen) authScreen.classList.remove('hidden');
+        if(appContent) appContent.classList.add('hidden');
     }
     
-    // Globalus listener duomenų atnaujinimui
     window.addEventListener('refresh-data', refreshAll);
-
-    // Auto temos tikrinimas kas minutę (jei nėra manual override)
+    
     setInterval(() => {
         if (!localStorage.getItem('theme')) initTheme();
     }, 60000);
@@ -89,7 +79,6 @@ async function init() {
 // DUOMENŲ ATNAUJINIMAS
 export async function refreshAll() {
     try {
-        // 1. Aktyvi pamaina
         const { data: shift } = await db
             .from('finance_shifts')
             .select('*')
@@ -105,9 +94,13 @@ export async function refreshAll() {
         if (state.activeShift) Shifts.startTimer();
         else Shifts.stopTimer();
         
-        // 2. Progresas ir finansai
         await updateProgressBars();
         
+        // Jei esame audit tabe, atnaujiname ir jį
+        const auditTab = document.getElementById('tab-audit');
+        if (auditTab && !auditTab.classList.contains('hidden')) {
+            Finance.refreshAudit();
+        }
     } catch (error) {
         console.error('Refresh Error:', error);
     }
@@ -115,7 +108,6 @@ export async function refreshAll() {
 
 async function updateProgressBars() {
     try {
-        // Rental Bar
         const rentalProgress = await Costs.calculateWeeklyRentalProgress();
         const rentalBarEl = document.getElementById('rental-bar');
         const rentalValEl = document.getElementById('rental-val');
@@ -129,8 +121,7 @@ async function updateProgressBars() {
             else if (rentalProgress.percentage < 90) rentalBarEl.classList.add('bg-yellow-500');
             else rentalBarEl.classList.add('bg-green-500');
         }
-
-        // Grind Bar (Daily)
+        
         const dailyCost = await Costs.calculateDailyCost();
         const shiftEarnings = Costs.calculateShiftEarnings();
         const grindBarEl = document.getElementById('grind-bar');
@@ -148,8 +139,8 @@ async function updateProgressBars() {
         const earningsEl = document.getElementById('shift-earnings');
         if (earningsEl) earningsEl.textContent = `$${Math.round(shiftEarnings)}`;
 
-    } catch (error) {
-        console.error('Update Bars Error:', error);
+    } catch (e) {
+        console.error("Bar update error", e);
     }
 }
 
@@ -161,36 +152,30 @@ function setupRealtime() {
         .subscribe();
 }
 
-// ════════════════════════════════════════════════════════════════
-// 3. GLOBALŪS KVIETIMAI (WINDOW BINDING)
-// ════════════════════════════════════════════════════════════════
-
-// Auth
+// GLOBALŪS KVIETIMAI
 window.login = Auth.login;
 window.logout = Auth.logout;
 
-// Theme
 window.cycleTheme = () => {
     const root = document.documentElement;
-    const isLight = root.classList.toggle('light'); // Grąžina true, jei klasė pridėta
+    const isLight = root.classList.toggle('light');
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
-    
-    // Vibracija telefonuose
-    if (navigator.vibrate) navigator.vibrate(10);
-    
-    if (UI && UI.applyTheme) UI.applyTheme();
+    if(navigator.vibrate) navigator.vibrate(10);
+    if(UI.applyTheme) UI.applyTheme();
 };
 
-// Garage
+window.switchTab = UI.switchTab;
+window.openModal = UI.openModal;
+window.closeModals = UI.closeModals;
+
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.deleteVehicle = Garage.deleteVehicle;
-window.setVehType = Garage.setVehType;
-window.toggleTestMode = Garage.toggleTestMode;
 window.confirmDeleteVehicle = Garage.confirmDeleteVehicle; 
 window.cancelDeleteVehicle = Garage.cancelDeleteVehicle; 
+window.setVehType = Garage.setVehType;
+window.toggleTestMode = Garage.toggleTestMode;
 
-// Shifts
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
@@ -198,26 +183,9 @@ window.confirmEnd = Shifts.confirmEnd;
 window.togglePause = Shifts.togglePause;
 window.selectWeather = Shifts.selectWeather;
 
-// Finance
-window.openTxModal = Finance.openTxModal;
-window.setExpType = Finance.setExpType;
-window.confirmTx = Finance.confirmTx;
-window.exportAI = Finance.exportAI;
-
-// Finance - Delete functionality
-window.toggleSelectAll = Finance.toggleSelectAll;
-window.requestDelete = Finance.requestDelete; 
-window.confirmDelete = Finance.confirmDelete;
-window.updateDeleteButton = Finance.updateDeleteButton;
-
-// UI & Navigation
-window.switchTab = UI.switchTab;
-window.openModal = UI.openModal;
-window.closeModals = UI.closeModals;
-
-// Settings
+// Finance modulio funkcijos dabar pasiekiamos tiesiai iš modulio,
+// bet paliekame čia dėl aiškumo
 window.openSettings = Settings.openSettings;
 window.saveSettings = Settings.saveSettings;
 
-// Start App
 document.addEventListener('DOMContentLoaded', init);

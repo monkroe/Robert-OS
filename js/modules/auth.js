@@ -11,7 +11,7 @@ import { showToast, vibrate } from '../utils.js';
 // LOGIN
 // ────────────────────────────────────────────────────────────────
 
-export async function login() {
+async function login() {
     vibrate();
     
     const email = document.getElementById('auth-email').value.trim();
@@ -45,7 +45,7 @@ export async function login() {
 // LOGOUT (With Memory Cleanup)
 // ────────────────────────────────────────────────────────────────
 
-export async function logout() {
+async function logout() {
     vibrate();
     
     // Save theme preference before clearing
@@ -117,3 +117,13 @@ export async function checkSession() {
         return null;
     }
 }
+
+// ────────────────────────────────────────────────────────────────
+// ACTIONS EXPORT (Required for EventBinder)
+// ────────────────────────────────────────────────────────────────
+
+export const actions = {
+    login,
+    logout
+    // Pastaba: checkSession nėra čia, nes ji iškviečiama tiesiogiai app.js
+};

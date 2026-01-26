@@ -1,8 +1,7 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - DB.JS v1.7.4 (STANDALONE ESM)
+// ROBERT OS - DB.JS v1.7.5 (DATABASE CONNECTION)
 // ════════════════════════════════════════════════════════════════
 
-// 1. TIESIOGINIS IMPORTAS (Pamirštame window.supabaseClient)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const CONFIG = {
@@ -13,25 +12,14 @@ const CONFIG = {
 export let db = null;
 
 export function initSupabase() {
-    console.log('🔌 Initializing Supabase (Standalone Mode)...');
-    
     if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('pakeičiau')) {
-        throw new Error('Klaida: Nenustatytas SUPABASE_URL db.js faile.');
+        throw new Error('Konfigūracijos klaida: Nustatykite SUPABASE_URL db.js faile');
     }
-
     try {
-        // Naudojame tiesiogiai importuotą funkciją
         db = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
-        console.log('✅ Database: Connection established.');
+        console.log('🔌 DB: Inicializuota sėkmingai');
     } catch (err) {
-        console.error('❌ Database Initialization Failed:', err);
+        console.error('❌ DB Init Fail:', err);
         throw err;
     }
-}
-
-// Papildomos pagalbinės funkcijos lieka tokios pačios...
-export async function isAuthenticated() {
-    if (!db) return false;
-    const { data: { session } } = await db.auth.getSession();
-    return !!session;
 }

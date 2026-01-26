@@ -1,40 +1,24 @@
-// ════════════════════════════════════════════════════════════════
-// ROBERT OS - AUTH.JS v1.7.5 (SECURITY LAYER)
-// ════════════════════════════════════════════════════════════════
-
 import { db } from '../db.js';
-import { showToast } from '../utils.js';
+import { showToast, vibrate } from '../utils.js';
 
-export const actions = {
-    'login': async () => {
-        const email = document.getElementById('auth-email')?.value;
-        const password = document.getElementById('auth-password')?.value;
-        
-        if (!email || !password) {
-            showToast('Užpildykite visus laukus', 'warning');
-            return;
-        }
+export async function login() {
+    vibrate();
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-pass').value;
+    
+    const { error } = await db.auth.signInWithPassword({email, password});
+    
+    if(error) showToast(error.message, 'error'); 
+    else location.reload();
+}
 
-        try {
-            console.log('🔐 Bandome prisijungti...');
-            const { error } = await db.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-            location.reload();
-        } catch (err) {
-            showToast('Klaida: ' + err.message, 'error');
-        }
-    },
-    'logout': async () => {
-        if (db) {
-            await db.auth.signOut();
-            location.reload();
-        }
-    }
-};
-
-export async function checkSession() {
-    if (!db) return null;
-    const { data: { session }, error } = await db.auth.getSession();
-    if (error) return null;
-    return session;
+export async function logout() {
+    vibrate();
+    const savedTheme = localStorage.getItem('theme');
+    
+    await db.auth.signOut();
+    localStorage.clear();
+    
+    if (savedTheme) localStorage.setItem('theme', savedTheme);
+    location.reload();
 }

@@ -1,6 +1,30 @@
-      - name: Build and Generate CSS
+name: Deploy Robert OS v1.7.5
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build CSS
         run: |
+          npm init -y
           npm install tailwindcss@latest postcss autoprefixer
           mkdir -p dist
-          # Kreipiamės tiesiai į instaliuotą bin'ą, kad GitHub nebeturėtų klausimų
           ./node_modules/.bin/tailwindcss -i ./style.css -o ./dist/output.css --minify
+      - name: Upload
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy
+        uses: actions/deploy-pages@v4

@@ -1,17 +1,18 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP JS v1.7.2 (MODULAR)
+// ROBERT OS - APP JS v1.7.2 (FINAL)
 // System Orchestrator - Delegates to Specialized Modules
 // ════════════════════════════════════════════════════════════════
 
 import { db, initSupabase } from './db.js';
 import { state } from './state.js';
-import { showToast, vibrate } from './utils.js';
+import { showToast } from './utils.js'; // Removed vibrate import if not used directly here
 
 // ─── AUTH & UI MODULES ──────────────────────────────────────────
 import { login, logout, checkSession } from './modules/auth.js';
 import { switchTab, cycleTheme, applyTheme, openModal, closeModals, updateShiftControlsUI } from './modules/ui.js';
 
 // ─── FEATURE MODULES ────────────────────────────────────────────
+// Dabar šie importai veiks, nes pataisėme modulius:
 import { initShiftsModals } from './modules/shifts.js';
 import { initSettingsModal, loadSettings } from './modules/settings.js';
 import { initGarageModals, loadFleet } from './modules/garage.js';
@@ -28,11 +29,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 1. Initialize DB Connection
     initSupabase();
     
-    // 2. Inject Modals into DOM
-    initShiftsModals();
-    initSettingsModal();
-    initGarageModals();
-    initFinanceModals();
+    // 2. Inject Modals into DOM (Critical to avoid "Black Screen")
+    try {
+        initShiftsModals();
+        initSettingsModal();
+        initGarageModals();
+        initFinanceModals();
+    } catch (e) {
+        console.error('❌ Modal Injection Failed:', e);
+    }
     
     // 3. Auth Check
     const { data: { session } } = await db.auth.getSession();
@@ -56,13 +61,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ────────────────────────────────────────────────────────────────
 
 function showAuthScreen() {
-    document.getElementById('auth-screen').classList.remove('hidden');
-    document.getElementById('app-content').classList.add('hidden');
+    const auth = document.getElementById('auth-screen');
+    const app = document.getElementById('app-content');
+    if (auth) auth.classList.remove('hidden');
+    if (app) app.classList.add('hidden');
 }
 
 function showAppContent() {
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('app-content').classList.remove('hidden');
+    const auth = document.getElementById('auth-screen');
+    const app = document.getElementById('app-content');
+    if (auth) auth.classList.add('hidden');
+    if (app) app.classList.remove('hidden');
 }
 
 async function onUserLoggedIn() {
@@ -213,7 +222,7 @@ window.stopTimer = () => {
 // ────────────────────────────────────────────────────────────────
 
 function setupEventListeners() {
-    // Data refresh trigger
+    // 1. Data refresh trigger
     window.addEventListener('refresh-data', async () => {
         await loadActiveShift(); 
         refreshUI();
@@ -223,12 +232,18 @@ function setupEventListeners() {
         }
     });
     
-    // Audit refresh trigger
+    // 2. Audit refresh trigger
     window.addEventListener('refresh-audit', () => {
         refreshAudit();
     });
 
-    // Loading State Watcher
+    // 3. User Login Trigger (IŠTAISYTA: Dabar sistema reaguos į login)
+    window.addEventListener('user-logged-in', () => {
+        console.log('🔄 Login event received, initializing app...');
+        onUserLoggedIn();
+    });
+
+    // 4. Loading State Watcher
     setInterval(() => {
         const loader = document.getElementById('loading');
         if (loader) {
@@ -237,14 +252,14 @@ function setupEventListeners() {
         }
     }, 100);
     
-    // Close modals on overlay click
+    // 5. Close modals on overlay click
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal-overlay')) {
             closeModals();
         }
     });
     
-    // ESC key closes modals
+    // 6. ESC key closes modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeModals();
@@ -253,7 +268,7 @@ function setupEventListeners() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// GLOBAL EXPORTS (Bridge to HTML onclick handlers)
+// GLOBAL EXPORTS
 // ────────────────────────────────────────────────────────────────
 
 window.login = login;
@@ -263,14 +278,8 @@ window.cycleTheme = cycleTheme;
 window.openModal = openModal;
 window.closeModals = closeModals;
 
-// Debug mode
+// Debug
 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     window.state = state;
-    window.ROBERT_OS = { 
-        state, 
-        db, 
-        refreshUI, 
-        loadActiveShift,
-        checkSession 
-    };
+    window.ROBERT_OS = { state, db, refreshUI, loadActiveShift };
 }

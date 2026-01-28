@@ -1,37 +1,34 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS — SETTINGS MODULE v1.7.0 (STABLE)
+// ROBERT OS - MODULES/SETTINGS.JS v2.1.0
+// Logic: User Preferences & Persistence
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate } from '../utils.js';
+import { openModal, closeModals } from './ui.js';
 
 // ────────────────────────────────────────────────────────────────
 // DEFAULTS
 // ────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS = {
-    timezone_primary: 'America/Chicago',
+    timezone: 'America/Chicago',
     timezone_secondary: 'Europe/Vilnius',
-    clock_position: 'cockpit',
     monthly_fixed_expenses: 0,
     rental_week_start_day: 2, // Tuesday
     default_shift_target_hours: 12,
-    notifications_enabled: true,
     compact_mode: false
 };
 
 // ────────────────────────────────────────────────────────────────
-// LOAD & SYNC
+// SYNC ENGINE
 // ────────────────────────────────────────────────────────────────
 
 export async function loadSettings() {
-    try {
-        if (!state.user?.id) {
-            console.warn('⚠️ loadSettings skipped: user not ready');
-            return null;
-        }
+    if (!state.user?.id) return null;
 
+    try {
         const { data, error } = await db
             .from('user_settings')
             .select('*')
@@ -40,19 +37,19 @@ export async function loadSettings() {
 
         if (error) throw error;
 
-        // Jei nėra — sukuriam defaultus
         if (!data) {
-            const created = await ensureDefaultSettings();
-            state.userSettings = created;
-            return created;
+            // Auto-create defaults if missing
+            return await ensureDefaultSettings();
         }
 
         state.userSettings = data;
         return data;
 
     } catch (err) {
-        console.error('❌ loadSettings failed:', err);
-        return null; // NIEKADA nelaužom UI
+        console.error('Settings Sync Error:', err);
+        // Fallback to defaults in memory only, don't crash
+        state.userSettings = { ...DEFAULT_SETTINGS }; 
+        return state.userSettings;
     }
 }
 
@@ -70,59 +67,57 @@ async function ensureDefaultSettings() {
         .single();
 
     if (error) {
-        console.error('❌ Failed to create default settings:', error);
-        throw error;
+        console.error('Defaults Creation Failed:', error);
+        return DEFAULT_SETTINGS;
     }
 
+    state.userSettings = data;
     return data;
 }
 
 // ────────────────────────────────────────────────────────────────
-// UI
+// UI INTERACTION
 // ────────────────────────────────────────────────────────────────
 
 export async function openSettings() {
-    vibrate();
+    vibrate([10]);
 
+    // Ensure we have latest data
     const settings = state.userSettings || await loadSettings();
-    if (!settings) {
-        showToast('Nepavyko užkrauti nustatymų', 'error');
-        return;
-    }
-
-    setVal('settings-tz-primary', settings.timezone_primary);
+    
+    // Map data to UI Inputs
+    // Naudojame 'settings-tz-primary' nes taip pavadinta jūsų index.html
+    setVal('settings-tz-primary', settings.timezone);
+    
+    // Kiti laukai (jei ateityje pridėsite į HTML)
     setVal('settings-tz-secondary', settings.timezone_secondary);
-    setVal('settings-clock-pos', settings.clock_position);
     setVal('settings-fixed-expenses', settings.monthly_fixed_expenses);
     setVal('settings-rental-start-day', settings.rental_week_start_day);
     setVal('settings-shift-target', settings.default_shift_target_hours);
-
-    setChecked('settings-notifications', settings.notifications_enabled);
-    setChecked('settings-compact-mode', settings.compact_mode);
-
-    window.openModal('settings-modal');
+    
+    openModal('settings-modal');
 }
 
 export async function saveSettings() {
     vibrate([20]);
-
     if (!state.user?.id) return;
-
-    const updates = {
-        timezone_primary: getVal('settings-tz-primary'),
-        timezone_secondary: getVal('settings-tz-secondary'),
-        clock_position: getVal('settings-clock-pos'),
-        monthly_fixed_expenses: num('settings-fixed-expenses', 0),
-        rental_week_start_day: num('settings-rental-start-day', 2),
-        default_shift_target_hours: num('settings-shift-target', 12),
-        notifications_enabled: isChecked('settings-notifications'),
-        compact_mode: isChecked('settings-compact-mode'),
-        updated_at: new Date().toISOString()
-    };
 
     state.loading = true;
 
     try {
+        const current = state.userSettings || DEFAULT_SETTINGS;
+
+        // SMART UPDATE: Atnaujiname tik tai, ką radome DOM'e.
+        // Jei HTML elementas neegzistuoja, paliekame seną reikšmę.
+        const updates = {
+            timezone: getValOrKeep('settings-tz-primary', current.timezone),
+            timezone_secondary: getValOrKeep('settings-tz-secondary', current.timezone_secondary),
+            monthly_fixed_expenses: getNumOrKeep('settings-fixed-expenses', current.monthly_fixed_expenses),
+            rental_week_start_day: getNumOrKeep('settings-rental-start-day', current.rental_week_start_day),
+            default_shift_target_hours: getNumOrKeep('settings-shift-target', current.default_shift_target_hours),
+            updated_at: new Date().toISOString()
+        };
+
         const { error } = await db
             .from('user_settings')
             .update(updates)
@@ -130,47 +125,41 @@ export async function saveSettings() {
 
         if (error) throw error;
 
-        state.userSettings = {
-            ...state.userSettings,
-            ...updates
-        };
+        // Update local state immediately
+        state.userSettings = { ...state.userSettings, ...updates };
 
-        window.closeModals();
-        showToast('Nustatymai išsaugoti ✅', 'success');
+        closeModals();
+        showToast('NUSTATYMAI IŠSAUGOTI', 'success');
 
+        // Refresh UI components that depend on settings (Clock, Costs)
         window.dispatchEvent(new Event('refresh-data'));
 
     } catch (err) {
-        console.error('❌ saveSettings failed:', err);
-        showToast('Klaida saugant nustatymus', 'error');
+        showToast('KLAIDA: ' + err.message, 'error');
     } finally {
         state.loading = false;
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// UTILS
+// HELPERS
 // ────────────────────────────────────────────────────────────────
-
-function getVal(id) {
-    return document.getElementById(id)?.value ?? '';
-}
 
 function setVal(id, val) {
     const el = document.getElementById(id);
-    if (el != null) el.value = val;
+    if (el) el.value = val ?? '';
 }
 
-function num(id, fallback = 0) {
-    const n = parseFloat(getVal(id));
-    return Number.isFinite(n) ? n : fallback;
-}
-
-function setChecked(id, val) {
+// Grąžina input reikšmę. Jei inputo nėra DOM'e - grąžina seną reikšmę (fallback).
+function getValOrKeep(id, fallback) {
     const el = document.getElementById(id);
-    if (el) el.checked = !!val;
+    return el ? el.value : fallback;
 }
 
-function isChecked(id) {
-    return document.getElementById(id)?.checked === true;
+// Tas pats, tik skaičiams
+function getNumOrKeep(id, fallback) {
+    const el = document.getElementById(id);
+    if (!el) return fallback;
+    const val = parseFloat(el.value);
+    return isNaN(val) ? fallback : val;
 }

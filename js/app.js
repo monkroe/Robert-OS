@@ -1,5 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS v2.6.1 (SIMPLE & STABLE)
+// ROBERT OS - APP.JS v2.8.0
+// Logic: System Core with Fixed Pause Sync
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -13,33 +14,28 @@ import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
 async function init() {
-    // 1. UI TEXT FIX (Hardcoded override)
+    // UI Text Fix
     const startBtn = document.querySelector('#start-modal .btn-primary-os');
     if (startBtn) startBtn.textContent = 'START SHIFT';
 
-    // 2. Auth & Startup
+    // Auth
     const authScreen = document.getElementById('auth-screen');
     const appContent = document.getElementById('app-content');
-    
     const { data: { session } } = await db.auth.getSession();
     
     if (session) {
         state.user = session.user;
         authScreen?.classList.add('hidden');
         appContent?.classList.remove('hidden');
-        
         try {
             await Settings.loadSettings();
             await Garage.fetchFleet();
             await refreshAll();
             UI.startClocks();
-        } catch (e) {
-            console.error('Boot Error:', e);
-        }
+        } catch (e) { console.error(e); }
     } else {
         authScreen?.classList.remove('hidden');
         appContent?.classList.add('hidden');
-        UI.stopClocks();
     }
     
     window.addEventListener('refresh-data', refreshAll);
@@ -50,7 +46,6 @@ export async function refreshAll() {
     if (!state.user) return;
 
     try {
-        // Fetch Active Shift
         const { data: shift } = await db
             .from('finance_shifts')
             .select('*')
@@ -62,13 +57,33 @@ export async function refreshAll() {
         
         state.activeShift = shift;
         
-        // Timer Logic
+        // Timer & Button Sync (CRITICAL FIX)
         const timerEl = document.getElementById('shift-timer');
+        const pauseBtn = document.getElementById('btn-pause');
+        
         if (state.activeShift) {
-            Shifts.startTimer();
-            // Tik pridedam klasę, nekeičiam HTML
-            timerEl?.classList.remove('opacity-50');
-            timerEl?.classList.add('pulse-text'); // Pulsavimas
+            // Setup Timer
+            if (state.activeShift.status === 'active') {
+                Shifts.startTimer();
+                timerEl?.classList.remove('opacity-50');
+                timerEl?.classList.add('pulse-text');
+                
+                // Button shows PAUSE icon (because it is running)
+                if(pauseBtn) {
+                    pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+                    pauseBtn.classList.remove('bg-yellow-500/20', 'text-yellow-500');
+                }
+            } else {
+                Shifts.stopTimer();
+                timerEl?.classList.add('opacity-50');
+                timerEl?.classList.remove('pulse-text');
+                
+                // Button shows PLAY icon (because it is paused)
+                if(pauseBtn) {
+                    pauseBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                    pauseBtn.classList.add('bg-yellow-500/20', 'text-yellow-500');
+                }
+            }
         } else {
             Shifts.stopTimer();
             timerEl?.classList.add('opacity-50');
@@ -76,19 +91,14 @@ export async function refreshAll() {
         }
         
         UI.updateUI('activeShift');
-        
-        // Progress Bars
         await updateProgressBars();
         
-        // Logs
         const auditTab = document.getElementById('tab-audit');
         if (auditTab && !auditTab.classList.contains('hidden')) {
             await Finance.refreshAudit();
         }
 
-    } catch (error) {
-        console.error('Refresh Error:', error);
-    }
+    } catch (error) { console.error(error); }
 }
 
 async function updateProgressBars() {
@@ -108,7 +118,7 @@ async function updateProgressBars() {
     } catch (e) { console.error(e); }
 }
 
-// WINDOW BINDINGS
+// BINDINGS
 window.login = Auth.login;
 window.logout = Auth.logout;
 window.cycleTheme = UI.cycleTheme;
@@ -139,6 +149,6 @@ window.requestLogDelete = Finance.requestLogDelete;
 window.confirmLogDelete = Finance.confirmLogDelete;
 window.exportAI = Finance.exportAI;
 window.updateDeleteButtonLocal = Finance.updateDeleteButtonLocal;
-window.openShiftDetails = Finance.openShiftDetails; // Modal open
+window.openShiftDetails = Finance.openShiftDetails;
 
 document.addEventListener('DOMContentLoaded', init);

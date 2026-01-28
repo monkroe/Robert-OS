@@ -1,7 +1,9 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UTILS.JS v2.0.0
+// ROBERT OS - UTILS.JS v2.0.1
 // Global Utilities: Haptics, Formatting, Toasts & Memory Hygiene
 // ════════════════════════════════════════════════════════════════
+
+import { state } from './state.js'; // ✅ FIX: Added import for error handler access
 
 // ────────────────────────────────────────────────────────────────
 // HAPTIC FEEDBACK
@@ -138,7 +140,10 @@ export const initGlobalErrorHandlers = () => {
     window.onunhandledrejection = (event) => {
         console.error('🔥 PROMISE REJECTED:', event.reason);
         // Prevent ghost errors from background sync
-        if (!state.loading) showToast('SYNC FAILED', 'warning');
+        if (state && !state.loading) {
+             // Safe check in case state isn't fully ready
+             showToast('SYNC FAILED', 'warning');
+        }
     };
 };
 

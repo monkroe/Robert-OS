@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - COSTS MODULE v1.6.2 (DOCUMENTED)
-// Logic: Smart Fallback + Explicit Business Rules
+// ROBERT OS - MODULES/COSTS.JS v2.1.0
+// Logic: Financial Projections & Rental Tracking
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -12,32 +12,21 @@ import { state } from '../state.js';
 
 /**
  * Sukuria Date objektą pagal nurodytą laiko juostą.
- * ⚠️ WARNING: Grąžina "Interpreted Local" laiką.
- * Tai reiškia, kad Date objektas turės naršyklės laiko juostos offsetą,
- * bet "valandos" atitiks tikslinę laiko juostą.
- * Naudoti TIK palyginimams ir UI atvaizdavimui, ne aritmetikai tarp zonų.
+ * Naudojama skaičiuojant "savaitės pradžią" pagal vartotojo lokaciją.
  */
 function getTimezoneDate(timezone = 'America/Chicago') {
     const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: timezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
         hour12: false
     });
     
     const parts = formatter.formatToParts(new Date());
-    const values = {};
-    parts.forEach(({ type, value }) => {
-        values[type] = value;
-    });
+    const val = {};
+    parts.forEach(({ type, value }) => { val[type] = value; });
     
-    return new Date(
-        `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}:${values.second}`
-    );
+    return new Date(`${val.year}-${val.month}-${val.day}T${val.hour}:${val.minute}:${val.second}`);
 }
 
 function getDayOfWeek(timezone = 'America/Chicago') {
@@ -45,17 +34,15 @@ function getDayOfWeek(timezone = 'America/Chicago') {
         timeZone: timezone,
         weekday: 'short'
     });
-    
-    const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-    const dayName = formatter.format(new Date());
-    return dayMap[dayName];
+    const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return map[formatter.format(new Date())];
 }
 
 /**
  * Smart Vehicle Selector
- * 1. Active Shift Vehicle
- * 2. Fallback: First 'Rental' type in garage
- * 3. Fallback: First vehicle in garage
+ * 1. Jei yra aktyvi pamaina -> imam jos mašiną.
+ * 2. Jei ne -> imam pirmą "rental" tipo mašiną garaže.
+ * 3. Fallback -> imam tiesiog pirmą mašiną.
  */
 function getTargetVehicle() {
     if (state.activeShift?.vehicle_id) {
@@ -73,8 +60,9 @@ function getTargetVehicle() {
 
 export async function calculateDailyCost() {
     try {
+        // Safe defaults from Settings
         const monthlyFixed = state.userSettings?.monthly_fixed_expenses || 0;
-        const dailyFixed = monthlyFixed / 30; // Approximation: 30-day month
+        const dailyFixed = monthlyFixed / 30; // Approximation
         
         let dailyVehicle = 0;
         let dailyCarwash = 0;
@@ -92,7 +80,7 @@ export async function calculateDailyCost() {
         return Math.round(dailyFixed + dailyVehicle + dailyCarwash);
         
     } catch (error) {
-        console.error('Error calculating daily cost:', error);
+        console.error('Costs Calc Error:', error);
         return 0;
     }
 }
@@ -103,15 +91,17 @@ export async function calculateDailyCost() {
 
 export async function calculateWeeklyRentalProgress() {
     try {
-        const timezone = state.userSettings?.timezone_primary || 'America/Chicago';
-        const rentalWeekStartDay = state.userSettings?.rental_week_start_day || 2; 
+        const timezone = state.userSettings?.timezone || 'America/Chicago';
+        // Default rental week starts Tuesday (2) if not specified
+        const rentalWeekStartDay = state.userSettings?.rental_week_start_day ?? 2; 
         
         const vehicle = getTargetVehicle();
-        const targetAmount = vehicle?.operating_cost_weekly || 0;
+        // If owned vehicle or no cost, target is 0
+        const targetAmount = (vehicle?.type === 'rental') ? (vehicle.operating_cost_weekly || 0) : 0;
         
-        if (targetAmount === 0) return { earned: 0, target: 0, percentage: 0 };
+        if (targetAmount === 0) return { earned: 0, target: 0, percentage: 100 };
 
-        // Time Window Calculation
+        // Time Window Logic
         const currentDayOfWeek = getDayOfWeek(timezone);
         let daysSinceStart = currentDayOfWeek - rentalWeekStartDay;
         if (daysSinceStart < 0) daysSinceStart += 7;
@@ -124,12 +114,7 @@ export async function calculateWeeklyRentalProgress() {
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 7);
         
-        /**
-         * BUSINESS RULE: Payout attribution
-         * Uždarbis priskiriamas tai savaitei, kurioje pamaina BAIGĖSI (end_time).
-         * Jei pamaina prasidėjo sekmadienį, o baigėsi pirmadienį (naują savaitę),
-         * pinigai krenta į naują savaitę.
-         */
+        // Fetch earnings within this calculated week
         const { data: shifts, error } = await db
             .from('finance_shifts')
             .select('gross_earnings')
@@ -142,7 +127,10 @@ export async function calculateWeeklyRentalProgress() {
         
         const earned = shifts?.reduce((sum, s) => sum + (s.gross_earnings || 0), 0) || 0;
         
-        // Cap percentage at 100% for UI progress bars (earned can exceed target)
+        // Add active shift earnings to "Projected" if needed, 
+        // but typically rental is paid from "Banked" money.
+        // We will stick to COMPLETED shifts for accuracy.
+        
         const percentage = Math.min((earned / targetAmount) * 100, 100);
         
         return {
@@ -152,7 +140,7 @@ export async function calculateWeeklyRentalProgress() {
         };
         
     } catch (error) {
-        console.error('Rental progress error:', error);
+        console.error('Rental Progress Error:', error);
         return { earned: 0, target: 0, percentage: 0 };
     }
 }
@@ -167,31 +155,10 @@ export function calculateShiftEarnings() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// FUTURE: RUNWAY CALCULATION (STUB)
+// RUNWAY (FUTURE FEATURE)
 // ────────────────────────────────────────────────────────────────
 
 export async function calculateRunway() {
-    try {
-        // TODO: Implement 'Assets' table fetching
-        // Currently hardcoded to 0 to prevent UI errors until v1.8
-        const liquidAssets = 0; 
-        
-        const monthlyFixed = state.userSettings?.monthly_fixed_expenses || 0;
-        
-        let avgMonthlyVehicle = 0;
-        if (state.fleet.length > 0) {
-            const totalWeekly = state.fleet.reduce((sum, v) => sum + (v.operating_cost_weekly || 0), 0);
-            avgMonthlyVehicle = (totalWeekly / 7) * 30; 
-        }
-        
-        const monthlyBurn = monthlyFixed + avgMonthlyVehicle;
-        
-        if (monthlyBurn === 0) return 0;
-        
-        return parseFloat((liquidAssets / monthlyBurn).toFixed(1));
-        
-    } catch (error) {
-        console.error('Error calculating runway:', error);
-        return 0;
-    }
+    // Placeholder for v2.2 - Asset Management
+    return 0.0;
 }

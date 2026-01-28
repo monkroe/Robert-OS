@@ -13,16 +13,16 @@
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png">
 
-    <title>ROBERT OS 2.1</title>
+    <title>ROBERT OS 2.2</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=2.1.3">
+    <link rel="stylesheet" href="style.css?v=2.2.0">
 </head>
 
 <body class="antialiased selection:bg-teal-500 selection:text-black">
 
-    <div id="toast-container" class="fixed top-4 left-4 right-4 z-[2000] flex flex-col gap-2 pointer-events-none"></div>
+    <div id="toast-container"></div>
 
     <div id="auth-screen" class="fixed inset-0 z-[500] flex items-center justify-center p-6 hidden" style="background-color: var(--bg-color);">
         <div class="w-full max-w-sm text-center space-y-8 animate-slideUp">
@@ -44,7 +44,7 @@
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
                 <div class="flex flex-col">
-                    <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.1</span>
+                    <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.2</span>
                     <span id="clock-primary" class="font-mono text-[9px] opacity-50 tracking-tighter">00:00</span>
                 </div>
             </div>
@@ -220,7 +220,7 @@
         </div>
     </div>
 
-        <div id="end-modal" class="modal-overlay hidden">
+    <div id="end-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp">
             <h3 class="text-xl font-bold uppercase mb-4 text-center text-red-500">End Session</h3>
             
@@ -406,6 +406,16 @@
                 <button onclick="cancelDeleteVehicle()" class="input-field font-bold py-3 uppercase text-xs">Cancel</button>
                 <button onclick="confirmDeleteVehicle()" class="bg-red-500 text-white rounded-xl font-bold py-3 uppercase text-xs">Delete</button>
             </div>
+        </div>
+    </div>
+
+    <div id="shift-details-modal" class="modal-overlay hidden">
+        <div class="modal-content animate-slideUp max-h-[85vh] overflow-y-auto">
+            <div id="shift-details-content">
+                </div>
+            <button onclick="closeModals()" class="mt-6 w-full py-4 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">
+                Close Report
+            </button>
         </div>
     </div>
 

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS v2.1.0
+// ROBERT OS - APP.JS v2.1.3
 // Logic: System Controller & Window Bindings
 // ════════════════════════════════════════════════════════════════
 
@@ -48,24 +48,20 @@ async function init() {
     
     // Global Event Listeners
     window.addEventListener('refresh-data', refreshAll);
-    
-    // OS-grade theme synchronization (Every 1 min)
     setInterval(() => UI.syncThemeIfAuto(), 60000);
 }
 
 // ────────────────────────────────────────────────────────────────
-// REFRESH ENGINE (OS-Grade Security)
+// REFRESH ENGINE
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAll() {
-    // 🛡️ Guard Clause: Prevents crashes during session transitions
     if (!state.user) return;
 
     state.loading = true;
     UI.updateUI('loading');
 
     try {
-        // 1. Get Active Shift Status
         const { data: shift } = await db
             .from('finance_shifts')
             .select('*')
@@ -78,14 +74,11 @@ export async function refreshAll() {
         state.activeShift = shift;
         UI.updateUI('activeShift');
         
-        // 2. Sync Timer Logic
         if (state.activeShift) Shifts.startTimer();
         else Shifts.stopTimer();
         
-        // 3. Update Visual Analytics
         await updateProgressBars();
         
-        // 4. Update Audit Log (if visible)
         const auditTab = document.getElementById('tab-audit');
         if (auditTab && !auditTab.classList.contains('hidden')) {
             await Finance.refreshAudit();
@@ -102,18 +95,15 @@ async function updateProgressBars() {
     if (!state.user) return;
 
     try {
-        // Rental Progress
         const rentalProgress = await Costs.calculateWeeklyRentalProgress();
         UI.renderProgressBar('rental-bar', rentalProgress.earned, rentalProgress.target, {warning: 70, success: 90});
         UI.renderProgressText('rental-val', `$${rentalProgress.earned} / $${rentalProgress.target}`);
         
-        // Daily Grind Progress
         const dailyCost = await Costs.calculateDailyCost();
         const shiftEarnings = Costs.calculateShiftEarnings();
         UI.renderProgressBar('grind-bar', shiftEarnings, dailyCost, {warning: 70, success: 90});
         UI.renderProgressText('grind-val', `$${Math.round(shiftEarnings)} / $${Math.round(dailyCost)}`);
         
-        // Bento Card Earnings
         const earningsEl = document.getElementById('shift-earnings');
         if (earningsEl) earningsEl.textContent = `$${Math.round(shiftEarnings)}`;
     } catch (e) {
@@ -122,7 +112,7 @@ async function updateProgressBars() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// WINDOW BINDINGS (The Bridge between HTML and Modules)
+// WINDOW BINDINGS (The Bridge)
 // ────────────────────────────────────────────────────────────────
 
 // AUTH
@@ -155,19 +145,17 @@ window.confirmEnd = Shifts.confirmEnd;
 window.togglePause = Shifts.togglePause;
 window.selectWeather = Shifts.selectWeather;
 
-// FINANCE & TRANSACTIONS (✅ Added Fix)
+// FINANCE & TRANSACTIONS
 window.openTxModal = Finance.openTxModal;
 window.setExpType = Finance.setExpType;
 window.confirmTx = Finance.confirmTx;
 
-// AUDIT & LOGS (✅ Added Fix)
+// AUDIT & LOGS (FIX: Added openShiftDetails)
 window.toggleSelectAll = Finance.toggleSelectAll;
 window.requestLogDelete = Finance.requestLogDelete;
 window.confirmLogDelete = Finance.confirmLogDelete;
 window.exportAI = Finance.exportAI;
-
-// ────────────────────────────────────────────────────────────────
-// BOOTSTRAP
-// ────────────────────────────────────────────────────────────────
+window.updateDeleteButtonLocal = Finance.updateDeleteButtonLocal;
+window.openShiftDetails = Finance.openShiftDetails; // ✅ ČIA BUVO TRŪKSTAMA GRANDIS
 
 document.addEventListener('DOMContentLoaded', init);

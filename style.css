@@ -45,6 +45,16 @@ body {
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
 }
 
+/* ════════ MISSING ANIMATIONS ════════ */
+@keyframes pulse-opacity {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.pulse-text {
+    animation: pulse-opacity 1.5s infinite ease-in-out;
+    color: #facc15 !important; /* Geltona spalva pauzės metu */
+}
+
 /* ════════ HEADER & NAV ════════ */
 .global-header {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;

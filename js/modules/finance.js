@@ -167,7 +167,6 @@ function groupData(shifts, expenses) {
         const expense = shiftExpenses.filter(e => e.type === 'expense').reduce((a, b) => a + b.amount, 0);
         
         // Logic: Gross = Didžiausia vertė tarp (Pajamų įrašų) ir (Base Earnings iš shift lentelės)
-        // Tai leidžia sistema veikti ir su senais, ir su naujais duomenimis.
         const grossTotal = Math.max(income, shift.gross_earnings || 0);
         const net = grossTotal - expense;
 
@@ -225,7 +224,6 @@ function renderShiftStrip(s) {
     const dist = (s.end_odo || 0) - (s.start_odo || 0);
     const colorClass = s.net >= 0 ? 'text-green-400' : 'text-red-400';
 
-    // Naudojame onclick, kad atidarytume detalų modalą
     return `
     <div onclick="openShiftDetails('${s.id}')" class="shift-strip cursor-pointer hover:bg-white/10 transition-colors relative">
         <div class="flex items-center justify-between w-full">

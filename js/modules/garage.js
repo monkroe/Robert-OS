@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - GARAGE MODULE v1.8.0 (EDIT & UI FIX)
-// Fleet Management with Edit Functionality & Improved UI
+// ROBERT OS - GARAGE MODULE v2.0.0
+// Fleet Management with CarWash Logic & Security Fixes
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -11,9 +11,10 @@ import { showToast, vibrate } from '../utils.js';
 // STATE & HELPERS
 // ────────────────────────────────────────────────────────────────
 
-let editingId = null; // ID automobilio, kurį redaguojame
+let editingId = null;
 let pendingDeleteId = null;
 
+// Saugumo funkcija: apsaugo nuo kenksmingo kodo įrašų pavadinimuose
 function escapeHtml(str) {
     if (typeof str !== 'string') return String(str || '');
     const div = document.createElement('div');
@@ -22,7 +23,7 @@ function escapeHtml(str) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// DATA FETCHING
+// DATA FETCHING (Server-side filtering)
 // ────────────────────────────────────────────────────────────────
 
 export async function fetchFleet() {
@@ -31,10 +32,11 @@ export async function fetchFleet() {
             .from('vehicles')
             .select('*')
             .eq('user_id', state.user.id)
+            .eq('is_active', true) // Filtruojame serveryje
             .order('created_at', { ascending: false });
         
         if (error) throw error;
-        state.fleet = (data || []).filter(v => v.is_active === true);
+        state.fleet = data || [];
     } catch (error) {
         console.error('Error fetching fleet:', error);
         showToast('Nepavyko užkrauti garažo', 'error');
@@ -48,99 +50,96 @@ export async function fetchFleet() {
 
 export function openGarage() {
     vibrate();
-    resetForm(); // Išvalome formą prieš atidarant
+    resetForm();
     renderGarageList();
     if (window.openModal) window.openModal('garage-modal');
 }
 
 export function editVehicle(id) {
     vibrate();
-    const vehicle = state.fleet.find(v => v.id === id);
-    if (!vehicle) return;
+    const v = state.fleet.find(x => x.id === id);
+    if (!v) return;
 
-    editingId = id; // Nustatome redagavimo būseną
+    editingId = id;
 
-    // Užpildome formą esamais duomenimis
-    document.getElementById('veh-name').value = vehicle.name;
-    document.getElementById('veh-cost').value = vehicle.operating_cost_weekly || '';
-    document.getElementById('veh-is-test').value = String(vehicle.is_test);
+    // Užpildome formą (įskaitant naują carwash lauką)
+    const fields = {
+        'veh-name': v.name,
+        'veh-cost': v.operating_cost_weekly || '',
+        'veh-carwash': v.carwash_monthly_cost || '',
+        'veh-is-test': String(v.is_test)
+    };
+
+    Object.entries(fields).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+    });
     
-    setVehType(vehicle.type);
-    updateTestUI(vehicle.is_test);
+    setVehType(v.type);
+    updateTestUI(v.is_test);
 
-    // Pakeičiame mygtuko tekstą ir antraštę
     document.getElementById('btn-save-veh').textContent = 'ATNAUJINTI DUOMENIS';
     document.getElementById('garage-modal-title').textContent = 'REDAGUOTI AUTOMOBILĮ';
-
-    if (window.openModal) window.openModal('garage-modal');
 }
 
-function resetForm() {
+export function resetForm() {
     editingId = null;
-    document.getElementById('veh-name').value = '';
-    document.getElementById('veh-cost').value = '';
+    const ids = ['veh-name', 'veh-cost', 'veh-carwash', 'veh-year', 'veh-initial-odo'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    
     setVehType('rental');
     document.getElementById('veh-is-test').value = 'false';
     updateTestUI(false);
     
-    // Grąžiname tekstus į "Add New" būseną
     document.getElementById('btn-save-veh').textContent = 'PRIDĖTI Į GARAŽĄ';
     document.getElementById('garage-modal-title').textContent = 'GARAŽO VALDYMAS';
 }
 
 // ────────────────────────────────────────────────────────────────
-// SAVE / UPDATE VEHICLE
+// SAVE / UPDATE
 // ────────────────────────────────────────────────────────────────
 
 export async function saveVehicle() {
     vibrate([20]);
     const name = document.getElementById('veh-name').value.trim();
-    const cost = parseFloat(document.getElementById('veh-cost').value) || 0;
-    const type = document.getElementById('veh-type').value;
-    const isTest = document.getElementById('veh-is-test').value === 'true';
-
     if (!name) return showToast('Įveskite pavadinimą', 'error');
 
     state.loading = true;
     try {
         const payload = {
             name: name,
-            type: type,
-            operating_cost_weekly: cost,
-            is_test: isTest
+            type: document.getElementById('veh-type').value,
+            operating_cost_weekly: parseFloat(document.getElementById('veh-cost').value) || 0,
+            carwash_monthly_cost: parseFloat(document.getElementById('veh-carwash').value) || 0,
+            is_test: document.getElementById('veh-is-test').value === 'true',
+            user_id: state.user.id,
+            is_active: true
         };
 
-        if (editingId) {
-            // UPDATE (Redagavimas)
-            const { error } = await db
-                .from('vehicles')
-                .update(payload)
-                .eq('id', editingId);
-            if (error) throw error;
-            showToast('Automobilis atnaujintas', 'success');
-        } else {
-            // INSERT (Naujas)
-            payload.user_id = state.user.id;
-            payload.is_active = true;
-            const { error } = await db.from('vehicles').insert(payload);
-            if (error) throw error;
-            showToast(isTest ? 'Testinis automobilis sukurtas' : 'Automobilis pridėtas', 'success');
-        }
-        
+        const { error } = editingId 
+            ? await db.from('vehicles').update(payload).eq('id', editingId)
+            : await db.from('vehicles').insert(payload);
+
+        if (error) throw error;
+
+        showToast(editingId ? 'Automobilis atnaujintas' : 'Automobilis pridėtas', 'success');
         resetForm();
         await fetchFleet();
         renderGarageList();
         if (window.closeModals) window.closeModals();
         
     } catch (e) { 
-        showToast(e.message, 'error'); 
+        showToast('Klaida: ' + e.message, 'error'); 
     } finally { 
         state.loading = false; 
     }
 }
 
 // ────────────────────────────────────────────────────────────────
-// DELETE VEHICLE
+// DELETE LOGIC (Detailed with different modal texts)
 // ────────────────────────────────────────────────────────────────
 
 export function deleteVehicle(id) {
@@ -175,28 +174,24 @@ export async function confirmDeleteVehicle() {
     const vehicle = state.fleet.find(v => v.id === pendingDeleteId);
     if (!vehicle) return;
 
-    if (window.closeModals) window.closeModals();
     state.loading = true;
-    
     try {
         if (vehicle.is_test) {
-            // Testinį triname visišai
+            // Testinį triname visiškai
             await db.from('expenses').delete().eq('vehicle_id', pendingDeleteId);
             await db.from('finance_shifts').delete().eq('vehicle_id', pendingDeleteId);
             await db.from('vehicles').delete().eq('id', pendingDeleteId);
             showToast('Bandomasis automobilis ištrintas', 'success');
         } else {
-            // Tikrą archyvuojame (soft delete)
-            const { error } = await db
-                .from('vehicles')
-                .update({ is_active: false })
-                .eq('id', pendingDeleteId);
+            // Tikrą tik archyvuojame
+            const { error } = await db.from('vehicles').update({ is_active: false }).eq('id', pendingDeleteId);
             if (error) throw error;
             showToast('Automobilis archyvuotas', 'success');
         }
         
         await fetchFleet();
         renderGarageList();
+        if (window.closeModals) window.closeModals();
     } catch (e) { 
         showToast('Klaida: ' + e.message, 'error'); 
     } finally { 
@@ -212,7 +207,7 @@ export function cancelDeleteVehicle() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// UI RENDERING & TOGGLES
+// UI RENDERING
 // ────────────────────────────────────────────────────────────────
 
 export function renderGarageList() {
@@ -226,61 +221,55 @@ export function renderGarageList() {
 
     list.innerHTML = state.fleet.map(v => {
         const safeName = escapeHtml(v.name);
-        const safeType = escapeHtml(v.type);
         const cost = v.operating_cost_weekly || 0;
+        const wash = v.carwash_monthly_cost || 0;
         const isTest = v.is_test;
 
         const borderClass = isTest ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-white/10 bg-white/5';
-        const badge = isTest ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500 text-black ml-2"><i class="fa-solid fa-flask mr-1"></i>TEST</span>` : '';
+        const badge = isTest ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500 text-black ml-2">TEST</span>` : '';
 
-        // Pridėtas EDIT mygtukas (pieštukas)
         return `
-        <div class="group relative flex items-center justify-between p-3 mb-2 rounded-xl border ${borderClass} transition-all">
-            <div class="flex flex-col text-left">
-                <div class="flex items-center">
-                    <span class="text-sm font-bold tracking-tight">${safeName}</span>
-                    ${badge}
+        <div class="flex items-center justify-between p-3 mb-2 rounded-xl border ${borderClass}">
+            <div class="text-left">
+                <div class="flex items-center font-bold">
+                    ${safeName} ${badge}
                 </div>
-                <div class="flex items-center gap-2 mt-1 opacity-70">
-                    <span class="text-[9px] font-bold uppercase">${safeType}</span>
-                    <span class="text-[9px] font-mono">$${cost}/wk</span>
+                <div class="text-[10px] opacity-60 uppercase mt-1">
+                    ${v.type} • $${cost}/wk • 🧼 $${wash}/mo
                 </div>
             </div>
             <div class="flex gap-2">
-                <button onclick="editVehicle('${v.id}')" class="h-8 w-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors active:scale-95">
+                <button onclick="editVehicle('${v.id}')" class="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center active:scale-95 transition-transform">
                     <i class="fa-solid fa-pen-to-square text-xs"></i>
                 </button>
-                <button onclick="deleteVehicle('${v.id}')" class="h-8 w-8 flex items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors active:scale-95">
+                <button onclick="deleteVehicle('${v.id}')" class="h-8 w-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center active:scale-95 transition-transform">
                     <i class="fa-solid fa-trash-can text-xs"></i>
                 </button>
             </div>
-        </div>
-    `}).join('');
+        </div>`;
+    }).join('');
 }
 
 export function setVehType(type) {
     vibrate();
     document.getElementById('veh-type').value = type;
-    
-    // Atnaujiname naujus segmented buttons
-    document.querySelectorAll('.veh-type-btn').forEach(b => b.classList.remove('active'));
-    const activeBtn = document.getElementById(`btn-type-${type}`);
-    if (activeBtn) activeBtn.classList.add('active');
+    document.querySelectorAll('.veh-type-btn').forEach(b => b.classList.toggle('active', b.id === `btn-type-${type}`));
 }
 
 export function toggleTestMode() {
     vibrate();
     const input = document.getElementById('veh-is-test');
-    const isTest = !(input.value === 'true');
+    const isTest = input.value !== 'true';
     input.value = String(isTest);
     updateTestUI(isTest);
 }
 
-function updateTestUI(isActive) {
+function updateTestUI(active) {
     const btn = document.getElementById('btn-test-mode');
     const dot = document.getElementById('test-indicator');
+    if (!btn || !dot) return;
     
-    if (isActive) {
+    if (active) {
         btn.className = "cursor-pointer border border-yellow-500 bg-yellow-500/10 rounded-lg p-3 flex items-center justify-between transition-all";
         dot.className = "w-3 h-3 rounded-full bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.8)]";
     } else {
@@ -288,3 +277,150 @@ function updateTestUI(isActive) {
         dot.className = "w-3 h-3 rounded-full bg-gray-600";
     }
 }
+
+
+
+__________________________
+Naujas update 
+
+// ════════════════════════════════════════════════════════════════
+// ROBERT OS - GARAGE MODULE v2.0.1
+// Logic: Full Odometer & CarWash Persistence
+// ════════════════════════════════════════════════════════════════
+
+import { db } from '../db.js';
+import { state } from '../state.js';
+import { showToast, vibrate } from '../utils.js';
+
+let editingId = null;
+let pendingDeleteId = null;
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+export async function fetchFleet() {
+    try {
+        const { data } = await db.from('vehicles').select('*').eq('user_id', state.user.id).eq('is_active', true).order('created_at', { ascending: false });
+        state.fleet = data || [];
+    } catch (e) { showToast('Garažo klaida', 'error'); }
+}
+
+export function openGarage() { vibrate(); resetForm(); renderGarageList(); window.openModal('garage-modal'); }
+
+export function resetForm() {
+    editingId = null;
+    ['veh-name', 'veh-cost', 'veh-carwash', 'veh-year', 'veh-initial-odo'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    setVehType('rental');
+    document.getElementById('veh-is-test').value = 'false';
+    updateTestUI(false);
+    document.getElementById('btn-save-veh').textContent = 'PRIDĖTI Į GARAŽĄ';
+}
+
+export async function saveVehicle() {
+    vibrate([20]);
+    const name = document.getElementById('veh-name')?.value.trim();
+    if (!name) return showToast('Įveskite pavadinimą', 'error');
+
+    state.loading = true;
+    try {
+        const payload = {
+            name: name,
+            type: document.getElementById('veh-type').value,
+            operating_cost_weekly: parseFloat(document.getElementById('veh-cost').value) || 0,
+            carwash_monthly_cost: parseFloat(document.getElementById('veh-carwash').value) || 0,
+            year: parseInt(document.getElementById('veh-year')?.value) || null,
+            initial_odometer: parseInt(document.getElementById('veh-initial-odo')?.value) || 0,
+            is_test: document.getElementById('veh-is-test').value === 'true',
+            user_id: state.user.id, is_active: true
+        };
+
+        if (editingId) await db.from('vehicles').update(payload).eq('id', editingId);
+        else await db.from('vehicles').insert(payload);
+
+        showToast('Garažas atnaujintas!', 'success');
+        resetForm(); await fetchFleet(); renderGarageList(); window.closeModals();
+    } catch (e) { showToast(e.message, 'error'); } 
+    finally { state.loading = false; }
+}
+
+export function renderGarageList() {
+    const list = document.getElementById('garage-list');
+    if (!list) return;
+    if (state.fleet.length === 0) { list.innerHTML = '<div class="text-center py-6 opacity-30 text-xs uppercase tracking-widest">Garažas tuščias</div>'; return; }
+
+    list.innerHTML = state.fleet.map(v => `
+        <div class="flex items-center justify-between p-3 mb-2 rounded-xl border border-white/10 bg-white/5">
+            <div class="text-left">
+                <div class="font-bold uppercase tracking-tight">${escapeHtml(v.name)} ${v.is_test ? '🧪' : ''}</div>
+                <div class="text-[9px] opacity-50 uppercase mt-1">
+                    $${v.operating_cost_weekly}/wk • 🧼 $${v.carwash_monthly_cost}/mo
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="editVehicle('${v.id}')" class="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center active:scale-95 transition-transform">
+                    <i class="fa-solid fa-pen text-[10px]"></i>
+                </button>
+                <button onclick="deleteVehicle('${v.id}')" class="h-8 w-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center active:scale-95 transition-transform">
+                    <i class="fa-solid fa-trash text-[10px]"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+window.editVehicle = (id) => {
+    const v = state.fleet.find(x => x.id === id); if (!v) return;
+    editingId = id;
+    document.getElementById('veh-name').value = v.name;
+    document.getElementById('veh-cost').value = v.operating_cost_weekly;
+    document.getElementById('veh-carwash').value = v.carwash_monthly_cost;
+    document.getElementById('veh-year').value = v.year || '';
+    document.getElementById('veh-initial-odo').value = v.initial_odometer || '';
+    setVehType(v.type);
+    document.getElementById('btn-save-veh').textContent = 'ATNAUJINTI DUOMENIS';
+    document.getElementById('garage-modal-title').textContent = 'REDAGUOTI';
+};
+
+export function setVehType(type) {
+    vibrate();
+    document.getElementById('veh-type').value = type;
+    document.querySelectorAll('.veh-type-btn').forEach(b => b.classList.toggle('active', b.id === `btn-type-${type}`));
+}
+
+export function toggleTestMode() {
+    vibrate();
+    const input = document.getElementById('veh-is-test');
+    const isTest = input.value !== 'true';
+    input.value = String(isTest);
+    updateTestUI(isTest);
+}
+
+function updateTestUI(active) {
+    const btn = document.getElementById('btn-test-mode');
+    const dot = document.getElementById('test-indicator');
+    if (active) {
+        btn?.classList.add('border-yellow-500', 'bg-yellow-500/10');
+        dot?.classList.add('bg-yellow-400', 'shadow-[0_0_8px_rgba(250,204,21,0.8)]');
+    } else {
+        btn?.classList.remove('border-yellow-500', 'bg-yellow-500/10');
+        dot?.classList.remove('bg-yellow-400', 'shadow-[0_0_8px_rgba(250,204,21,0.8)]');
+    }
+}
+
+window.deleteVehicle = async (id) => {
+    vibrate();
+    if (!confirm('Tikrai pašalinti šį automobilį iš garažo?')) return;
+    state.loading = true;
+    try {
+        await db.from('vehicles').update({ is_active: false }).eq('id', id);
+        await fetchFleet();
+        renderGarageList();
+        showToast('Automobilis pašalintas', 'info');
+    } catch (e) { showToast('Klaida šalinant', 'error'); }
+    finally { state.loading = false; }
+};

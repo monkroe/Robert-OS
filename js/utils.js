@@ -1,9 +1,11 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - UTILS.JS v2.6.0
-// Logic: Toast Notifications (Max 3) & Formatting
+// ROBERT OS - UTILS.JS v1.7.2 (RESTORED ORIGINAL)
+// Global Utilities with Safe Toast Support
 // ════════════════════════════════════════════════════════════════
 
-import { state } from './state.js';
+// ────────────────────────────────────────────────────────────────
+// HAPTIC FEEDBACK
+// ────────────────────────────────────────────────────────────────
 
 export const vibrate = (pattern = [10]) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -12,77 +14,135 @@ export const vibrate = (pattern = [10]) => {
 };
 
 // ────────────────────────────────────────────────────────────────
-// TOAST ENGINE (Max 3, Icons, Stacking)
+// TOAST NOTIFICATIONS (XSS-Safe & Anti-Spam)
 // ────────────────────────────────────────────────────────────────
+
+const activeToasts = new Set();
+const MAX_TOASTS = 3;
 
 export const showToast = (msg, type = 'info') => {
     const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    // 1. Limit to 3 messages (Remove oldest)
-    while (container.children.length >= 3) {
-        container.removeChild(container.firstChild);
+    if (!container) {
+        console.warn('Toast container not found');
+        return;
     }
-
-    // 2. Create Element
-    const toast = document.createElement('div');
-    // Pridedame klases pagal style.css v2.6
-    toast.className = `toast-msg ${type}`; 
-
-    // 3. Icon Selection
-    let icon = 'fa-circle-info';
-    if (type === 'success') icon = 'fa-circle-check';
-    if (type === 'error') icon = 'fa-triangle-exclamation';
-
-    // 4. Content
-    toast.innerHTML = `
-        <i class="fa-solid ${icon}"></i>
-        <span>${msg.toUpperCase()}</span>
-    `;
-
-    // 5. Add & Auto-remove
-    container.appendChild(toast);
     
-    // Vibracija pagal tipą
-    vibrate(type === 'error' ? [50, 50, 50] : [20]);
+    // Prevent spam: Remove oldest if limit reached
+    if (activeToasts.size >= MAX_TOASTS) {
+        const oldest = activeToasts.values().next().value;
+        if (oldest) {
+            oldest.remove();
+            activeToasts.delete(oldest);
+        }
+    }
+    
+    // Create Toast Element
+    const toast = document.createElement('div');
+    const colorMap = {
+        'error': 'bg-red-500',
+        'success': 'bg-green-500',
+        'info': 'bg-teal-500',
+        'warning': 'bg-yellow-500'
+    };
+    const color = colorMap[type] || 'bg-teal-500';
+    
+    // Original v1.7 styles
+    toast.className = `${color} text-black px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-bold animate-slideUp pointer-events-auto mb-2`;
+    
+    // Icon selection based on type
+    let iconClass = 'fa-circle-info';
+    if (type === 'success') iconClass = 'fa-circle-check';
+    if (type === 'error') iconClass = 'fa-triangle-exclamation';
+    if (type === 'warning') iconClass = 'fa-bell';
 
-    // Išnykimas
+    // HTML Structure
+    const icon = document.createElement('i');
+    icon.className = `fa-solid ${iconClass}`;
+    
+    const span = document.createElement('span');
+    span.textContent = msg.toUpperCase();
+    
+    toast.appendChild(icon);
+    toast.appendChild(span);
+    
+    container.appendChild(toast);
+    activeToasts.add(toast);
+    
+    // Vibration
+    const vibrationMap = {
+        'error': [50, 50, 50],
+        'success': [20],
+        'warning': [30, 10, 30],
+        'info': [20]
+    };
+    vibrate(vibrationMap[type] || [20]);
+    
+    // Auto-dismiss
     setTimeout(() => {
         if (toast.parentElement) {
-            toast.style.transition = 'all 0.3s ease';
+            toast.style.transition = 'opacity 0.2s';
             toast.style.opacity = '0';
-            toast.style.transform = 'translateY(-20px)';
-            setTimeout(() => toast.remove(), 300);
+            setTimeout(() => {
+                toast.remove();
+                activeToasts.delete(toast);
+            }, 200);
         }
     }, 3000);
 };
 
 // ────────────────────────────────────────────────────────────────
-// FORMATTERS
+// FORMAT UTILITIES
 // ────────────────────────────────────────────────────────────────
 
 export const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
-        style: 'currency', currency: 'USD',
-        minimumFractionDigits: 2
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     }).format(amount);
 };
 
-export const formatDate = (date, tz = 'America/Chicago') => {
-    return new Intl.DateTimeFormat('lt-LT', {
-        timeZone: tz, dateStyle: 'short'
-    }).format(new Date(date));
+export const formatDate = (date, timezone = 'America/Chicago') => {
+    try {
+        return new Intl.DateTimeFormat('lt-LT', {
+            timeZone: timezone,
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric'
+        }).format(new Date(date));
+    } catch (e) {
+        return new Date(date).toLocaleDateString();
+    }
 };
 
-// Global Error Handler
+export const formatTime = (date, timezone = 'America/Chicago') => {
+    try {
+        return new Intl.DateTimeFormat('lt-LT', {
+            timeZone: timezone,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).format(new Date(date));
+    } catch (e) {
+        return new Date(date).toLocaleTimeString();
+    }
+};
+
+// ────────────────────────────────────────────────────────────────
+// ERROR HANDLERS
+// ────────────────────────────────────────────────────────────────
+
 export const initGlobalErrorHandlers = () => {
-    window.onerror = (msg) => {
-        console.error('OS Error:', msg);
+    window.onerror = (message, source) => {
+        if (source && !source.includes(window.location.origin)) return false;
+        console.error('OS Error:', message);
+        // showToast('System error', 'error'); // Uncomment if you want toasts for errors
         return false;
     };
 };
 
-// Bind to window for global access
+// Bind for global access
 if (typeof window !== 'undefined') {
     window.showToast = showToast;
     window.vibrate = vibrate;

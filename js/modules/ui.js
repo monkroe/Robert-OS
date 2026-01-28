@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/UI.JS v2.1.2
+// ROBERT OS - MODULES/UI.JS v2.1.3
 // Logic: Themes, Clocks, Navigation & Reactive UI
 // ════════════════════════════════════════════════════════════════
 
@@ -89,7 +89,7 @@ export function updateUI(key) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// CLOCK ENGINE (FIXED)
+// CLOCK ENGINE
 // ────────────────────────────────────────────────────────────────
 
 let clockInterval = null;
@@ -114,9 +114,8 @@ function updateClocks() {
             hour: '2-digit', minute: '2-digit', hour12: false
         });
         
-        // FIX: Default to Chicago if missing
         const secondaryTime = new Date().toLocaleTimeString('lt-LT', {
-            timeZone: settings.timezone_secondary || 'America/Chicago',
+            timeZone: settings.timezone_secondary || 'America/Chicago', // FIX: Default to Chicago
             hour: '2-digit', minute: '2-digit', hour12: false
         });
 
@@ -150,23 +149,32 @@ export function closeModals() {
 
 export function switchTab(id) {
     vibrate([5]);
+    
+    // Paslepiame visus
     document.querySelectorAll('.tab-content').forEach(t => {
-        t.classList.add('hidden'); t.classList.remove('active', 'animate-slideUp');
+        t.classList.add('hidden');
+        t.classList.remove('active', 'animate-slideUp');
     });
     
+    // Parodome pasirinktą
     const activeTab = document.getElementById(`tab-${id}`);
     if (activeTab) {
         activeTab.classList.remove('hidden');
+        // ✅ KRITINIS PATAISYMAS: Pridedame 'active', kad CSS display: block suveiktų
+        activeTab.classList.add('active');
         requestAnimationFrame(() => activeTab.classList.add('animate-slideUp'));
     }
     
+    // Atnaujiname mygtukus
     document.querySelectorAll('.nav-item').forEach(n => {
-        n.classList.remove('active', 'text-teal-500'); n.classList.add('opacity-50');
+        n.classList.remove('active', 'text-teal-500'); 
+        n.classList.add('opacity-50');
     });
     
     const activeBtn = document.getElementById(`btn-${id}`);
     if (activeBtn) {
-        activeBtn.classList.add('active', 'text-teal-500'); activeBtn.classList.remove('opacity-50');
+        activeBtn.classList.add('active', 'text-teal-500'); 
+        activeBtn.classList.remove('opacity-50');
     }
 
     state.currentTab = id;

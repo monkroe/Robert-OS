@@ -1,37 +1,40 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - STATE.JS
-// Versija: 1.2
+// ROBERT OS - STATE.JS v2.0.0
+// Logic: Reactive State Proxy & Global Data Integrity
 // ════════════════════════════════════════════════════════════════
 
 export const state = new Proxy({
+    // Auth & User
     user: null,
-    fleet: [],
-    activeShift: null,
     userSettings: null,
     
-    txDirection: 'in',
+    // Fleet & Shift
+    fleet: [],
+    activeShift: null,
+    
+    // UI Engine
     loading: false,
     currentTab: 'cockpit',
     
-    _lastRefresh: null
+    // Internal Flags
+    _initialized: false,
+    _lastSync: null
     
 }, {
     set(target, key, value) {
+        // Apsauga: Neleidžiame kurti naujų savybių "on the fly", kurios nėra aprašytos aukščiau
         if (!(key in target) && !key.startsWith('_')) {
-            console.warn(`⚠️ Attempted to set unknown state property: ${key}`);
+            console.error(`🚨 OS STATE ERROR: Property "${key}" is not defined in core schema.`);
             return false;
         }
         
         const oldValue = target[key];
         target[key] = value;
         
-        if (oldValue !== value) {
+        // Dispečerizuojame įvykį tik jei reikšmė tikrai pasikeitė (Performance)
+        if (JSON.stringify(oldValue) !== JSON.stringify(value)) {
             window.dispatchEvent(new CustomEvent('state-updated', { 
-                detail: { 
-                    key, 
-                    oldValue, 
-                    newValue: value 
-                } 
+                detail: { key, oldValue, newValue: value } 
             }));
         }
         
@@ -43,57 +46,50 @@ export const state = new Proxy({
     }
 });
 
-export function isAuthenticated() {
-    return state.user !== null;
-}
+/* ────────────────────────────────────────────────────────────────
+   HELPERS (Source of Truth for other modules)
+---------------------------------------------------------------- */
 
-export function hasActiveShift() {
-    return state.activeShift !== null;
-}
+export const isAuthenticated = () => state.user !== null;
 
-export function getShiftStatus() {
-    if (!state.activeShift) return null;
-    return state.activeShift.status;
-}
+export const hasActiveShift = () => state.activeShift !== null;
 
-export function isShiftPaused() {
-    return getShiftStatus() === 'paused';
-}
-
+/**
+ * Grąžina aktyvų automobilį iš laivyno pagal aktyvią pamainą.
+ * Naudojama shifts.js ir finance.js moduliuose.
+ */
 export function getActiveVehicle() {
-    if (!state.activeShift || !state.fleet) return null;
-    return state.fleet.find(v => v.id === state.activeShift.vehicle_id);
+    if (!state.activeShift || !state.fleet.length) return null;
+    return state.fleet.find(v => v.id === state.activeShift.vehicle_id) || null;
 }
 
-export function hasSettings() {
-    return state.userSettings !== null;
-}
-
+/**
+ * Stebi specifinį būsenos pasikeitimą (pvz. loading indikatorių).
+ */
 export function onStateChange(key, callback) {
     window.addEventListener('state-updated', (event) => {
         if (event.detail.key === key) {
-            callback(event.detail);
+            callback(event.detail.newValue, event.detail.oldValue);
         }
     });
 }
 
-export function onAnyStateChange(callback) {
-    window.addEventListener('state-updated', (event) => {
-        callback(event.detail);
-    });
-}
+/* ────────────────────────────────────────────────────────────────
+   DEBUGGING (Production-Safe)
+---------------------------------------------------------------- */
 
 export function debugState() {
-    console.group('🔍 ROBERT OS State');
-    console.log('User:', state.user?.email || 'Not logged in');
-    console.log('Fleet:', state.fleet.length, 'vehicles');
-    console.log('Active Shift:', state.activeShift ? 'Yes' : 'No');
-    console.log('Settings:', state.userSettings ? 'Loaded' : 'Not loaded');
-    console.log('Current Tab:', state.currentTab);
-    console.log('Loading:', state.loading);
+    console.group('%c🔍 ROBERT OS SYSTEM STATE', 'color: #14b8a6; font-weight: bold;');
+    console.log('👤 USER:', state.user?.email || 'OFFLINE');
+    console.log('🚗 FLEET:', state.fleet.length, 'vehicles');
+    console.log('⏱️ SHIFT:', state.activeShift ? `ACTIVE (${state.activeShift.status})` : 'NO ACTIVE SHIFT');
+    console.log('⚙️ SETTINGS:', state.userSettings ? 'LOADED' : 'MISSING');
+    console.log('📱 TAB:', state.currentTab.toUpperCase());
+    console.log('⏳ LOADING:', state.loading ? 'YES' : 'NO');
     console.groupEnd();
 }
 
+// Tikriname ar window egzistuoja (suderinamumas su kai kuriais testavimo įrankiais)
 if (typeof window !== 'undefined') {
     window.debugState = debugState;
 }

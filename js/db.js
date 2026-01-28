@@ -1,49 +1,60 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - DB.JS v1.5.0
-// Database Connection & Configuration
+// ROBERT OS - DB.JS v2.0.0
+// Logic: Database Connection & Integrity Check
 // ════════════════════════════════════════════════════════════════
 
+/**
+ * ⚠️ SVARBU: Čia įrašyk savo Supabase duomenis.
+ * Juos rasi: Supabase Project -> Settings -> API.
+ */
 const CONFIG = {
     SUPABASE_URL: 'https://sopcisskptiqlllehhgb.supabase.co',
     SUPABASE_KEY: 'sb_publishable_AqLNLewSuOEcbOVUFuUF-A_IWm9L6qy',
 };
 
 // ────────────────────────────────────────────────────────────────
-// VALIDATION - Prevents silent failures
+// VALIDACIJA - Apsauga nuo "tylių" klaidų GitHub Pages aplinkoje
 // ────────────────────────────────────────────────────────────────
 
-if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL === 'JŪSŲ_URL_ČIA') {
-    console.error('❌ ROBERT OS: Supabase URL not configured!');
-    console.error('📍 Please update CONFIG.SUPABASE_URL in js/db.js');
-    throw new Error('Database configuration error: Missing SUPABASE_URL');
+if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('TAVO_')) {
+    const errorMsg = '❌ DB ERROR: Supabase URL nekonfigūruotas!';
+    console.error(errorMsg);
+    alert(errorMsg); // Svarbu mobiliesiems, kur konsolė nematoma
+    throw new Error('Missing database URL');
 }
 
-if (!CONFIG.SUPABASE_KEY || CONFIG.SUPABASE_KEY === 'JŪSŲ_KEY_ČIA') {
-    console.error('❌ ROBERT OS: Supabase KEY not configured!');
-    console.error('📍 Please update CONFIG.SUPABASE_KEY in js/db.js');
-    throw new Error('Database configuration error: Missing SUPABASE_KEY');
+if (!CONFIG.SUPABASE_KEY || CONFIG.SUPABASE_KEY.length < 20) {
+    const errorMsg = '❌ DB ERROR: Supabase API Key nekonfigūruotas!';
+    console.error(errorMsg);
+    alert(errorMsg);
+    throw new Error('Missing database KEY');
 }
 
 // ────────────────────────────────────────────────────────────────
-// CREATE CLIENT
+// KLIENTO INICIALIZAVIMAS
 // ────────────────────────────────────────────────────────────────
 
-export const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+/**
+ * Naudojame globalų 'supabase' objektą, kuris užkraunamas 
+ * per <script> tavo index.html faile.
+ */
+export const db = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
 // ────────────────────────────────────────────────────────────────
-// CONNECTION CHECK (Optional - helps debug production issues)
+// RYŠIO TESTAS (Tik kūrimo/derinimo tikslams)
 // ────────────────────────────────────────────────────────────────
 
-db.auth.getSession()
-    .then(({ data, error }) => {
+(async function testConnection() {
+    try {
+        const { error } = await db.auth.getSession();
         if (error) {
-            console.warn('⚠️ ROBERT OS: Database connection issue');
-            console.warn('Details:', error.message);
+            console.warn('⚠️ OS DB: Ryšio trikdžiai:', error.message);
         } else {
-            console.log('✅ ROBERT OS v1.5.0: Database connected');
+            console.log('%c✅ ROBERT OS v2.1: DB Connected', 'color: #14b8a6; font-weight: bold;');
         }
-    })
-    .catch(err => {
-        console.error('❌ ROBERT OS: Fatal database error');
-        console.error('Details:', err);
-    });
+    } catch (err) {
+        console.error('🔥 OS DB: Kritinė prisijungimo klaida. Patikrinkite internetą arba API raktus.');
+    }
+})();
+
+export default db;

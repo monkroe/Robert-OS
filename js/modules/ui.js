@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/UI.JS v2.1.0
+// ROBERT OS - MODULES/UI.JS v2.1.2
 // Logic: Themes, Clocks, Navigation & Reactive UI
 // ════════════════════════════════════════════════════════════════
 
@@ -15,7 +15,6 @@ export function applyTheme() {
     const themeBtn = document.getElementById('btn-theme');
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     
-    // Nuskaitome iš localStorage (veikia be DB ryšio)
     const theme = localStorage.getItem('theme') || 'auto';
     let isDark = false;
 
@@ -25,22 +24,15 @@ export function applyTheme() {
         isDark = (theme === 'dark');
     }
 
-    // CSS klasės valdymas
     html.classList.toggle('light', !isDark);
-    html.setAttribute('data-theme', isDark ? 'dark' : 'light'); // Tailwind palaikymui
+    html.setAttribute('data-theme', isDark ? 'dark' : 'light');
     
-    // PWA Status Bar spalva
     if (metaThemeColor) {
         metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
     }
     
-    // Ikonos rotacija
     if (themeBtn) {
-        const icons = {
-            auto: 'fa-circle-half-stroke',
-            dark: 'fa-moon',
-            light: 'fa-sun'
-        };
+        const icons = { auto: 'fa-circle-half-stroke', dark: 'fa-moon', light: 'fa-sun' };
         themeBtn.innerHTML = `<i class="fa-solid ${icons[theme] || icons.auto}"></i>`;
     }
 }
@@ -56,41 +48,33 @@ export function cycleTheme() {
     showToast(`TEMA: ${next.toUpperCase()}`, 'info');
 }
 
-// OS-level sinchronizacija (kviečiama iš app.js periodiškai)
 export function syncThemeIfAuto() {
     if ((localStorage.getItem('theme') || 'auto') === 'auto') {
         applyTheme();
     }
 }
 
-// Reagavimas į telefono nustatymų keitimą realiu laiku
 if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        syncThemeIfAuto();
-    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => syncThemeIfAuto());
 }
 
 // ────────────────────────────────────────────────────────────────
-// UI UPDATES (Reactive State)
+// UI UPDATES
 // ────────────────────────────────────────────────────────────────
 
 export function updateUI(key) {
-    // 1. Loading Indikatorius
     if (key === 'loading') {
         const loader = document.getElementById('loading');
         if (loader) loader.classList.toggle('hidden', !state.loading);
     }
     
-    // 2. Aktyvios Pamainos Kontrolė
     if (key === 'activeShift') {
         const hasShift = !!state.activeShift;
         const isPaused = state.activeShift?.status === 'paused';
         
-        // Mygtukų rodymas/slėpimas
         document.getElementById('btn-start')?.classList.toggle('hidden', hasShift);
         document.getElementById('active-controls')?.classList.toggle('hidden', !hasShift);
         
-        // Pauzės mygtuko būsena
         const btnPause = document.getElementById('btn-pause');
         if (btnPause && hasShift) {
             if (isPaused) {
@@ -105,14 +89,14 @@ export function updateUI(key) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// CLOCK ENGINE
+// CLOCK ENGINE (FIXED)
 // ────────────────────────────────────────────────────────────────
 
 let clockInterval = null;
 
 export function startClocks() {
     stopClocks();
-    updateClocks(); // Immediate render
+    updateClocks();
     clockInterval = setInterval(updateClocks, 1000);
 }
 
@@ -122,18 +106,17 @@ export function stopClocks() {
 }
 
 function updateClocks() {
-    const settings = state.userSettings;
-    if (!settings) return;
+    const settings = state.userSettings || { timezone: 'America/Chicago' };
 
     try {
-        // ✅ PATAISYMAS: Naudojame 'timezone' vietoj 'timezone_primary', kad sutaptų su settings.js
         const primaryTime = new Date().toLocaleTimeString('lt-LT', {
             timeZone: settings.timezone || 'America/Chicago',
             hour: '2-digit', minute: '2-digit', hour12: false
         });
         
+        // FIX: Default to Chicago if missing
         const secondaryTime = new Date().toLocaleTimeString('lt-LT', {
-            timeZone: settings.timezone_secondary || 'Europe/Vilnius',
+            timeZone: settings.timezone_secondary || 'America/Chicago',
             hour: '2-digit', minute: '2-digit', hour12: false
         });
 
@@ -144,7 +127,6 @@ function updateClocks() {
         if (sEl) sEl.textContent = `LOCAL: ${secondaryTime}`;
         
     } catch (e) {
-        // Tylus failback, kad neužlūžtų UI
         console.warn('Clock Error:', e);
     }
 }
@@ -156,60 +138,40 @@ function updateClocks() {
 export function openModal(id) { 
     vibrate([10]); 
     const el = document.getElementById(id);
-    if(el) {
-        el.classList.remove('hidden');
-        el.classList.add('flex'); // Centravimui
-    }
+    if(el) { el.classList.remove('hidden'); el.classList.add('flex'); }
 }
 
 export function closeModals() { 
     vibrate([10]); 
     document.querySelectorAll('.modal-overlay').forEach(m => {
-        m.classList.add('hidden');
-        m.classList.remove('flex');
+        m.classList.add('hidden'); m.classList.remove('flex');
     }); 
 }
 
 export function switchTab(id) {
     vibrate([5]);
-    
-    // Paslepiame visus tabus
     document.querySelectorAll('.tab-content').forEach(t => {
-        t.classList.add('hidden');
-        t.classList.remove('active', 'animate-slideUp');
+        t.classList.add('hidden'); t.classList.remove('active', 'animate-slideUp');
     });
     
-    // Parodome pasirinktą
     const activeTab = document.getElementById(`tab-${id}`);
     if (activeTab) {
         activeTab.classList.remove('hidden');
-        // Trigger animation
         requestAnimationFrame(() => activeTab.classList.add('animate-slideUp'));
     }
     
-    // Atnaujiname navigacijos stilių
     document.querySelectorAll('.nav-item').forEach(n => {
-        n.classList.remove('active', 'text-teal-500');
-        n.classList.add('opacity-50');
+        n.classList.remove('active', 'text-teal-500'); n.classList.add('opacity-50');
     });
     
     const activeBtn = document.getElementById(`btn-${id}`);
     if (activeBtn) {
-        activeBtn.classList.add('active', 'text-teal-500');
-        activeBtn.classList.remove('opacity-50');
+        activeBtn.classList.add('active', 'text-teal-500'); activeBtn.classList.remove('opacity-50');
     }
 
     state.currentTab = id;
-
-    // Trigger data refresh if entering specific tabs
-    if (id === 'audit') {
-        window.dispatchEvent(new Event('refresh-data'));
-    }
+    if (id === 'audit') window.dispatchEvent(new Event('refresh-data'));
 }
-
-// ────────────────────────────────────────────────────────────────
-// PROGRESS BARS
-// ────────────────────────────────────────────────────────────────
 
 export function renderProgressBar(id, cur, tar, colors = {}) {
     const el = document.getElementById(id);
@@ -217,17 +179,11 @@ export function renderProgressBar(id, cur, tar, colors = {}) {
     
     const percent = tar > 0 ? Math.min((cur / tar) * 100, 100) : 0;
     el.style.width = `${percent}%`;
+    el.className = 'h-full transition-all duration-500 relative';
     
-    // Spalvų logika
-    el.className = 'h-full transition-all duration-500 relative'; // Reset base classes
-    
-    if (percent < (colors.warning || 70)) {
-        el.classList.add('bg-red-500'); // Atsilikimas
-    } else if (percent < (colors.success || 90)) {
-        el.classList.add('bg-teal-500'); // Vidutiniškai
-    } else {
-        el.classList.add('bg-green-500'); // Tikslas pasiektas
-    }
+    if (percent < (colors.warning || 70)) el.classList.add('bg-red-500');
+    else if (percent < (colors.success || 90)) el.classList.add('bg-teal-500');
+    else el.classList.add('bg-green-500');
 }
 
 export function renderProgressText(id, txt) { 

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.1.7
-// Logic: Robust Audit & Empty State Handling
+// ROBERT OS - MODULES/FINANCE.JS v2.2.0
+// Logic: Advanced Analytics (MPG, CPM, RPM) & Detail View
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -94,6 +94,10 @@ function updateTxModalUI(dir) {
     document.querySelectorAll('.inc-btn, .exp-btn').forEach(b => b.classList.remove('active'));
 }
 
+// ────────────────────────────────────────────────────────────────
+// MANAGEMENT
+// ────────────────────────────────────────────────────────────────
+
 export function toggleSelectAll() {
     const master = document.getElementById('select-all-logs');
     document.querySelectorAll('.log-checkbox').forEach(b => b.checked = master.checked);
@@ -131,10 +135,10 @@ export async function confirmLogDelete() {
     finally { state.loading = false; }
 }
 
-export function exportAI() { showToast('AI funkcija ruošiama (v2.2)', 'info'); }
+export function exportAI() { showToast('AI funkcija ruošiama (v2.3)', 'info'); }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT ENGINE
+// AUDIT ENGINE (ANALYTICS)
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
@@ -150,7 +154,6 @@ export async function refreshAudit() {
         const shifts = shiftsRes.data || [];
         const expenses = expensesRes.data || [];
 
-        // ✅ PATAISYMAS: Aiškus pranešimas, jei tuščia
         if (shifts.length === 0 && expenses.length === 0) {
             listEl.innerHTML = `
                 <div class="flex flex-col items-center justify-center py-12 opacity-30">
@@ -218,8 +221,13 @@ function groupData(shifts, expenses) {
     return years;
 }
 
+// ────────────────────────────────────────────────────────────────
+// RENDERERS (DETAILED ACCORDION)
+// ────────────────────────────────────────────────────────────────
+
 function renderAccordion(data) {
-    const monthsLT = ['Sausis', 'Vasaris', 'Kovas', 'Balandis', 'Gegužė', 'Birželis', 'Liepa', 'Rugpjūtis', 'Rugsėjis', 'Spalis', 'Lapkritis', 'Gruodis'];
+    const monthsLT = ['SAUSIS', 'VASARIS', 'KOVAS', 'BALANDIS', 'GEGUŽĖ', 'BIRŽELIS', 'LIEPA', 'RUGPJŪTIS', 'RUGSĖJIS', 'SPALIS', 'LAPKRITIS', 'GRUODIS'];
+    
     return Object.entries(data).sort((a, b) => b[0] - a[0]).map(([year, yearData]) => `
         <details class="group mb-4" open>
             <summary class="flex justify-between items-center p-4 bg-white/5 border border-white/10 rounded-2xl cursor-pointer list-none">
@@ -231,66 +239,142 @@ function renderAccordion(data) {
             </summary>
             <div class="mt-3 space-y-3 pl-2 animate-slideUp">
                 ${Object.entries(yearData.months).sort((a, b) => b[0] - a[0]).map(([mKey, monthData]) => `
-                    <details class="group" open>
-                        <summary class="flex justify-between items-center p-3 bg-white/5 border border-white/5 rounded-xl cursor-pointer list-none ml-2">
-                            <span class="uppercase font-bold text-[10px] tracking-widest opacity-70">${monthsLT[mKey]}</span>
-                            <span class="font-mono text-xs font-bold">${formatCurrency(monthData.net)}</span>
-                        </summary>
-                        <div class="py-3 space-y-3 ml-2">
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center px-4 py-2 border-b border-white/5 mb-2">
+                            <span class="text-[10px] font-bold text-teal-500 tracking-widest">${monthsLT[mKey]}</span>
+                            <span class="text-[10px] font-mono opacity-50">${formatCurrency(monthData.net)}</span>
+                        </div>
+                        <div class="space-y-3">
                             ${monthData.items.sort((a, b) => b._date - a._date).map(item => 
-                                item._kind === 'shift' ? renderShiftCard(item) : renderTxCard(item)
+                                item._kind === 'shift' ? renderDetailedShiftCard(item) : renderTxCard(item)
                             ).join('')}
                         </div>
-                    </details>
+                    </div>
                 `).join('')}
             </div>
         </details>
     `).join('');
 }
 
-function renderShiftCard(s) {
+function renderDetailedShiftCard(s) {
+    // 1. CALCULATIONS
     const dist = (s.end_odo || 0) - (s.start_odo || 0);
-    const fuelExp = s.shiftExpenses.find(e => e.category === 'fuel');
-    const gal = fuelExp ? (parseFloat(fuelExp.gallons) || 0) : 0;
-    const mpg = (gal > 0 && dist > 0) ? (dist / gal).toFixed(1) : '-';
+    const durationMs = new Date(s.end_time || new Date()) - new Date(s.start_time);
+    const hours = Math.max(0.1, durationMs / (1000 * 60 * 60)); // Avoid div by 0
     
+    // Group Expenses
+    const income = s.shiftExpenses.filter(e => e.type === 'income');
+    const expense = s.shiftExpenses.filter(e => e.type === 'expense');
+    
+    const gross = income.reduce((acc, i) => acc + i.amount, 0);
+    const totalExp = expense.reduce((acc, e) => acc + e.amount, 0);
+    
+    // Fuel Stats
+    const fuelTxs = expense.filter(e => e.category === 'fuel');
+    const totalGal = fuelTxs.reduce((acc, f) => acc + (parseFloat(f.gallons) || 0), 0);
+    const mpg = (totalGal > 0 && dist > 0) ? (dist / totalGal).toFixed(1) : 'N/A';
+    
+    // Economics
+    const cpm = dist > 0 ? (totalExp / dist).toFixed(2) : '0.00';
+    const rpm = dist > 0 ? (gross / dist).toFixed(2) : '0.00';
+    const hourly = (s.shiftNet / hours).toFixed(2);
+    
+    // Formatting Times
+    const tStart = new Date(s.start_time).toLocaleTimeString('lt-LT', {hour:'2-digit', minute:'2-digit'});
+    const tEnd = s.end_time ? new Date(s.end_time).toLocaleTimeString('lt-LT', {hour:'2-digit', minute:'2-digit'}) : 'Active';
+
+    // 2. HTML GENERATION (Accordion Style)
     return `
-        <div class="log-card p-4 bg-white/5 border border-white/5 rounded-2xl space-y-3 mx-2 border-l-2 ${s.shiftNet >= 0 ? 'border-l-teal-500' : 'border-l-red-500'}">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <input type="checkbox" class="log-checkbox w-5 h-5 rounded border-gray-700 bg-black text-teal-500" value="shift:${s.id}" onchange="updateDeleteButtonLocal()">
-                    <div>
-                        <div class="text-[9px] opacity-50 uppercase font-bold">${s._date.toLocaleDateString('lt-LT')} • ${escapeHTML(s.vehicles?.name)}</div>
-                        <div class="text-xs font-bold uppercase">PAMAINOS ATASKAITA</div>
+    <div class="bg-white/5 border border-white/10 rounded-2xl overflow-hidden mx-1">
+        <div class="p-4 bg-white/5 flex justify-between items-start">
+            <div class="flex gap-3">
+                 <input type="checkbox" class="log-checkbox w-5 h-5 mt-1 rounded border-gray-700 bg-black text-teal-500 focus:ring-0" value="shift:${s.id}" onchange="updateDeleteButtonLocal()">
+                 <div>
+                    <div class="text-[10px] opacity-50 font-bold uppercase tracking-wider mb-1">${s._date.toLocaleDateString('lt-LT')} • ${escapeHTML(s.vehicles?.name)}</div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-black tracking-tight text-white">${tStart} - ${tEnd}</span>
+                        <span class="text-[9px] bg-white/10 px-1.5 py-0.5 rounded text-teal-400 font-bold">${Math.round(hours)}h</span>
                     </div>
-                </div>
-                <span class="text-[9px] font-bold px-2 py-1 rounded bg-teal-500/10 text-teal-500">${s.weather || '—'}</span>
+                 </div>
             </div>
-            <div class="grid grid-cols-3 gap-2 border-y border-white/5 py-3">
-                <div class="text-center"><div class="label-xs opacity-40">MILES</div><div class="font-mono font-bold text-sm">${dist > 0 ? dist : '-'}</div></div>
-                <div class="text-center border-x border-white/5"><div class="label-xs opacity-40">MPG</div><div class="font-mono font-bold text-sm text-purple-400">${mpg}</div></div>
-                <div class="text-center"><div class="label-xs opacity-40">$/MI</div><div class="font-mono font-bold text-sm text-blue-400">${dist > 0 ? (s.shiftNet/dist).toFixed(2) : '0.00'}</div></div>
-            </div>
-            <div class="flex justify-between items-center pt-1">
+            <div class="text-right">
                 <div class="text-lg font-black ${s.shiftNet >= 0 ? 'text-green-400' : 'text-red-400'}">${formatCurrency(s.shiftNet)}</div>
-                <div class="text-right text-[10px] font-bold opacity-40 uppercase">GRYNASIS</div>
+                <div class="text-[9px] opacity-40 font-bold uppercase">NET PROFIT</div>
             </div>
         </div>
+
+        <div class="grid grid-cols-3 border-y border-white/5 bg-black/20">
+            <div class="p-2 text-center border-r border-white/5">
+                <div class="text-[9px] opacity-40 uppercase font-bold">Dist</div>
+                <div class="text-xs font-mono font-bold">${dist} mi</div>
+            </div>
+            <div class="p-2 text-center border-r border-white/5">
+                <div class="text-[9px] opacity-40 uppercase font-bold">MPG</div>
+                <div class="text-xs font-mono font-bold text-yellow-500">${mpg}</div>
+            </div>
+            <div class="p-2 text-center">
+                <div class="text-[9px] opacity-40 uppercase font-bold">Rate</div>
+                <div class="text-xs font-mono font-bold text-teal-500">$${hourly}/hr</div>
+            </div>
+        </div>
+
+        <details class="group">
+            <summary class="flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-white/5 transition-colors">
+                <span class="text-[9px] font-bold uppercase opacity-50 group-open:opacity-100 transition-opacity">Show Details</span>
+                <i class="fa-solid fa-chevron-down text-[10px] opacity-50 group-open:rotate-180 transition-transform"></i>
+            </summary>
+            
+            <div class="px-4 pb-4 space-y-3 text-xs border-t border-white/5 bg-black/10">
+                <div class="flex justify-between items-end border-b border-white/5 pb-1 mt-2">
+                    <span class="font-bold text-green-500">GROSS INCOME</span>
+                    <span class="font-mono font-bold">${formatCurrency(gross)}</span>
+                </div>
+                <div class="space-y-1 pl-2 opacity-80">
+                    ${income.map(i => `
+                        <div class="flex justify-between">
+                            <span class="capitalize opacity-60">${i.category}</span>
+                            <span class="font-mono">${formatCurrency(i.amount)}</span>
+                        </div>
+                    `).join('')}
+                    ${income.length === 0 ? '<div class="text-[9px] opacity-30 italic">No income logged</div>' : ''}
+                </div>
+
+                <div class="flex justify-between items-end border-b border-white/5 pb-1 mt-2">
+                    <span class="font-bold text-red-500">EXPENSES</span>
+                    <span class="font-mono font-bold text-red-400">-${formatCurrency(totalExp)}</span>
+                </div>
+                <div class="space-y-1 pl-2 opacity-80">
+                    ${expense.map(e => `
+                        <div class="flex justify-between">
+                            <span class="capitalize opacity-60">${e.category} ${e.category === 'fuel' ? `(${e.gallons}g)` : ''}</span>
+                            <span class="font-mono">-${formatCurrency(e.amount)}</span>
+                        </div>
+                    `).join('')}
+                    ${expense.length === 0 ? '<div class="text-[9px] opacity-30 italic">No expenses</div>' : ''}
+                </div>
+
+                <div class="mt-3 pt-2 border-t border-white/10 flex justify-between text-[9px] font-mono opacity-40">
+                    <span>CPM: $${cpm}/mi</span>
+                    <span>RPM: $${rpm}/mi</span>
+                </div>
+            </div>
+        </details>
+    </div>
     `;
 }
 
 function renderTxCard(tx) {
     const isInc = tx.type === 'income';
     return `
-        <div class="log-card flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl mx-2">
+        <div class="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl mx-2 opacity-75 hover:opacity-100 transition-opacity">
             <div class="flex items-center gap-3">
-                <input type="checkbox" class="log-checkbox w-5 h-5 rounded border-gray-700 bg-black text-teal-500" value="tx:${tx.id}" onchange="updateDeleteButtonLocal()">
+                <input type="checkbox" class="log-checkbox w-5 h-5 rounded border-gray-700 bg-black text-teal-500 focus:ring-0" value="tx:${tx.id}" onchange="updateDeleteButtonLocal()">
                 <div class="w-8 h-8 rounded-lg ${isInc ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'} flex items-center justify-center text-xs">
                     <i class="fa-solid ${isInc ? 'fa-arrow-down-long' : 'fa-gas-pump'}"></i>
                 </div>
                 <div>
                     <div class="text-[9px] opacity-50 uppercase font-bold">${tx._date.toLocaleTimeString('lt-LT', {hour:'2-digit', minute:'2-digit'})}</div>
-                    <div class="text-xs font-bold uppercase">${tx.category}</div>
+                    <div class="text-xs font-bold uppercase tracking-tight">${tx.category}</div>
                 </div>
             </div>
             <div class="font-mono font-bold ${isInc ? 'text-green-500' : 'text-red-400'}">${isInc ? '+' : '-'}${formatCurrency(tx.amount)}</div>
@@ -300,7 +384,9 @@ function renderTxCard(tx) {
 
 window.updateDeleteButtonLocal = () => {
     const checked = document.querySelectorAll('.log-checkbox:checked');
-    document.getElementById('btn-delete-logs')?.classList.toggle('hidden', checked.length === 0);
-    const c = document.getElementById('delete-count'); if(c) c.textContent = checked.length;
+    const btn = document.getElementById('btn-delete-logs');
+    if (btn) btn.classList.toggle('hidden', checked.length === 0);
+    const count = document.getElementById('delete-count');
+    if (count) count.textContent = checked.length;
 };
 export function updateDeleteButtonLocal() { window.updateDeleteButtonLocal(); }

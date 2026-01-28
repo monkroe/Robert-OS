@@ -3,100 +3,158 @@
 /* ════════════════════════════════════════════════════════════════ */
 
 :root {
+    /* DARK MODE (Default) */
     --bg-color: #000000;
-    --card-bg: #111111;
-    --accent: #14b8a6;
+    --card-bg: #121212;
+    --card-border: #2a2a2a;
     --text-main: #ffffff;
-    --text-muted: #9ca3af;
-    --border-color: rgba(255,255,255,0.1);
-    --input-bg: #111827;
-    --track-bg: #1f2937;
-    --safe-top: env(safe-area-inset-top);
-    --safe-bottom: env(safe-area-inset-bottom);
+    --text-muted: #888888;
+    --accent: #14b8a6;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --warning: #eab308;
+    --input-bg: #1a1a1a;
 }
 
 :root.light {
-    --bg-color: #f3f4f6;
-    --card-bg: #ffffff;
-    --text-main: #111827;
-    --text-muted: #6b7280; /* Tamsesnis muted šviesioj temoj */
-    --border-color: rgba(0,0,0,0.1);
-    --input-bg: #ffffff;
-    --track-bg: #e5e7eb;
+    /* LIGHT MODE (Clean Bento) */
+    --bg-color: #f2f2f7; /* Šviesiai pilkas fonas kaip iOS */
+    --card-bg: #ffffff;  /* Baltos kortelės */
+    --card-border: transparent;
+    --text-main: #000000;
+    --text-muted: #6e6e73;
+    --accent: #0d9488;
+    --success: #15803d;
+    --danger: #b91c1c;
+    --warning: #a16207;
+    --input-bg: #f2f2f7;
+    --shadow: 0 4px 12px rgba(0,0,0,0.05); /* Bento šešėlis */
 }
 
 body {
     background-color: var(--bg-color);
     color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    margin: 0; padding: 0;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    transition: background-color 0.3s ease, color 0.3s ease;
-    margin: 0;
-    padding: 0;
-}
-
-/* ════════ ANIMATIONS ════════ */
-@keyframes slideUp { 
-    from { opacity: 0; transform: translateY(20px); } 
-    to { opacity: 1; transform: translateY(0); } 
-}
-.animate-slideUp { 
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
-}
-
-/* ════════ MISSING ANIMATIONS ════════ */
-@keyframes pulse-opacity {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-.pulse-text {
-    animation: pulse-opacity 1.5s infinite ease-in-out;
-    color: #facc15 !important; /* Geltona spalva pauzės metu */
 }
 
 /* ════════ HEADER & NAV ════════ */
 .global-header {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-    background-color: rgba(0,0,0,0.9);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-color);
-    padding: max(1rem, var(--safe-top)) 1rem 0;
-    height: calc(3.5rem + var(--safe-top));
-    display: flex; align-items: center; justify-content: space-between;
+    background-color: var(--bg-color);
+    padding: max(1rem, env(safe-area-inset-top)) 1.25rem 0.5rem;
+    display: flex; justify-content: space-between; align-items: center;
 }
-:root.light .global-header { background-color: rgba(255,255,255,0.9); }
 
 .bottom-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
-    background-color: rgba(0,0,0,0.9);
-    backdrop-filter: blur(12px);
-    border-top: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    border-top: 1px solid var(--card-border);
     display: grid; grid-template-columns: repeat(5, 1fr);
-    padding-bottom: max(1rem, var(--safe-bottom)); 
-    height: calc(4rem + var(--safe-bottom));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    padding-top: 0.75rem;
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
 }
-:root.light .bottom-nav { background-color: rgba(255,255,255,0.9); }
 
 .container {
-    padding-top: calc(4.5rem + var(--safe-top)); 
+    padding-top: calc(5rem + env(safe-area-inset-top)); 
+    padding-bottom: 8rem;
     padding-left: 1rem; padding-right: 1rem;
-    padding-bottom: 6rem;
-    height: 100%; overflow-y: auto;
 }
 
-/* ════════ UI ELEMENTS ════════ */
-.input-field {
-    width: 100%; background-color: var(--input-bg);
-    border: 1px solid var(--border-color); border-radius: 0.75rem;
-    padding: 1rem; color: var(--text-main); outline: none; font-family: monospace;
-    transition: all 0.2s;
-    box-sizing: border-box;
+/* ════════ BENTO CARDS ════════ */
+.bento-card, .log-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1.5rem;
+    padding: 1.25rem;
+    position: relative;
+    box-shadow: var(--shadow, none); /* Šešėlis tik Light mode */
 }
-.input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-:root.light .input-field { border-color: #d1d5db; } /* Ryškesnis border šviesioj temoj */
 
+/* Mygtukai */
 .btn-primary-os {
+    width: 100%; background-color: var(--accent); color: #fff;
+    padding: 1rem; border-radius: 1rem;
+    font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+    box-shadow: 0 4px 15px rgba(20, 184, 166, 0.3);
+}
+
+.header-btn {
+    width: 2.5rem; height: 2.5rem; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--input-bg); color: var(--text-main);
+}
+
+/* ════════ LOGS / ACCORDION ════════ */
+details summary { list-style: none; outline: none; }
+details summary::-webkit-details-marker { display: none; }
+
+.history-year-card {
+    background-color: transparent;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.history-month-card {
+    margin-top: 1rem;
+}
+
+/* Pamainos juostelė (Shift Strip) */
+.shift-strip {
+    background-color: var(--card-bg);
+    border-radius: 1rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow, none);
+    display: flex; justify-content: space-between; align-items: center;
+    transition: transform 0.1s;
+}
+.shift-strip:active { transform: scale(0.98); }
+
+/* Modal Design (Švarus lapas) */
+.modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+    display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-content {
+    background: var(--card-bg);
+    width: 100%; max-width: 500px;
+    border-radius: 2rem 2rem 0 0;
+    padding: 2rem;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+}
+@media(min-width: 640px) { 
+    .modal-overlay { align-items: center; } 
+    .modal-content { border-radius: 2rem; padding: 2rem; margin: 1rem; }
+}
+
+/* ════════ UTILS ════════ */
+.text-accent { color: var(--accent); }
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
+.bg-input { background-color: var(--input-bg); }
+
+.hidden { display: none !important; }
+.animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Toast */
+#toast-container { position: fixed; top: 1rem; left: 0; right: 0; z-index: 200; display: flex; justify-content: center; pointer-events: none; }
+#toast-container > div { 
+    background: var(--card-bg); color: var(--text-main); 
+    border: 1px solid var(--card-border);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    padding: 0.75rem 1.5rem; border-radius: 2rem; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
+    animation: popIn 0.2s forwards;
+}
+@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
     width: 100%; background-color: var(--accent); color: #000;
     font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;
     border-radius: 0.75rem; padding: 1rem; border: none;

@@ -13,16 +13,16 @@
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png">
 
-    <title>ROBERT OS 2.2</title>
+    <title>ROBERT OS 2.0</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=2.2.0">
+    <link rel="stylesheet" href="style.css?v=2.0.0">
 </head>
 
 <body class="antialiased selection:bg-teal-500 selection:text-black">
 
-    <div id="toast-container"></div>
+    <div id="toast-container" class="fixed top-4 left-4 right-4 z-[2000] flex flex-col gap-2 pointer-events-none"></div>
 
     <div id="auth-screen" class="fixed inset-0 z-[500] flex items-center justify-center p-6 hidden" style="background-color: var(--bg-color);">
         <div class="w-full max-w-sm text-center space-y-8 animate-slideUp">
@@ -44,7 +44,7 @@
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
                 <div class="flex flex-col">
-                    <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.2</span>
+                    <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.0</span>
                     <span id="clock-primary" class="font-mono text-[9px] opacity-50 tracking-tighter">00:00</span>
                 </div>
             </div>
@@ -67,6 +67,7 @@
         <main class="container flex-1 overflow-y-auto pb-24 no-scrollbar">
             
             <section id="tab-cockpit" class="tab-content active space-y-4">
+                
                 <div class="space-y-3">
                     <div>
                         <div class="flex justify-between items-end mb-1">
@@ -77,13 +78,16 @@
                             <div id="rental-bar" class="h-full bg-teal-500 transition-all duration-500 relative" style="width: 0%"></div>
                         </div>
                     </div>
+
                     <div>
                         <div class="flex justify-between items-end mb-1">
                             <span class="label-xs ml-1 text-red-400 font-bold uppercase tracking-tighter" id="grind-label">Daily Target</span>
-                            <span class="text-[10px] font-bold" id="grind-val">$0 / $105</span>
+                            <span class="text-[10px] font-bold" id="grind-val">$0 / $0</span>
                         </div>
                         <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
-                            <div id="grind-bar" class="h-full bg-red-500 transition-all duration-500 relative" style="width: 0%"></div>
+                            <div id="grind-bar" class="h-full bg-red-500 transition-all duration-500 relative" style="width: 0%">
+                                <div class="absolute inset-0 bg-white/20 hidden" id="grind-glow"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -101,11 +105,12 @@
                             <button id="btn-start" onclick="openStartModal()" class="btn-primary-os py-3 uppercase font-black text-xs">
                                 <i class="fa-solid fa-play mr-2"></i> Start Shift
                             </button>
+                            
                             <div id="active-controls" class="hidden grid grid-cols-4 gap-2">
-                                <button onclick="togglePause()" id="btn-pause" class="col-span-1 btn-bento">
+                                <button onclick="togglePause()" id="btn-pause" class="col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50">
                                     <i class="fa-solid fa-pause"></i>
                                 </button>
-                                <button onclick="openEndModal()" class="col-span-3 btn-primary-os bg-red-500 text-white py-3 uppercase font-black text-xs">
+                                <button onclick="openEndModal()" class="col-span-3 btn-primary-os bg-red-500 text-white shadow-red-500/20 py-3 uppercase font-black text-xs">
                                     <i class="fa-solid fa-stop mr-2"></i> End Session
                                 </button>
                             </div>
@@ -128,9 +133,38 @@
                         <button onclick="openTxModal('in')" class="btn-bento flex-1 hover:bg-green-500/10 hover:border-green-500/50">
                             <i class="fa-solid fa-plus text-green-500 mr-2"></i> Income
                         </button>
+                        <div class="w-px h-8 bg-white/10"></div>
                         <button onclick="openTxModal('out')" class="btn-bento flex-1 hover:bg-red-500/10 hover:border-red-500/50">
                             <i class="fa-solid fa-minus text-red-500 mr-2"></i> Expense
                         </button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-audit" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="relative flex items-center h-full">
+                            <input type="checkbox" id="select-all-logs" onchange="toggleSelectAll()" 
+                                class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-teal-500 focus:ring-0 cursor-pointer">
+                        </div>
+                        <h2 class="font-bold uppercase tracking-tight text-lg">History</h2>
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button id="btn-delete-logs" onclick="requestLogDelete()" class="hidden text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
+                            <i class="fa-solid fa-trash"></i> <span id="delete-count">0</span>
+                        </button>
+
+                        <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
+                            <i class="fa-solid fa-robot"></i> AI Export
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="audit-list" class="space-y-4 pb-24">
+                    <div class="text-center py-10 opacity-50 uppercase text-[10px] font-bold tracking-widest">
+                        <i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading History...
                     </div>
                 </div>
             </section>
@@ -162,28 +196,6 @@
                     </div>
                     <h2 class="text-2xl font-black uppercase tracking-tight">Vault</h2>
                     <p class="text-[10px] opacity-50 uppercase font-bold tracking-widest mt-2">Document Storage</p>
-                </div>
-            </section>
-
-            <section id="tab-audit" class="tab-content hidden space-y-4">
-                <div class="flex justify-between items-center px-1">
-                    <div class="flex items-center gap-3">
-                        <input type="checkbox" id="select-all-logs" onchange="toggleSelectAll()" class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-teal-500 focus:ring-0 cursor-pointer">
-                        <h2 class="font-bold uppercase tracking-tight text-lg">History</h2>
-                    </div>
-                    <div class="flex gap-2">
-                        <button id="btn-delete-logs" onclick="requestLogDelete()" class="hidden text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
-                            <i class="fa-solid fa-trash"></i> <span id="delete-count">0</span>
-                        </button>
-                        <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
-                            <i class="fa-solid fa-robot"></i> AI Export
-                        </button>
-                    </div>
-                </div>
-                <div id="audit-list" class="space-y-4 pb-24">
-                    <div class="text-center py-10 opacity-50 uppercase text-[10px] font-bold tracking-widest">
-                        <i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading History...
-                    </div>
                 </div>
             </section>
 
@@ -221,64 +233,48 @@
     </div>
 
     <div id="end-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp">
-            <h3 class="text-xl font-bold uppercase mb-4 text-center text-red-500">End Session</h3>
-            
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="label-xs ml-1">End Odometer</label>
-                        <input type="number" inputmode="decimal" id="end-odo" class="input-field font-mono font-bold">
-                    </div>
-                    <div>
-                        <label class="label-xs ml-1">Total Earnings</label>
-                        <input type="number" inputmode="decimal" id="end-earn" class="input-field text-green-500 font-bold" placeholder="$0.00">
-                    </div>
+        <div class="modal-content animate-slideUp text-center">
+            <h3 class="text-xl font-bold uppercase mb-4 text-red-500">End Session</h3>
+            <div class="text-left mb-4 space-y-4">
+                <div>
+                    <label class="label-xs ml-1">End Odometer</label>
+                    <input type="number" inputmode="decimal" id="end-odo" class="input-field">
+                </div>
+                
+                <div>
+                    <label class="label-xs ml-1">Total Earnings ($)</label>
+                    <input type="number" inputmode="decimal" id="end-earn" class="input-field text-green-500 font-bold">
                 </div>
 
-                <div class="p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fa-solid fa-soap text-teal-500"></i>
-                        <span class="text-xs font-bold uppercase tracking-widest">Car Wash</span>
-                    </div>
-
-                    <label class="flex items-center justify-between cursor-pointer group p-2 rounded hover:bg-white/5 transition-colors">
-                        <div>
-                            <span class="text-sm font-bold block">Membership Wash</span>
-                            <span class="text-[9px] opacity-40 uppercase">Subscription Active</span>
-                        </div>
-                        <input type="checkbox" id="end-carwash-member" class="w-5 h-5 rounded border-gray-600 bg-black text-teal-500 focus:ring-0">
-                    </label>
-
-                    <div class="space-y-2">
-                        <label class="flex items-center justify-between cursor-pointer group p-2 rounded hover:bg-white/5 transition-colors">
-                            <div>
-                                <span class="text-sm font-bold block">Other / Paid Wash</span>
-                                <span class="text-[9px] opacity-40 uppercase">One-time expense</span>
+                <div class="p-3 bg-white/5 border border-white/10 rounded-xl">
+                    <label class="flex items-center justify-between cursor-pointer group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-teal-500/10 flex items-center justify-center text-teal-500">
+                                <i class="fa-solid fa-soap"></i>
                             </div>
-                            <input type="checkbox" id="end-carwash-other" onchange="document.getElementById('manual-wash-cost').classList.toggle('hidden')" class="w-5 h-5 rounded border-gray-600 bg-black text-yellow-500 focus:ring-0">
-                        </label>
-                        <input type="number" id="manual-wash-cost" class="input-field hidden text-sm border-yellow-500/50 text-yellow-500" placeholder="Enter Cost ($)">
-                    </div>
+                            <div>
+                                <span class="text-sm font-bold block uppercase tracking-tight leading-none mb-1">Wash Done?</span>
+                                <span id="carwash-hint" class="text-[9px] opacity-40 uppercase font-mono tracking-tighter">Membership Check</span>
+                            </div>
+                        </div>
+                        <input type="checkbox" id="end-carwash" class="w-6 h-6 rounded border-gray-700 bg-black text-teal-500 focus:ring-0">
+                    </label>
                 </div>
 
                 <div>
-                    <label class="label-xs ml-1 block mb-2">Driving Conditions</label>
+                    <label class="label-xs ml-1 block mb-2">Conditions</label>
                     <div class="grid grid-cols-5 gap-2">
-                        <button onclick="selectWeather('sunny')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">☀️</button>
-                        <button onclick="selectWeather('rain')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">🌧️</button>
-                        <button onclick="selectWeather('snow')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">❄️</button>
-                        <button onclick="selectWeather('ice')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">🧊</button>
-                        <button onclick="selectWeather('fog')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">🌫️</button>
+                        <button onclick="selectWeather('sunny')" class="weather-btn p-3 border border-gray-700 rounded-lg">☀️</button>
+                        <button onclick="selectWeather('rain')" class="weather-btn p-3 border border-gray-700 rounded-lg">🌧️</button>
+                        <button onclick="selectWeather('snow')" class="weather-btn p-3 border border-gray-700 rounded-lg">❄️</button>
+                        <button onclick="selectWeather('ice')" class="weather-btn p-3 border border-gray-700 rounded-lg">🧊</button>
+                        <button onclick="selectWeather('fog')" class="weather-btn p-3 border border-gray-700 rounded-lg">🌫️</button>
                     </div>
                 </div>
                 <input type="hidden" id="end-weather" value="">
             </div>
-
-            <div class="grid grid-cols-2 gap-3 mt-6">
-                <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3">Cancel</button>
-                <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-3 uppercase font-black">Finish Shift</button>
-            </div>
+            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 mb-3 uppercase font-black">Finish Shift</button>
+            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
         </div>
     </div>
 
@@ -340,15 +336,18 @@
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp">
             <h3 id="garage-modal-title" class="text-center text-xl font-bold uppercase mb-4 text-teal-500 tracking-tighter">Garage Management</h3>
+            
             <div class="text-left flex flex-col gap-3 mb-6 pb-4 border-b border-white/10">
                 <input type="text" id="veh-name" class="input-field" placeholder="Vehicle Name">
                 <input type="number" id="veh-year" class="input-field" placeholder="Year">
                 <input type="number" id="veh-initial-odo" class="input-field" placeholder="Initial ODO">
+
                 <div class="veh-type-group">
                     <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn active">RENTAL</button>
                     <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn">OWNED</button>
                 </div>
                 <input type="hidden" id="veh-type" value="rental">
+
                 <input type="number" inputmode="decimal" id="veh-cost" class="input-field" placeholder="Weekly Cost ($)">
                 <input type="number" id="veh-carwash" class="input-field" placeholder="Wash Membership ($/mo)">
                 
@@ -360,9 +359,12 @@
                     <div id="test-indicator" class="w-3 h-3 rounded-full bg-gray-600"></div>
                     <input type="hidden" id="veh-is-test" value="false">
                 </div>
+
                 <button onclick="saveVehicle()" id="btn-save-veh" class="btn-primary-os py-3 mt-2 uppercase font-black">Add Vehicle</button>
             </div>
+
             <div id="garage-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+            
             <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-4 w-full">Close</button>
         </div>
     </div>
@@ -370,6 +372,7 @@
     <div id="settings-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp max-h-[85vh] overflow-y-auto">
             <h3 class="text-center text-xl font-bold uppercase mb-6 text-purple-500 tracking-widest">System Settings</h3>
+            
             <div class="text-left space-y-6">
                 <div class="space-y-2">
                     <p class="label-xs">Timezone Config</p>
@@ -378,6 +381,7 @@
                         <option value="Europe/Vilnius">🇱🇹 Vilnius (EET)</option>
                     </select>
                 </div>
+                
                 <button onclick="saveSettings()" class="btn-primary-os py-4 uppercase font-black">Apply Changes</button>
                 <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
             </div>
@@ -387,7 +391,10 @@
     <div id="delete-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp text-center border border-red-500/30">
             <h3 class="text-xl font-black uppercase mb-4 text-red-500">Delete Logs?</h3>
-            <p class="text-sm opacity-60 mb-6 font-medium">Permanently remove <span id="del-modal-count" class="text-red-500 font-bold">0</span> entries?</p>
+            <p class="text-sm opacity-60 mb-6 font-medium">
+                Permanently remove <span id="del-modal-count" class="text-red-500 font-bold">0</span> entries?
+            </p>
+            
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="closeModals()" class="input-field font-bold py-3 uppercase">No</button>
                 <button onclick="confirmLogDelete()" class="bg-red-500 text-white rounded-xl font-bold py-3 uppercase shadow-[0_0_15px_rgba(239,68,68,0.4)]">Yes</button>
@@ -401,21 +408,14 @@
                 <i class="fa-solid fa-car"></i>
             </div>
             <h3 id="delete-vehicle-title" class="text-lg font-black uppercase mb-2">Delete Vehicle?</h3>
-            <p id="delete-vehicle-message" class="text-xs opacity-60 mb-6 px-4">This will remove the vehicle from your active fleet.</p>
+            <p id="delete-vehicle-message" class="text-xs opacity-60 mb-6 px-4">
+                This will remove the vehicle from your active fleet.
+            </p>
+            
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="cancelDeleteVehicle()" class="input-field font-bold py-3 uppercase text-xs">Cancel</button>
                 <button onclick="confirmDeleteVehicle()" class="bg-red-500 text-white rounded-xl font-bold py-3 uppercase text-xs">Delete</button>
             </div>
-        </div>
-    </div>
-
-    <div id="shift-details-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp max-h-[85vh] overflow-y-auto">
-            <div id="shift-details-content">
-                </div>
-            <button onclick="closeModals()" class="mt-6 w-full py-4 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">
-                Close Report
-            </button>
         </div>
     </div>
 

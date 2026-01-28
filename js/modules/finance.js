@@ -1,16 +1,12 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.1.4
-// Logic: O(n) Audit, Transaction Logic & Dynamic UI
+// ROBERT OS - MODULES/FINANCE.JS v2.1.6
+// Logic: Robust Audit, Transaction Logic & Dynamic UI
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
 import { state } from '../state.js';
 import { showToast, vibrate, formatCurrency } from '../utils.js';
 import { openModal, closeModals } from './ui.js';
-
-// ────────────────────────────────────────────────────────────────
-// INTERNAL STATE
-// ────────────────────────────────────────────────────────────────
 
 let txDraft = { direction: 'in', category: 'tips' };
 let itemsToDelete = [];
@@ -34,10 +30,7 @@ export function openTxModal(dir) {
     updateTxModalUI(dir);
     
     const inp = document.getElementById('tx-amount');
-    if (inp) { 
-        inp.value = ''; 
-        setTimeout(() => inp.focus(), 100); 
-    }
+    if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 100); }
     openModal('tx-modal');
 }
 
@@ -65,7 +58,7 @@ export async function confirmTx() {
         });
 
         closeModals();
-        window.dispatchEvent(new Event('refresh-data')); // Atnaujina UI
+        window.dispatchEvent(new Event('refresh-data'));
         
     } catch (err) {
         showToast('KLAIDA: ' + err.message, 'error');
@@ -81,10 +74,7 @@ async function recordTransaction(type, { amount, category, meta }) {
         user_id: state.user.id,
         shift_id: state.activeShift?.id ?? null,
         vehicle_id: state.activeShift?.vehicle_id ?? null,
-        type, 
-        category, 
-        amount, 
-        ...meta,
+        type, category, amount, ...meta,
         created_at: new Date().toISOString()
     });
 
@@ -95,12 +85,9 @@ async function recordTransaction(type, { amount, category, meta }) {
 export function setExpType(cat, el) {
     vibrate();
     txDraft.category = cat;
-    
-    // UI atnaujinimas
     document.querySelectorAll('.exp-btn, .inc-btn').forEach(b => b.classList.remove('active'));
     if (el) el.classList.add('active');
     
-    // Kuro laukų rodymas
     const fuelFields = document.getElementById('fuel-fields');
     if (fuelFields) {
         cat === 'fuel' ? fuelFields.classList.remove('hidden') : fuelFields.classList.add('hidden');
@@ -113,14 +100,13 @@ function updateTxModalUI(dir) {
     
     document.getElementById('income-types')?.classList.toggle('hidden', dir !== 'in');
     document.getElementById('expense-types')?.classList.toggle('hidden', dir === 'in');
-    document.getElementById('fuel-fields')?.classList.add('hidden'); // Reset
+    document.getElementById('fuel-fields')?.classList.add('hidden');
     
-    // Reset active buttons
     document.querySelectorAll('.inc-btn, .exp-btn').forEach(b => b.classList.remove('active'));
 }
 
 // ────────────────────────────────────────────────────────────────
-// DELETE / MANAGEMENT LOGIC
+// MANAGEMENT LOGIC
 // ────────────────────────────────────────────────────────────────
 
 export function toggleSelectAll() {
@@ -132,14 +118,12 @@ export function toggleSelectAll() {
 export function requestLogDelete() {
     vibrate();
     const checked = document.querySelectorAll('.log-checkbox:checked');
-    
     itemsToDelete = Array.from(checked).map(el => {
         const parts = el.value.split(':');
         return { type: parts[0], id: parts[1] };
     });
 
     if (itemsToDelete.length === 0) return;
-
     document.getElementById('del-modal-count').textContent = itemsToDelete.length;
     openModal('delete-modal');
 }
@@ -147,18 +131,14 @@ export function requestLogDelete() {
 export async function confirmLogDelete() {
     vibrate([20]);
     state.loading = true;
-    
     try {
         const shiftIds = itemsToDelete.filter(i => i.type === 'shift').map(i => i.id);
         const txIds = itemsToDelete.filter(i => i.type === 'tx').map(i => i.id);
 
-        // 1. Triname pamainas (ir jų išlaidas per Cascade arba rankiniu būdu)
         if (shiftIds.length > 0) {
             await db.from('expenses').delete().in('shift_id', shiftIds);
             await db.from('finance_shifts').delete().in('id', shiftIds);
         }
-
-        // 2. Triname pavienes operacijas
         if (txIds.length > 0) {
             await db.from('expenses').delete().in('id', txIds);
         }
@@ -166,10 +146,8 @@ export async function confirmLogDelete() {
         showToast(`IŠTRINTA: ${itemsToDelete.length}`, 'success');
         itemsToDelete = [];
         closeModals();
-        
-        // Force refresh
         await refreshAudit();
-        window.dispatchEvent(new Event('refresh-data')); // Atnaujina ir balansą
+        window.dispatchEvent(new Event('refresh-data'));
         
     } catch (e) {
         showToast(e.message, 'error');
@@ -179,11 +157,11 @@ export async function confirmLogDelete() {
 }
 
 export function exportAI() {
-    showToast('AI EXPORT: COMING SOON (v2.2)', 'info');
+    showToast('AI funkcija ruošiama (v2.2)', 'info');
 }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT ENGINE (Render Logic)
+// AUDIT ENGINE (FIXED)
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
@@ -191,7 +169,6 @@ export async function refreshAudit() {
     if (!state.user?.id || !listEl) return;
 
     try {
-        // Fetch Parallel
         const [shiftsRes, expensesRes] = await Promise.all([
             db.from('finance_shifts').select('*, vehicles(name)').eq('user_id', state.user.id).order('start_time', { ascending: false }),
             db.from('expenses').select('*').eq('user_id', state.user.id)
@@ -200,14 +177,20 @@ export async function refreshAudit() {
         const shifts = shiftsRes.data || [];
         const expenses = expensesRes.data || [];
 
-        if (!shifts.length && !expenses.length) {
-            listEl.innerHTML = '<div class="py-10 text-center opacity-50 uppercase text-xs tracking-widest">Istorija tuščia</div>';
+        // Pranešimas jei tuščia
+        if (shifts.length === 0 && expenses.length === 0) {
+            listEl.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-12 opacity-40">
+                    <i class="fa-solid fa-folder-open text-4xl mb-4"></i>
+                    <span class="text-xs font-bold uppercase tracking-widest">Istorija tuščia</span>
+                    <span class="text-[9px] mt-2">Pradėkite pamainą arba pridėkite operaciją</span>
+                </div>`;
             return;
         }
 
         const groupedData = groupData(shifts, expenses);
         listEl.innerHTML = renderAccordion(groupedData);
-        updateDeleteButtonLocal(); // Reset state
+        updateDeleteButtonLocal(); // Reset UI state
         
     } catch (e) {
         console.error(e);
@@ -215,22 +198,21 @@ export async function refreshAudit() {
     }
 }
 
-// O(n) Grouping Algorithm
 function groupData(shifts, expenses) {
     const years = {};
     const expensesByShift = {};
     const loneExpenses = [];
 
-    // 1. Index Expenses by Shift
+    // Safety: Convert IDs to string for reliable matching
     expenses.forEach(e => {
         if (e.shift_id) {
-            (expensesByShift[e.shift_id] = expensesByShift[e.shift_id] || []).push(e);
+            const sid = String(e.shift_id);
+            (expensesByShift[sid] = expensesByShift[sid] || []).push(e);
         } else {
             loneExpenses.push(e);
         }
     });
 
-    // 2. Process Shifts
     shifts.forEach(shift => {
         const date = new Date(shift.start_time);
         const y = date.getFullYear();
@@ -239,21 +221,16 @@ function groupData(shifts, expenses) {
         if (!years[y]) years[y] = { net: 0, months: {} };
         if (!years[y].months[mKey]) years[y].months[mKey] = { net: 0, items: [] };
 
-        const shiftExpenses = expensesByShift[shift.id] || [];
+        const shiftExpenses = expensesByShift[String(shift.id)] || [];
         const shiftNet = shiftExpenses.reduce((sum, e) => sum + (e.type === 'income' ? e.amount : -e.amount), 0);
 
         years[y].net += shiftNet;
         years[y].months[mKey].net += shiftNet;
         years[y].months[mKey].items.push({ 
-            ...shift, 
-            _kind: 'shift', 
-            _date: date, 
-            shiftExpenses, 
-            shiftNet 
+            ...shift, _kind: 'shift', _date: date, shiftExpenses, shiftNet 
         });
     });
 
-    // 3. Process Lone Transactions
     loneExpenses.forEach(tx => {
         const date = new Date(tx.created_at);
         const y = date.getFullYear();
@@ -265,18 +242,14 @@ function groupData(shifts, expenses) {
         const amount = tx.type === 'income' ? tx.amount : -tx.amount;
         years[y].net += amount;
         years[y].months[mKey].net += amount;
-        years[y].months[mKey].items.push({ 
-            ...tx, 
-            _kind: 'tx', 
-            _date: date 
-        });
+        years[y].months[mKey].items.push({ ...tx, _kind: 'tx', _date: date });
     });
 
     return years;
 }
 
 // ────────────────────────────────────────────────────────────────
-// RENDERERS (HTML Generators)
+// RENDERERS
 // ────────────────────────────────────────────────────────────────
 
 function renderAccordion(data) {
@@ -292,13 +265,13 @@ function renderAccordion(data) {
                     <span class="text-xl font-black tracking-tighter">${year}</span>
                 </div>
                 <div class="text-right">
-                    <div class="text-[9px] opacity-40 uppercase font-bold tracking-widest">Grynasis Pelnas</div>
+                    <div class="text-[9px] opacity-40 uppercase font-bold tracking-widest">Metinis Pelnas</div>
                     <div class="font-mono font-bold ${yearData.net >= 0 ? 'text-teal-400' : 'text-red-400'}">${formatCurrency(yearData.net)}</div>
                 </div>
             </summary>
             <div class="mt-3 space-y-3 pl-2 animate-slideUp">
                 ${Object.entries(yearData.months).sort((a, b) => b[0] - a[0]).map(([mKey, monthData]) => `
-                    <details class="group">
+                    <details class="group" open>
                         <summary class="flex justify-between items-center p-3 bg-white/5 border border-white/5 rounded-xl cursor-pointer list-none ml-2 hover:bg-white/10 transition-colors">
                             <span class="uppercase font-bold text-[10px] tracking-[0.2em] opacity-70 text-teal-500">${monthsLT[mKey]}</span>
                             <span class="font-mono text-xs font-bold">${formatCurrency(monthData.net)}</span>
@@ -318,16 +291,18 @@ function renderAccordion(data) {
 function renderShiftCard(s) {
     const dist = (s.end_odo || 0) - (s.start_odo || 0);
     const fuelExp = s.shiftExpenses.find(e => e.category === 'fuel');
-    const mpg = (fuelExp && fuelExp.gallons > 0 && dist > 0) ? (dist / fuelExp.gallons).toFixed(1) : '-';
+    const gal = fuelExp ? (parseFloat(fuelExp.gallons) || 0) : 0;
+    
+    const mpg = (gal > 0 && dist > 0) ? (dist / gal).toFixed(1) : '-';
     const cpm = dist > 0 ? (s.shiftNet / dist).toFixed(2) : '0.00';
     
     return `
-        <div class="p-4 bg-white/5 border border-white/5 rounded-2xl space-y-3 mx-2 border-l-2 ${s.shiftNet >= 0 ? 'border-l-teal-500/50' : 'border-l-red-500/50'}">
+        <div class="log-card p-4 bg-white/5 border border-white/5 rounded-2xl space-y-3 mx-2 border-l-2 ${s.shiftNet >= 0 ? 'border-l-teal-500/50' : 'border-l-red-500/50'}">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <input type="checkbox" class="log-checkbox w-5 h-5 rounded border-gray-700 bg-black text-teal-500 focus:ring-0" value="shift:${s.id}" onchange="updateDeleteButtonLocal()">
                     <div>
-                        <div class="text-[9px] opacity-40 uppercase font-bold">${s._date.toLocaleDateString('lt-LT')} • ${escapeHTML(s.vehicles?.name)}</div>
+                        <div class="text-[9px] opacity-50 uppercase font-bold">${s._date.toLocaleDateString('lt-LT')} • ${escapeHTML(s.vehicles?.name || 'Car')}</div>
                         <div class="text-xs font-bold uppercase tracking-tight">PAMAINOS ATASKAITA</div>
                     </div>
                 </div>
@@ -358,14 +333,14 @@ function renderShiftCard(s) {
 function renderTxCard(tx) {
     const isInc = tx.type === 'income';
     return `
-        <div class="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl mx-2">
+        <div class="log-card flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl mx-2">
             <div class="flex items-center gap-3">
                 <input type="checkbox" class="log-checkbox w-5 h-5 rounded border-gray-700 bg-black text-teal-500 focus:ring-0" value="tx:${tx.id}" onchange="updateDeleteButtonLocal()">
                 <div class="w-8 h-8 rounded-lg ${isInc ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'} flex items-center justify-center text-xs">
                     <i class="fa-solid ${isInc ? 'fa-arrow-down-long' : 'fa-gas-pump'}"></i>
                 </div>
                 <div>
-                    <div class="text-[9px] opacity-40 uppercase font-bold">${tx._date.toLocaleTimeString('lt-LT', {hour:'2-digit', minute:'2-digit'})}</div>
+                    <div class="text-[9px] opacity-50 uppercase font-bold">${tx._date.toLocaleTimeString('lt-LT', {hour:'2-digit', minute:'2-digit'})}</div>
                     <div class="text-xs font-bold uppercase tracking-tight">${tx.category}</div>
                 </div>
             </div>
@@ -374,21 +349,13 @@ function renderTxCard(tx) {
     `;
 }
 
-// ────────────────────────────────────────────────────────────────
-// DYNAMIC UI HELPERS (Must be Global)
-// ────────────────────────────────────────────────────────────────
-
-// Ši funkcija privalo būti pasiekiama per window, nes HTML generuojamas dinamiškai
+// Globalus binding HTML onchange eventams
 window.updateDeleteButtonLocal = () => {
     const checked = document.querySelectorAll('.log-checkbox:checked');
     const btn = document.getElementById('btn-delete-logs');
     if (btn) btn.classList.toggle('hidden', checked.length === 0);
-    
     const count = document.getElementById('delete-count');
     if (count) count.textContent = checked.length;
 };
 
-// Eksportuojame (dėl suderinamumo), bet ir paliekame window binding aukščiau
-export function updateDeleteButtonLocal() {
-    window.updateDeleteButtonLocal();
-}
+export function updateDeleteButtonLocal() { window.updateDeleteButtonLocal(); }

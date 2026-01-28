@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS v2.7 - ORIGINAL FONTS & STABILITY                      */
+/* ROBERT OS v2.8 - ORIGINAL STYLE RESTORED                         */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -10,29 +10,17 @@
     --text-muted: #9ca3af;
     --border-color: rgba(255,255,255,0.1);
     --input-bg: #111827;
-    --track-bg: #1f2937;
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
-}
-
-:root.light {
-    --bg-color: #f3f4f6;
-    --card-bg: #ffffff;
-    --text-main: #111827;
-    --text-muted: #6b7280;
-    --border-color: rgba(0,0,0,0.08);
-    --input-bg: #ffffff;
-    --track-bg: #e5e7eb;
 }
 
 body {
     background-color: var(--bg-color);
     color: var(--text-main);
-    overscroll-behavior-y: none;
-    -webkit-tap-highlight-color: transparent;
-    /* GRĄŽINTAS ORIGINALUS ŠRIFTAS */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0; padding: 0;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* ════════ ANIMATIONS ════════ */
@@ -40,7 +28,7 @@ body {
 .animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
 @keyframes pulse { 50% { opacity: 0.5; } }
-.pulse-text { animation: pulse 1.5s infinite; color: #facc15 !important; }
+.pulse-text { animation: pulse 1.5s infinite; color: #facc15; }
 
 /* ════════ HEADER & NAV ════════ */
 .global-header {
@@ -72,8 +60,7 @@ body {
 .input-field {
     width: 100%; background-color: var(--input-bg);
     border: 1px solid var(--border-color); border-radius: 0.75rem;
-    padding: 1rem; color: var(--text-main); outline: none; font-family: monospace;
-    transition: all 0.2s; box-sizing: border-box;
+    padding: 1rem; color: var(--text-main); outline: none; font-family: monospace; font-weight: 600;
 }
 .input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
@@ -81,7 +68,7 @@ body {
     width: 100%; background-color: var(--accent); color: #000;
     font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;
     border-radius: 0.75rem; padding: 1rem; border: none;
-    box-shadow: 0 0 20px rgba(20,184,166,0.3);
+    box-shadow: 0 0 20px rgba(20,184,166,0.2);
     cursor: pointer;
 }
 .btn-primary-os:active { transform: scale(0.98); }
@@ -131,11 +118,13 @@ body {
 .val-lg { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
 .label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
-/* ════════ TOASTS (Original Style) ════════ */
+/* ════════ TOASTS (v1.7.2 Style) ════════ */
 #toast-container { position: fixed; top: 1rem; left: 0; right: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; pointer-events: none; gap: 0.5rem;}
 .bg-teal-500 { background-color: #14b8a6; }
 .bg-red-500 { background-color: #ef4444; }
 .bg-green-500 { background-color: #22c55e; }
+.bg-yellow-500 { background-color: #eab308; }
+
 .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); gap: 2px; font-size: 10px; font-weight: 700; text-transform: uppercase; background: none; border: none; }
 .nav-item.active { color: var(--accent); }
 .nav-item i { font-size: 1.25rem; }

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/SETTINGS.JS v2.1.0
+// ROBERT OS - MODULES/SETTINGS.JS v2.1.2
 // Logic: User Preferences & Persistence
 // ════════════════════════════════════════════════════════════════
 
@@ -13,8 +13,8 @@ import { openModal, closeModals } from './ui.js';
 // ────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS = {
-    timezone: 'America/Chicago',
-    timezone_secondary: 'Europe/Vilnius',
+    timezone: 'America/Chicago',           // Primary (Header)
+    timezone_secondary: 'America/Chicago', // Secondary (Local/Bento) - FIX: Chicago
     monthly_fixed_expenses: 0,
     rental_week_start_day: 2, // Tuesday
     default_shift_target_hours: 12,
@@ -38,7 +38,6 @@ export async function loadSettings() {
         if (error) throw error;
 
         if (!data) {
-            // Auto-create defaults if missing
             return await ensureDefaultSettings();
         }
 
@@ -47,7 +46,6 @@ export async function loadSettings() {
 
     } catch (err) {
         console.error('Settings Sync Error:', err);
-        // Fallback to defaults in memory only, don't crash
         state.userSettings = { ...DEFAULT_SETTINGS }; 
         return state.userSettings;
     }
@@ -60,19 +58,14 @@ async function ensureDefaultSettings() {
         updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await db
+    const { data } = await db
         .from('user_settings')
         .upsert(payload, { onConflict: 'user_id' })
         .select()
         .single();
 
-    if (error) {
-        console.error('Defaults Creation Failed:', error);
-        return DEFAULT_SETTINGS;
-    }
-
-    state.userSettings = data;
-    return data;
+    state.userSettings = data || DEFAULT_SETTINGS;
+    return state.userSettings;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -81,19 +74,11 @@ async function ensureDefaultSettings() {
 
 export async function openSettings() {
     vibrate([10]);
-
-    // Ensure we have latest data
     const settings = state.userSettings || await loadSettings();
     
-    // Map data to UI Inputs
-    // Naudojame 'settings-tz-primary' nes taip pavadinta jūsų index.html
     setVal('settings-tz-primary', settings.timezone);
-    
-    // Kiti laukai (jei ateityje pridėsite į HTML)
+    // Jei ateityje pridėsite antrinį pasirinkimą į HTML:
     setVal('settings-tz-secondary', settings.timezone_secondary);
-    setVal('settings-fixed-expenses', settings.monthly_fixed_expenses);
-    setVal('settings-rental-start-day', settings.rental_week_start_day);
-    setVal('settings-shift-target', settings.default_shift_target_hours);
     
     openModal('settings-modal');
 }
@@ -107,14 +92,11 @@ export async function saveSettings() {
     try {
         const current = state.userSettings || DEFAULT_SETTINGS;
 
-        // SMART UPDATE: Atnaujiname tik tai, ką radome DOM'e.
-        // Jei HTML elementas neegzistuoja, paliekame seną reikšmę.
         const updates = {
             timezone: getValOrKeep('settings-tz-primary', current.timezone),
-            timezone_secondary: getValOrKeep('settings-tz-secondary', current.timezone_secondary),
+            // Užtikriname, kad Local laikas visada būtų Čikaga, jei nėra pasirinkimo
+            timezone_secondary: getValOrKeep('settings-tz-secondary', 'America/Chicago'),
             monthly_fixed_expenses: getNumOrKeep('settings-fixed-expenses', current.monthly_fixed_expenses),
-            rental_week_start_day: getNumOrKeep('settings-rental-start-day', current.rental_week_start_day),
-            default_shift_target_hours: getNumOrKeep('settings-shift-target', current.default_shift_target_hours),
             updated_at: new Date().toISOString()
         };
 
@@ -125,17 +107,14 @@ export async function saveSettings() {
 
         if (error) throw error;
 
-        // Update local state immediately
         state.userSettings = { ...state.userSettings, ...updates };
 
         closeModals();
         showToast('NUSTATYMAI IŠSAUGOTI', 'success');
-
-        // Refresh UI components that depend on settings (Clock, Costs)
         window.dispatchEvent(new Event('refresh-data'));
 
     } catch (err) {
-        showToast('KLAIDA: ' + err.message, 'error');
+        showToast('Klaida: ' + err.message, 'error');
     } finally {
         state.loading = false;
     }
@@ -150,13 +129,11 @@ function setVal(id, val) {
     if (el) el.value = val ?? '';
 }
 
-// Grąžina input reikšmę. Jei inputo nėra DOM'e - grąžina seną reikšmę (fallback).
 function getValOrKeep(id, fallback) {
     const el = document.getElementById(id);
     return el ? el.value : fallback;
 }
 
-// Tas pats, tik skaičiams
 function getNumOrKeep(id, fallback) {
     const el = document.getElementById(id);
     if (!el) return fallback;

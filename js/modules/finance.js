@@ -1,6 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.3.0
-// Logic: Hierarchical Accordion & Detailed Modal Analytics
+// ROBERT OS - MODULES/FINANCE.JS v2.3.1 (HOTFIX)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -18,9 +17,10 @@ function escapeHTML(str) {
     return p.innerHTML;
 }
 
-/* ────────────────────────────────────────────────────────────────
-   TRANSACTION LOGIC (Standartinė)
----------------------------------------------------------------- */
+// ────────────────────────────────────────────────────────────────
+// TRANSACTION LOGIC
+// ────────────────────────────────────────────────────────────────
+
 export function openTxModal(dir) {
     vibrate();
     txDraft.direction = dir;
@@ -34,7 +34,7 @@ export function openTxModal(dir) {
 export async function confirmTx() {
     vibrate([20]);
     const amount = parseFloat(document.getElementById('tx-amount')?.value || 0);
-    if (!amount || amount <= 0) return showToast('Įveskite sumą', 'warning');
+    if (!amount || amount <= 0) return showToast('ĮVESKITE SUMĄ', 'warning');
 
     state.loading = true;
     try {
@@ -81,9 +81,9 @@ function updateTxModalUI(dir) {
     document.querySelectorAll('.inc-btn, .exp-btn').forEach(b => b.classList.remove('active'));
 }
 
-/* ────────────────────────────────────────────────────────────────
-   AUDIT ENGINE (HIERARCHY: Year > Month > Week > Shift)
----------------------------------------------------------------- */
+// ────────────────────────────────────────────────────────────────
+// AUDIT ENGINE
+// ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
     const listEl = document.getElementById('audit-list');
@@ -103,7 +103,7 @@ export async function refreshAudit() {
             return;
         }
 
-        // Globali prieiga detalėms (hack, bet veikia moduliuose)
+        // Globali prieiga detalėms
         window._auditData = { shifts, expenses }; 
         
         const groupedData = groupData(shifts, expenses);
@@ -118,9 +118,8 @@ export async function refreshAudit() {
 
 function groupData(shifts, expenses) {
     const years = {};
-    const expensesByShift = {}; // Map for O(1) access
+    const expensesByShift = {}; 
 
-    // 1. Index Expenses
     expenses.forEach(e => {
         if (e.shift_id) {
             const sid = String(e.shift_id);
@@ -128,12 +127,10 @@ function groupData(shifts, expenses) {
         }
     });
 
-    // 2. Process Shifts
     shifts.forEach(shift => {
         const date = new Date(shift.start_time);
         const y = date.getFullYear();
         const m = date.getMonth();
-        // Savaitės numeris (ISO-8601)
         const start = new Date(y, 0, 1);
         const days = Math.floor((date - start) / (24 * 60 * 60 * 1000));
         const w = Math.ceil((days + 1) / 7);
@@ -150,20 +147,12 @@ function groupData(shifts, expenses) {
         years[y].months[m].weeks[w].net += shiftNet;
         
         years[y].months[m].weeks[w].items.push({ 
-            ...shift, 
-            _kind: 'shift', 
-            _date: date, 
-            shiftExpenses, 
-            shiftNet 
+            ...shift, _kind: 'shift', _date: date, shiftExpenses, shiftNet 
         });
     });
 
     return years;
 }
-
-/* ────────────────────────────────────────────────────────────────
-   RENDERERS (List View)
----------------------------------------------------------------- */
 
 function renderHierarchy(data) {
     const monthsLT = ['SAUSIS', 'VASARIS', 'KOVAS', 'BALANDIS', 'GEGUŽĖ', 'BIRŽELIS', 'LIEPA', 'RUGPJŪTIS', 'RUGSĖJIS', 'SPALIS', 'LAPKRITIS', 'GRUODIS'];
@@ -204,10 +193,10 @@ function renderShiftStrip(s) {
     const hours = Math.floor(durationMs / (1000 * 60 * 60));
     const mins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    // ID perdavimas į globalią funkciją
+    // ✅ PATAISYMAS: onclick kviečia globalią funkciją, kurią pririšime app.js
     return `
     <div onclick="openShiftDetails('${s.id}')" class="relative bg-white/5 border border-white/5 rounded-lg p-3 mb-2 hover:bg-white/10 transition-all cursor-pointer active:scale-95">
-        <div class="flex justify-between items-start">
+        <div class="flex justify-between items-start pointer-events-none">
             <div>
                 <div class="text-[10px] font-bold text-teal-500 uppercase tracking-wider mb-0.5">
                     ${s._date.toLocaleDateString('lt-LT')} • ${tStart} - ${tEnd} (${hours}h ${mins}m)
@@ -216,37 +205,37 @@ function renderShiftStrip(s) {
                     Shift Details
                 </div>
                 <div class="text-[9px] opacity-50 mt-1 font-mono">
-                    Dist: ${dist} mi • Breaks: 0m
+                    Dist: ${dist} mi
                 </div>
             </div>
             <div class="text-right">
                 <div class="text-sm font-black ${s.shiftNet >= 0 ? 'text-green-400' : 'text-red-400'}">${formatCurrency(s.shiftNet)}</div>
             </div>
         </div>
-        <input type="checkbox" onclick="event.stopPropagation(); updateDeleteButtonLocal()" value="shift:${s.id}" class="log-checkbox absolute bottom-2 right-2 w-4 h-4 rounded border-gray-700 bg-black text-teal-500 opacity-20 hover:opacity-100">
+        <div class="absolute bottom-2 right-2 pointer-events-auto" onclick="event.stopPropagation()">
+             <input type="checkbox" onchange="updateDeleteButtonLocal()" value="shift:${s.id}" class="log-checkbox w-4 h-4 rounded border-gray-700 bg-black text-teal-500 opacity-30 hover:opacity-100">
+        </div>
     </div>
     `;
 }
 
-/* ────────────────────────────────────────────────────────────────
-   DETAILED MODAL GENERATOR
----------------------------------------------------------------- */
+// ────────────────────────────────────────────────────────────────
+// DETAILED MODAL LOGIC (EXPORTED)
+// ────────────────────────────────────────────────────────────────
 
-window.openShiftDetails = (id) => {
+// ✅ PATAISYMAS: Eksportuojame funkciją, kad app.js galėtų ją pririšti
+export function openShiftDetails(id) {
     vibrate([10]);
-    // Randame pamainą per globalų kintamąjį (nes duomenys jau užkrauti)
     const allShifts = window._auditData?.shifts || [];
     const allExpenses = window._auditData?.expenses || [];
     
     const s = allShifts.find(x => String(x.id) === String(id));
     if (!s) return showToast('Error loading details', 'error');
 
-    // Filter expenses
     const sExp = allExpenses.filter(e => String(e.shift_id) === String(id));
     const income = sExp.filter(e => e.type === 'income');
     const expense = sExp.filter(e => e.type === 'expense');
 
-    // Calcs
     const gross = income.reduce((a, b) => a + b.amount, 0);
     const totalExp = expense.reduce((a, b) => a + b.amount, 0);
     const net = gross - totalExp;
@@ -255,13 +244,11 @@ window.openShiftDetails = (id) => {
     const fuelItem = expense.find(e => e.category === 'fuel');
     const gallons = fuelItem ? (parseFloat(fuelItem.gallons) || 0) : 0;
     const mpg = (gallons > 0 && dist > 0) ? (dist / gallons).toFixed(1) : 'N/A';
-    const cpm = dist > 0 ? (totalExp / dist).toFixed(2) : '0.00';
     
     const durationMs = new Date(s.end_time || new Date()) - new Date(s.start_time);
     const hoursDec = Math.max(0.1, durationMs / (1000 * 60 * 60));
     const hourly = (net / hoursDec).toFixed(2);
 
-    // HTML Template
     const html = `
         <div class="text-center mb-6">
             <h2 class="text-2xl font-black uppercase tracking-tighter mb-1">${s.vehicles?.name || 'Unknown Car'}</h2>
@@ -280,7 +267,6 @@ window.openShiftDetails = (id) => {
         </div>
 
         <div class="space-y-4">
-            
             <div>
                 <div class="flex justify-between items-end border-b border-white/10 pb-1 mb-2">
                     <span class="text-xs font-bold text-green-500 uppercase">Earnings</span>
@@ -313,24 +299,9 @@ window.openShiftDetails = (id) => {
                     <span class="text-xl font-black text-green-400">${formatCurrency(net)}</span>
                 </div>
                 <div class="grid grid-cols-3 gap-2 pt-2 border-t border-white/5 text-center">
-                    <div>
-                        <div class="text-[9px] opacity-30 uppercase">Per Hour</div>
-                        <div class="text-xs font-mono font-bold text-teal-500">$${hourly}</div>
-                    </div>
-                    <div>
-                        <div class="text-[9px] opacity-30 uppercase">Per Mile</div>
-                        <div class="text-xs font-mono font-bold text-blue-500">$${(net/dist).toFixed(2)}</div>
-                    </div>
-                    <div>
-                        <div class="text-[9px] opacity-30 uppercase">MPG</div>
-                        <div class="text-xs font-mono font-bold text-yellow-500">${mpg}</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="text-center mt-4">
-                <div class="text-[9px] opacity-30 uppercase font-bold tracking-widest">
-                    Conditions: ${s.weather || 'Unknown'} • Goal: ${s.target_hours}h
+                    <div><div class="text-[9px] opacity-30 uppercase">Per Hour</div><div class="text-xs font-mono font-bold text-teal-500">$${hourly}</div></div>
+                    <div><div class="text-[9px] opacity-30 uppercase">Per Mile</div><div class="text-xs font-mono font-bold text-blue-500">$${(net/Math.max(1,dist)).toFixed(2)}</div></div>
+                    <div><div class="text-[9px] opacity-30 uppercase">MPG</div><div class="text-xs font-mono font-bold text-yellow-500">${mpg}</div></div>
                 </div>
             </div>
         </div>
@@ -338,15 +309,51 @@ window.openShiftDetails = (id) => {
 
     document.getElementById('shift-details-content').innerHTML = html;
     openModal('shift-details-modal');
-};
+}
 
-// Helper for UI
-window.updateDeleteButtonLocal = () => {
+// ────────────────────────────────────────────────────────────────
+// DELETE LOGIC (EXPORTED)
+// ────────────────────────────────────────────────────────────────
+
+export function toggleSelectAll() {
+    const master = document.getElementById('select-all-logs');
+    document.querySelectorAll('.log-checkbox').forEach(b => b.checked = master.checked);
+    updateDeleteButtonLocal();
+}
+
+export function requestLogDelete() {
+    vibrate();
+    const checked = document.querySelectorAll('.log-checkbox:checked');
+    itemsToDelete = Array.from(checked).map(el => {
+        const parts = el.value.split(':');
+        return { type: parts[0], id: parts[1] };
+    });
+    if (itemsToDelete.length === 0) return;
+    document.getElementById('del-modal-count').textContent = itemsToDelete.length;
+    openModal('delete-modal');
+}
+
+export async function confirmLogDelete() {
+    state.loading = true;
+    try {
+        const shiftIds = itemsToDelete.filter(i => i.type === 'shift').map(i => i.id);
+        const txIds = itemsToDelete.filter(i => i.type === 'tx').map(i => i.id);
+        if (shiftIds.length > 0) {
+            await db.from('expenses').delete().in('shift_id', shiftIds);
+            await db.from('finance_shifts').delete().in('id', shiftIds);
+        }
+        if (txIds.length > 0) await db.from('expenses').delete().in('id', txIds);
+        showToast('Ištrinta', 'success');
+        itemsToDelete = [];
+        closeModals();
+        await refreshAudit();
+        window.dispatchEvent(new Event('refresh-data'));
+    } catch (e) { showToast(e.message, 'error'); } 
+    finally { state.loading = false; }
+}
+
+export function updateDeleteButtonLocal() {
     const checked = document.querySelectorAll('.log-checkbox:checked');
     document.getElementById('btn-delete-logs')?.classList.toggle('hidden', checked.length === 0);
     const c = document.getElementById('delete-count'); if(c) c.textContent = checked.length;
-};
-export function updateDeleteButtonLocal() { window.updateDeleteButtonLocal(); }
-export function toggleSelectAll() { /* ... from previous versions ... */ }
-export function requestLogDelete() { /* ... from previous versions ... */ }
-export async function confirmLogDelete() { /* ... from previous versions ... */ }
+}

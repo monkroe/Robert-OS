@@ -1,12 +1,12 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS v2.5 - ORIGINAL STYLE RESTORED                         */
+/* ROBERT OS v2.6 - ORIGINAL V1.8 STYLE (RESTORED)                  */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root {
     /* DARK MODE (DEFAULT) */
     --bg-color: #000000;
     --card-bg: #111111;
-    --accent: #14b8a6; /* Teal-500 */
+    --accent: #14b8a6; /* Teal */
     --text-main: #ffffff;
     --text-muted: #9ca3af;
     --border-color: rgba(255,255,255,0.1);
@@ -18,11 +18,11 @@
 
 :root.light {
     /* LIGHT MODE (Auto/System) */
-    --bg-color: #f3f4f6;
-    --card-bg: #ffffff;
-    --text-main: #111827;
+    --bg-color: #f3f4f6; /* Šviesiai pilkas fonas */
+    --card-bg: #ffffff;  /* Baltos kortelės */
+    --text-main: #111827; /* Tamsus tekstas */
     --text-muted: #6b7280;
-    --border-color: rgba(0,0,0,0.1);
+    --border-color: rgba(0,0,0,0.05);
     --input-bg: #ffffff;
     --track-bg: #e5e7eb;
 }
@@ -47,18 +47,13 @@ body {
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
 }
 
-@keyframes pulse { 
-    50% { opacity: 0.5; } 
-}
-.pulse-text { 
-    animation: pulse 1.5s infinite; 
-    color: #facc15 !important; /* Yellow-400 */
-}
+@keyframes pulse { 50% { opacity: 0.5; } }
+.pulse-text { animation: pulse 1.5s infinite; color: #facc15 !important; }
 
-/* ════════ LAYOUT & HEADER ════════ */
+/* ════════ HEADER & NAV ════════ */
 .global-header {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-    background-color: rgba(0,0,0,0.9);
+    background-color: rgba(0,0,0,0.9); /* Glass effect */
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
     padding: max(1rem, var(--safe-top)) 1rem 0;
@@ -66,13 +61,6 @@ body {
     display: flex; align-items: center; justify-content: space-between;
 }
 :root.light .global-header { background-color: rgba(255,255,255,0.9); }
-
-.container {
-    padding-top: calc(4.5rem + var(--safe-top)); 
-    padding-left: 1rem; padding-right: 1rem;
-    padding-bottom: 6rem;
-    height: 100%; overflow-y: auto;
-}
 
 .bottom-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
@@ -85,7 +73,14 @@ body {
 }
 :root.light .bottom-nav { background-color: rgba(255,255,255,0.9); }
 
-/* ════════ COMPONENTS ════════ */
+.container {
+    padding-top: calc(4.5rem + var(--safe-top)); 
+    padding-left: 1rem; padding-right: 1rem;
+    padding-bottom: 6rem;
+    height: 100%; overflow-y: auto;
+}
+
+/* ════════ UI ELEMENTS ════════ */
 .input-field {
     width: 100%; background-color: var(--input-bg);
     border: 1px solid var(--border-color); border-radius: 0.75rem;
@@ -113,6 +108,19 @@ body {
 .header-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.1); }
 :root.light .header-btn:hover { background: rgba(0,0,0,0.05); }
 
+/* ════════ TAB SYSTEM ════════ */
+.tab-content { display: none; opacity: 0; }
+.tab-content.active { display: block; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+.nav-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--text-muted); gap: 0.25rem;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    background: none; border: none; transition: color 0.2s; cursor: pointer;
+}
+.nav-item.active { color: var(--accent); }
+.nav-item i { font-size: 1.25rem; }
+
 /* ════════ BENTO CARDS ════════ */
 .bento-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .bento-card {
@@ -122,61 +130,51 @@ body {
     display: flex; flex-direction: column;
     color: var(--text-main);
     position: relative;
-    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); /* Lengvas šešėlis */
 }
 .bento-card.clickable:active { background-color: rgba(255,255,255,0.05); }
 :root.light .bento-card.clickable:active { background-color: rgba(0,0,0,0.05); }
 
-/* ════════ TABS ════════ */
-.tab-content { display: none; opacity: 0; }
-.tab-content.active { display: block; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-.nav-item {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    color: var(--text-muted); gap: 0.25rem;
-    font-size: 10px; font-weight: 700; text-transform: uppercase;
-    background: none; border: none; transition: color 0.2s;
-    cursor: pointer;
+/* ════════ HISTORY & LISTS (ACCORDION STYLING) ════════ */
+/* Pritaikyta, kad atrodytų kaip bento kortelės sąraše */
+.log-card, .shift-strip {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
-.nav-item.active { color: var(--accent); }
-.nav-item i { font-size: 1.25rem; }
+:root.light .shift-strip { 
+    background-color: #ffffff; 
+    border: 1px solid #e5e7eb; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
+}
 
 /* ════════ MODALS ════════ */
 .modal-overlay {
     position: fixed; inset: 0; z-index: 100;
     background-color: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
     display: flex; align-items: flex-end; justify-content: center;
-    padding: 1rem;
 }
-@media (min-width: 640px) { .modal-overlay { align-items: center; } }
+@media (min-width: 640px) { .modal-overlay { align-items: center; padding: 1rem; } }
+
+#delete-modal, #delete-vehicle-modal { z-index: 200 !important; }
 
 .modal-content {
     background-color: var(--card-bg);
-    width: 100%; max-width: 28rem; 
-    padding: 1.5rem;
-    border-radius: 1.5rem;
-    border: 1px solid var(--border-color);
+    width: 100%; max-width: 28rem; padding: 1.5rem;
+    border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;
+    border-top: 1px solid var(--border-color);
     color: var(--text-main);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
     box-sizing: border-box;
     max-height: 85vh; overflow-y: auto;
 }
+@media (min-width: 640px) { .modal-content { border-radius: 1.5rem; border: 1px solid var(--border-color); } }
 :root.light .modal-content { box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
 
-/* ════════ LISTS & HISTORY (NEW STRUCTURE SUPPORT) ════════ */
-/* Shift Strip - naudojamas istorijoje */
-.shift-strip {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 1rem;
-    padding: 1rem;
-    margin-bottom: 0.5rem;
-    display: flex; justify-content: space-between; align-items: center;
-}
-.shift-strip:active { transform: scale(0.98); background-color: rgba(255,255,255,0.05); }
-:root.light .shift-strip:active { background-color: rgba(0,0,0,0.05); }
-
-/* ════════ BUTTONS & MISC ════════ */
+/* ════════ BUTTONS (Transaction/Garage) ════════ */
 .weather-btn, .exp-btn, .inc-btn, .veh-type-btn {
     border: 1px solid transparent;
     background-color: rgba(255,255,255,0.03);
@@ -200,7 +198,7 @@ body {
     font-weight: 700; text-transform: uppercase; font-size: 0.75rem;
     animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-#toast-container > div.bg-red-500 { background-color: #ef4444 !important; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4); color: white; }
+#toast-container > div.bg-red-500 { background-color: #ef4444 !important; color: white; }
 #toast-container > div.bg-green-500 { background-color: #22c55e !important; color: white; }
 
 /* ════════ TYPOGRAPHY ════════ */
@@ -208,7 +206,7 @@ body {
 .val-lg { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
 .label-xs { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
-/* ════════ LIGHT MODE CONTRAST ════════ */
+/* ════════ LIGHT MODE OVERRIDES (CONTRAST) ════════ */
 :root.light .text-teal-400 { color: #0d9488 !important; }
 :root.light .text-teal-500 { color: #0f766e !important; }
 :root.light .text-green-400 { color: #16a34a !important; }

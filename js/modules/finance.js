@@ -1,9 +1,12 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.0.2
-// Goal: v1.8 strip feel (one shift = one strip), minimalist on strip:
-// - date, started, ended, total hours, miles
-// Tap strip -> full details (includes pauses summary)
-// Keeps delete selection + tx behavior
+// ROBERT OS - MODULES/FINANCE.JS v2.2.0
+// Goals:
+// - History: minimalist one-bar strip per shift:
+//   date + start-end + duration + miles (ONLY)
+// - Tap strip => full details modal (icons + FA) + status badge
+// - Full details include: pause total + tx list + pause list + sums
+// - Keep delete checkbox behavior
+// - Keep tx modal behavior
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -25,26 +28,27 @@ function safeText(v) {
     .replaceAll('>', '&gt;');
 }
 
-function toLTDateShort(d) {
+function toLTDateISO(d) {
+  const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
-  return `${mm}-${dd}`;
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function toLTTime(d) {
   return d.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
 }
 
-function hoursBetween(startISO, endISO) {
-  const a = new Date(startISO).getTime();
-  const b = new Date(endISO || new Date().toISOString()).getTime();
-  const ms = Math.max(0, b - a);
-  return ms / (1000 * 60 * 60);
+function msBetween(aISO, bISO) {
+  const a = new Date(aISO).getTime();
+  const b = new Date(bISO || new Date().toISOString()).getTime();
+  return Math.max(0, b - a);
 }
 
-function fmtHHMM(hrs) {
-  const h = Math.floor(hrs);
-  const m = Math.round((hrs - h) * 60);
+function fmtHhMmFromMs(ms) {
+  const mins = Math.floor(ms / (1000 * 60));
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
   return `${h}h ${m}m`;
 }
 
@@ -56,29 +60,54 @@ function shiftMiles(s) {
 }
 
 function sum(arr, fn) {
-  return arr.reduce((acc, x) => acc + (Number(fn(x)) || 0), 0);
+  return (arr || []).reduce((acc, x) => acc + (Number(fn(x)) || 0), 0);
 }
 
-function netClass(net) {
-  return net >= 0 ? 'text-green-400' : 'text-red-400';
+function groupBy(arr, keyFn) {
+  const out = {};
+  for (const x of arr || []) {
+    const k = String(keyFn(x));
+    if (!out[k]) out[k] = [];
+    out[k].push(x);
+  }
+  return out;
 }
 
-function fmtMinutes(mins) {
-  const m = Math.max(0, Math.round(Number(mins) || 0));
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  return h > 0 ? `${h}h ${r}m` : `${r}m`;
+// Pause totals per shift
+function calcPauseMs(pauses) {
+  return (pauses || []).reduce((acc, p) => {
+    const a = p.start_time ? new Date(p.start_time).getTime() : 0;
+    const b = p.end_time ? new Date(p.end_time).getTime() : Date.now();
+    const ms = Math.max(0, (b || 0) - (a || 0));
+    return acc + ms;
+  }, 0);
 }
 
-function minutesBetween(aISO, bISO) {
-  const a = new Date(aISO).getTime();
-  const b = new Date(bISO).getTime();
-  const ms = Math.max(0, b - a);
-  return ms / (1000 * 60);
+function statusBadge(statusRaw) {
+  const s = String(statusRaw || '').toLowerCase();
+
+  if (s === 'active') {
+    return `<span class="status-badge status-active">ACTIVE</span>`;
+  }
+  if (s === 'paused') {
+    return `<span class="status-badge status-paused">PAUSED</span>`;
+  }
+  // completed / everything else
+  return `
+    <span class="status-badge" style="
+      color:#9ca3af;
+      background: rgba(156,163,175,.10);
+      border-color: rgba(156,163,175,.28);
+    ">COMPLETED</span>
+  `;
+}
+
+function moneyColor(v) {
+  return v >= 0 ? '#22c55e' : '#ef4444';
 }
 
 // ────────────────────────────────────────────────────────────────
-// TRANSACTIONS (keep behavior)
+// TRANSACTIONS
 // ────────────────────────────────────────────────────────────────
 
 export function openTxModal(dir, shiftId = null) {
@@ -93,6 +122,7 @@ export function openTxModal(dir, shiftId = null) {
     setTimeout(() => inp.focus(), 100);
   }
 
+  // keep modal stacking safe
   if (shiftId) document.getElementById('shift-details-modal')?.classList.add('hidden');
   openModal('tx-modal');
 }
@@ -113,6 +143,7 @@ export async function confirmTx() {
 
     await db.from('expenses').insert({
       user_id: state.user.id,
+      // IMPORTANT: bind to active shift if exists (keeps earnings correct)
       shift_id: state.activeShift?.id || null,
       type: txDraft.direction === 'in' ? 'income' : 'expense',
       category: txDraft.category,
@@ -149,7 +180,7 @@ function updateTxModalUI(dir) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT / HISTORY — STRIPS ONLY (minimal strip content)
+// HISTORY (minimal strips)
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
@@ -169,7 +200,7 @@ export async function refreshAudit() {
         .eq('user_id', state.user.id),
       db
         .from('finance_shift_pauses')
-        .select('*')
+        .select('shift_id, start_time, end_time')
         .eq('user_id', state.user.id)
     ]);
 
@@ -182,56 +213,27 @@ export async function refreshAudit() {
       return;
     }
 
-    // cache for modal
+    // cache for details modal
     window._auditData = { shifts, expenses, pauses };
 
-    // index expenses by shift
-    const expByShift = {};
-    for (const e of expenses) {
-      const k = String(e.shift_id || '');
-      if (!k) continue;
-      if (!expByShift[k]) expByShift[k] = [];
-      expByShift[k].push(e);
-    }
-
-    // index pauses by shift
-    const pausesByShift = {};
-    for (const p of pauses) {
-      const k = String(p.shift_id || '');
-      if (!k) continue;
-      if (!pausesByShift[k]) pausesByShift[k] = [];
-      pausesByShift[k].push(p);
-    }
+    // indexes (kept if you need later)
+    const expByShift = groupBy(expenses.filter(e => e.shift_id), e => e.shift_id);
+    const pauseByShift = groupBy(pauses.filter(p => p.shift_id), p => p.shift_id);
 
     listEl.innerHTML = shifts.map(s => {
       const start = new Date(s.start_time);
       const end = s.end_time ? new Date(s.end_time) : null;
 
-      const hrs = hoursBetween(s.start_time, s.end_time);
-      const dist = shiftMiles(s);
+      const dateStr = toLTDateISO(start);
+      const startT = toLTTime(start);
+      const endT = end ? toLTTime(end) : '…';
 
-      const dateShort = toLTDateShort(start);
-      const t1 = toLTTime(start);
-      const t2 = end ? toLTTime(end) : '...';
+      const durMs = msBetween(s.start_time, s.end_time || null);
+      const dur = fmtHhMmFromMs(durMs);
 
-      // Net for right side (v1.8 feel)
-      const sExp = expByShift[String(s.id)] || [];
-      const income = sExp.filter(x => x.type === 'income');
-      const expense = sExp.filter(x => x.type === 'expense');
-      const incSum = sum(income, x => x.amount);
-      const expSum = sum(expense, x => x.amount);
-      const gross = Math.max(incSum, Number(s.gross_earnings || 0));
-      const net = gross - expSum;
+      const miles = shiftMiles(s);
 
-      // Status badge (optional, but cheap and nice)
-      const badge =
-        s.status === 'paused'
-          ? `<span class="status-badge status-paused">PAUSE</span>`
-          : s.status === 'active'
-          ? `<span class="status-badge status-active">ACTIVE</span>`
-          : '';
-
-      // Minimal strip: date, start-end, hours, miles (on the bar)
+      // Minimal strip = date + start-end + (dur) + miles
       return `
         <div class="shift-strip flex items-center justify-between gap-3" onclick="openShiftDetails('${s.id}')">
           <div class="flex items-center gap-3 min-w-0">
@@ -244,17 +246,22 @@ export async function refreshAudit() {
 
             <div class="min-w-0">
               <div class="text-[10px] uppercase tracking-widest opacity-70">
-                ${dateShort} • ${t1}–${t2} • ${fmtHHMM(hrs)} • ${dist}mi
+                ${safeText(dateStr)}
               </div>
-              <div class="text-sm font-bold tracking-tight flex items-center gap-2">
-                <span class="truncate">${safeText(s.vehicles?.name || 'Vehicle')}</span>
-                ${badge}
+
+              <div class="text-sm font-bold tracking-tight">
+                ${safeText(startT)} – ${safeText(endT)}
+                <span class="opacity-60 font-normal">(${safeText(dur)})</span>
+              </div>
+
+              <div class="text-[10px] uppercase tracking-widest opacity-50">
+                ${safeText(String(miles))} mi
               </div>
             </div>
           </div>
 
-          <div class="font-bold ${netClass(net)} text-right">
-            ${formatCurrency(net)}
+          <div class="opacity-40">
+            <i class="fa-solid fa-chevron-right"></i>
           </div>
         </div>
       `;
@@ -268,7 +275,7 @@ export async function refreshAudit() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT DETAILS MODAL — full info (includes pauses summary)
+// SHIFT DETAILS MODAL (full, icons + status badge)
 // ────────────────────────────────────────────────────────────────
 
 export function openShiftDetails(id) {
@@ -287,52 +294,179 @@ export function openShiftDetails(id) {
 
   const incSum = sum(income, x => x.amount);
   const expSum = sum(expense, x => x.amount);
+
+  // gross rule: max(shift.gross_earnings, sum(income))
   const gross = Math.max(incSum, Number(s.gross_earnings || 0));
   const net = gross - expSum;
 
-  const dist = shiftMiles(s);
-  const hrs = hoursBetween(s.start_time, s.end_time);
-
-  // Pauses
-  const sPauses = pauses
-    .filter(p => String(p.shift_id) === String(id))
-    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-
-  const pauseMinutes = sum(sPauses, p => {
-    if (!p.start_time) return 0;
-    const endISO = p.end_time || new Date().toISOString();
-    return minutesBetween(p.start_time, endISO);
-  });
-
-  const vehicleName = safeText(s.vehicles?.name || 'Unknown');
   const start = new Date(s.start_time);
   const end = s.end_time ? new Date(s.end_time) : null;
 
-  const header = `${toLTDateShort(start)} • ${toLTTime(start)}${end ? `–${toLTTime(end)}` : ''}`;
+  const dateStr = toLTDateISO(start);
+  const t1 = toLTTime(start);
+  const t2 = end ? toLTTime(end) : '…';
 
-  const lines = [
-    `VEHICLE: ${vehicleName}`,
-    `TIME: ${header}`,
-    `STATUS: ${safeText(s.status || '')}`,
-    `START ODO: ${Number(s.start_odo || 0)}`,
-    `END ODO: ${Number(s.end_odo || 0)}`,
-    `MILES: ${dist} mi`,
-    `DURATION: ${fmtHHMM(hrs)}`,
-    `PAUSE TOTAL: ${fmtMinutes(pauseMinutes)}`,
-    `EARNINGS: ${formatCurrency(gross)}`,
-    `EXPENSES: -${formatCurrency(expSum)}`,
-    `NET: ${formatCurrency(net)}`
-  ];
+  const driveMs = msBetween(s.start_time, s.end_time || null);
+  const driveStr = fmtHhMmFromMs(driveMs);
+
+  const miles = shiftMiles(s);
+
+  const sPauses = pauses.filter(p => String(p.shift_id) === String(id));
+  const pauseMs = calcPauseMs(sPauses);
+  const pauseStr = fmtHhMmFromMs(pauseMs);
+
+  const workMs = Math.max(0, driveMs - pauseMs);
+  const workStr = fmtHhMmFromMs(workMs);
+
+  const vehicleName = safeText(s.vehicles?.name || 'Unknown');
+  const weather = safeText(s.weather || '');
+
+  const startOdo = Number(s.start_odo || 0);
+  const endOdo = Number(s.end_odo || 0);
+
+  const row = (faIcon, label, value) => `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,.08);">
+      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+        <i class="fa-solid ${faIcon}" style="width:18px; text-align:center; opacity:.85;"></i>
+        <div style="font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.70;">${safeText(label)}</div>
+      </div>
+      <div style="font-size:14px; font-weight:800; opacity:.95; text-align:right; white-space:nowrap;">${safeText(value)}</div>
+    </div>
+  `;
+
+  const txLine = (e) => {
+    const isIn = e.type === 'income';
+    const ic = isIn ? 'fa-circle-plus' : 'fa-circle-minus';
+    const col = isIn ? '#22c55e' : '#ef4444';
+    const sign = isIn ? '+' : '−';
+    const cat = safeText(String(e.category || ''));
+    const amt = formatCurrency(Number(e.amount || 0));
+
+    const extra =
+      e.category === 'fuel'
+        ? ` <span style="opacity:.6; font-weight:700;">${
+            e.gallons ? `• ${Number(e.gallons)}g` : ''
+          }${
+            e.odometer ? ` ${e.gallons ? '' : '•'} odo ${Number(e.odometer)}` : ''
+          }</span>`
+        : '';
+
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,.06);">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          <i class="fa-solid ${ic}" style="width:18px; text-align:center; color:${col};"></i>
+          <div style="min-width:0;">
+            <div style="font-size:13px; font-weight:800; opacity:.92; line-height:1.2;">${cat}${extra}</div>
+            <div style="font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.55;">${safeText(isIn ? 'income' : 'expense')}</div>
+          </div>
+        </div>
+        <div style="font-size:14px; font-weight:900; color:${col}; white-space:nowrap;">
+          ${sign}${safeText(amt)}
+        </div>
+      </div>
+    `;
+  };
+
+  const pauseLine = (p) => {
+    const a = p.start_time ? new Date(p.start_time) : null;
+    const b = p.end_time ? new Date(p.end_time) : null;
+    const aStr = a ? toLTTime(a) : '??';
+    const bStr = b ? toLTTime(b) : '…';
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,.06);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <i class="fa-solid fa-pause" style="width:18px; text-align:center; opacity:.75;"></i>
+          <div style="font-size:13px; font-weight:800; opacity:.9;">${safeText(aStr)} – ${safeText(bStr)}</div>
+        </div>
+      </div>
+    `;
+  };
+
+  const txHtml = sExp.length
+    ? sExp
+        .slice()
+        .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
+        .map(txLine)
+        .join('')
+    : `<div style="padding:10px 0; border-top:1px solid rgba(255,255,255,.06); opacity:.55; font-size:13px;">No transactions</div>`;
+
+  const pausesHtml = sPauses.length
+    ? sPauses
+        .slice()
+        .sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0))
+        .map(pauseLine)
+        .join('')
+    : `<div style="padding:10px 0; border-top:1px solid rgba(255,255,255,.06); opacity:.55; font-size:13px;">No pauses</div>`;
 
   const target = document.getElementById('shift-details-content');
   if (target) {
     target.innerHTML = `
       <div class="shift-modal-paper">
         <div class="shift-modal-head">
-          <div class="ascii-head font-bold">${safeText(header)}</div>
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+            <div style="min-width:0;">
+              <div class="ascii-head" style="font-weight:900; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
+                <span>
+                  <i class="fa-solid fa-calendar-day" style="opacity:.85; margin-right:.45rem;"></i>
+                  ${safeText(dateStr)}
+                </span>
+                ${statusBadge(s.status)}
+              </div>
+              <div style="margin-top:.25rem; opacity:.75; font-weight:800;">
+                <i class="fa-solid fa-clock" style="opacity:.8; margin-right:.45rem;"></i>
+                ${safeText(t1)} – ${safeText(t2)}
+              </div>
+            </div>
+
+            <div style="text-align:right;">
+              <div style="font-size:10px; letter-spacing:.12em; text-transform:uppercase; opacity:.6;">NET</div>
+              <div style="font-size:20px; font-weight:900; color:${moneyColor(net)};">
+                ${safeText(formatCurrency(net))}
+              </div>
+            </div>
+          </div>
         </div>
+
         <div style="padding: 1rem;">
-          <pre class="ascii-pre">${safeText(lines.join('\n'))}</pre>
+          <div style="border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; background: rgba(255,255,255,.02);">
+            ${row('fa-car-side', 'vehicle', vehicleName)}
+            ${weather ? row('fa-cloud-sun', 'weather', weather) : ''}
+            ${row('fa-gauge-high', 'odometer', `${startOdo} → ${endOdo || '…'}`)}
+            ${row('fa-route', 'miles', `${miles} mi`)}
+            ${row('fa-stopwatch', 'duration', driveStr)}
+            ${row('fa-mug-hot', 'pause total', pauseStr)}
+            ${row('fa-person-walking', 'work time', workStr)}
+            ${row('fa-sack-dollar', 'earnings', formatCurrency(gross))}
+            ${row('fa-receipt', 'expenses', formatCurrency(expSum))}
+          </div>
+
+          <div style="margin-top:14px; border:1px solid rgba(255,255,255,.10); border-radius:14px; overflow:hidden;">
+            <div style="padding:10px 12px; background: rgba(255,255,255,.03); font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:900; opacity:.8;">
+              <i class="fa-solid fa-list" style="opacity:.85; margin-right:.5rem;"></i> Transactions
+            </div>
+            <div style="padding:0 12px;">
+              ${txHtml}
+            </div>
+          </div>
+
+          <div style="margin-top:14px; border:1px solid rgba(255,255,255,.10); border-radius:14px; overflow:hidden;">
+            <div style="padding:10px 12px; background: rgba(255,255,255,.03); font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:900; opacity:.8;">
+              <i class="fa-solid fa-pause" style="opacity:.85; margin-right:.5rem;"></i> Pauses
+            </div>
+            <div style="padding:0 12px;">
+              ${pausesHtml}
+            </div>
+          </div>
+
+          <div style="display:flex; gap:.6rem; margin-top:1rem;">
+            <button class="btn-bento" onclick="openTxModal('in', '${s.id}')">
+              <i class="fa-solid fa-circle-plus"></i> IN
+            </button>
+            <button class="btn-bento" onclick="openTxModal('out', '${s.id}')">
+              <i class="fa-solid fa-circle-minus"></i> OUT
+            </button>
+          </div>
+
           <button class="btn-primary-os" style="margin-top:1rem;" onclick="closeModals()">CLOSE</button>
         </div>
       </div>
@@ -346,19 +480,23 @@ export function openShiftDetails(id) {
 // DELETE (kept)
 // ────────────────────────────────────────────────────────────────
 
-export function toggleSelectAll() { /* optional */ }
+export function toggleSelectAll() {
+  // optional – if you later add "select all" UI
+}
 
 export function requestLogDelete() {
   const checked = document.querySelectorAll('.log-checkbox:checked');
-  if (checked.length) {
-    itemsToDelete = Array.from(checked).map(el => ({
-      type: el.value.split(':')[0],
-      id: el.value.split(':')[1]
-    }));
-    const c = document.getElementById('del-modal-count');
-    if (c) c.textContent = String(itemsToDelete.length);
-    openModal('delete-modal');
-  }
+  if (!checked.length) return;
+
+  itemsToDelete = Array.from(checked).map(el => ({
+    type: el.value.split(':')[0],
+    id: el.value.split(':')[1]
+  }));
+
+  const c = document.getElementById('del-modal-count');
+  if (c) c.textContent = String(itemsToDelete.length);
+
+  openModal('delete-modal');
 }
 
 export async function confirmLogDelete() {
@@ -372,14 +510,16 @@ export async function confirmLogDelete() {
       await db.from('finance_shift_pauses').delete().in('shift_id', sIds);
       await db.from('finance_shifts').delete().in('id', sIds);
     }
+
     if (tIds.length) {
       await db.from('expenses').delete().in('id', tIds);
     }
 
     closeModals();
-    refreshAudit();
+    await refreshAudit();
   } catch (e) {
-    showToast('Error', 'error');
+    console.error(e);
+    showToast('Delete error', 'error');
   } finally {
     state.loading = false;
   }
@@ -391,5 +531,8 @@ export function updateDeleteButtonLocal() {
   const el = document.getElementById('delete-count');
   if (el) el.textContent = String(c);
 }
+
+// optional if you later reintroduce accordion hierarchy
+export function toggleAccordion() {}
 
 export function exportAI() {}

@@ -1,95 +1,68 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/UI.JS v2.1.3
-// Logic: Themes, Clocks, Navigation & Reactive UI
+// ROBERT OS - MODULES/UI.JS v2.0.0
+// Purpose: Theme (auto/dark/light), Clocks (with seconds), Tabs, Modals, Progress UI
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
 import { vibrate, showToast } from '../utils.js';
 
 // ────────────────────────────────────────────────────────────────
-// THEME ENGINE
+// THEME ENGINE (auto / dark / light)
 // ────────────────────────────────────────────────────────────────
+
+const THEME_KEY = 'theme';
 
 export function applyTheme() {
     const html = document.documentElement;
     const themeBtn = document.getElementById('btn-theme');
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    
-    const theme = localStorage.getItem('theme') || 'auto';
-    let isDark = false;
 
-    if (theme === 'auto') {
-        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    } else {
-        isDark = (theme === 'dark');
-    }
+    const mode = (localStorage.getItem(THEME_KEY) || 'auto').toLowerCase();
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
+    const isDark = (mode === 'auto') ? prefersDark : (mode === 'dark');
+
+    // ✅ Keep compatibility with your CSS approach (:root.light overrides)
     html.classList.toggle('light', !isDark);
     html.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    
+
     if (metaThemeColor) {
         metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
     }
-    
+
+    // Button icon reflects MODE (not computed isDark)
     if (themeBtn) {
         const icons = { auto: 'fa-circle-half-stroke', dark: 'fa-moon', light: 'fa-sun' };
-        themeBtn.innerHTML = `<i class="fa-solid ${icons[theme] || icons.auto}"></i>`;
+        themeBtn.innerHTML = `<i class="fa-solid ${icons[mode] || icons.auto}"></i>`;
     }
 }
 
 export function cycleTheme() {
     vibrate([10]);
     const modes = ['auto', 'dark', 'light'];
-    let current = localStorage.getItem('theme') || 'auto';
-    let next = modes[(modes.indexOf(current) + 1) % modes.length];
-    
-    localStorage.setItem('theme', next);
+    const current = (localStorage.getItem(THEME_KEY) || 'auto').toLowerCase();
+    const next = modes[(modes.indexOf(current) + 1) % modes.length];
+
+    localStorage.setItem(THEME_KEY, next);
     applyTheme();
-    showToast(`TEMA: ${next.toUpperCase()}`, 'info');
+    showToast(`THEME: ${next.toUpperCase()}`, 'info');
 }
 
 export function syncThemeIfAuto() {
-    if ((localStorage.getItem('theme') || 'auto') === 'auto') {
-        applyTheme();
-    }
+    const mode = (localStorage.getItem(THEME_KEY) || 'auto').toLowerCase();
+    if (mode === 'auto') applyTheme();
 }
 
+// React to OS theme change when in AUTO
 if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => syncThemeIfAuto());
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    // Safari iOS older fallback: addListener/removeListener
+    if (mq.addEventListener) mq.addEventListener('change', syncThemeIfAuto);
+    else if (mq.addListener) mq.addListener(syncThemeIfAuto);
 }
 
 // ────────────────────────────────────────────────────────────────
-// UI UPDATES
-// ────────────────────────────────────────────────────────────────
-
-export function updateUI(key) {
-    if (key === 'loading') {
-        const loader = document.getElementById('loading');
-        if (loader) loader.classList.toggle('hidden', !state.loading);
-    }
-    
-    if (key === 'activeShift') {
-        const hasShift = !!state.activeShift;
-        const isPaused = state.activeShift?.status === 'paused';
-        
-        document.getElementById('btn-start')?.classList.toggle('hidden', hasShift);
-        document.getElementById('active-controls')?.classList.toggle('hidden', !hasShift);
-        
-        const btnPause = document.getElementById('btn-pause');
-        if (btnPause && hasShift) {
-            if (isPaused) {
-                btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
-                btnPause.className = 'col-span-1 btn-bento bg-green-500/10 text-green-500 border-green-500/50 hover:bg-green-500/20';
-            } else {
-                btnPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
-                btnPause.className = 'col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20';
-            }
-        }
-    }
-}
-
-// ────────────────────────────────────────────────────────────────
-// CLOCK ENGINE
+// CLOCK ENGINE (with seconds) + LEAK-SAFE cleanup
 // ────────────────────────────────────────────────────────────────
 
 let clockInterval = null;
@@ -106,95 +79,179 @@ export function stopClocks() {
 }
 
 function updateClocks() {
-    const settings = state.userSettings || { timezone: 'America/Chicago' };
+    const settings = state.userSettings || {};
+
+    const tzPrimary = settings.timezone_primary || settings.timezone || 'America/Chicago';
+    const tzSecondary = settings.timezone_secondary || 'America/Chicago';
 
     try {
         const primaryTime = new Date().toLocaleTimeString('lt-LT', {
-            timeZone: settings.timezone || 'America/Chicago',
-            hour: '2-digit', minute: '2-digit', hour12: false
+            timeZone: tzPrimary,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
         });
-        
+
         const secondaryTime = new Date().toLocaleTimeString('lt-LT', {
-            timeZone: settings.timezone_secondary || 'America/Chicago', // FIX: Default to Chicago
-            hour: '2-digit', minute: '2-digit', hour12: false
+            timeZone: tzSecondary,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
         });
 
         const pEl = document.getElementById('clock-primary');
         const sEl = document.getElementById('clock-secondary');
-        
+
         if (pEl) pEl.textContent = primaryTime;
         if (sEl) sEl.textContent = `LOCAL: ${secondaryTime}`;
-        
     } catch (e) {
         console.warn('Clock Error:', e);
     }
 }
 
+// Cleanup on page hide/unload to avoid intervals kept alive in bfcache
+(function bindClockLifecycleGuards() {
+    const onHide = () => stopClocks();
+    const onShow = () => startClocks();
+
+    window.addEventListener('pagehide', onHide);
+    window.addEventListener('pageshow', onShow);
+})();
+
 // ────────────────────────────────────────────────────────────────
-// NAVIGATION & MODALS
+// UI STATE UPDATES
 // ────────────────────────────────────────────────────────────────
 
-export function openModal(id) { 
-    vibrate([10]); 
+export function updateUI(key) {
+    if (key === 'loading') {
+        const loader = document.getElementById('loading');
+        if (loader) loader.classList.toggle('hidden', !state.loading);
+    }
+
+    if (key === 'activeShift') {
+        const hasShift = !!state.activeShift;
+        const isPaused = state.activeShift?.status === 'paused';
+
+        document.getElementById('btn-start')?.classList.toggle('hidden', hasShift);
+        document.getElementById('active-controls')?.classList.toggle('hidden', !hasShift);
+
+        const btnPause = document.getElementById('btn-pause');
+        if (btnPause && hasShift) {
+            if (isPaused) {
+                btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
+                // Keep it compatible with your Tailwind classes in index
+                btnPause.className = 'col-span-1 btn-bento bg-green-500/10 text-green-500 border-green-500/50 hover:bg-green-500/20';
+            } else {
+                btnPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
+                btnPause.className = 'col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20';
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
+// MODALS
+// ────────────────────────────────────────────────────────────────
+
+export function openModal(id) {
+    vibrate([10]);
     const el = document.getElementById(id);
-    if(el) { el.classList.remove('hidden'); el.classList.add('flex'); }
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+
+    // Optional: prevent background scroll (simple + safe)
+    document.body.style.overflow = 'hidden';
 }
 
-export function closeModals() { 
-    vibrate([10]); 
+export function closeModals() {
+    vibrate([10]);
     document.querySelectorAll('.modal-overlay').forEach(m => {
-        m.classList.add('hidden'); m.classList.remove('flex');
-    }); 
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+    });
+
+    document.body.style.overflow = '';
 }
+
+// ────────────────────────────────────────────────────────────────
+// TAB NAVIGATION (v1.8 CSS contract: .tab-content + .active)
+// ────────────────────────────────────────────────────────────────
 
 export function switchTab(id) {
     vibrate([5]);
-    
-    // Paslepiame visus
+
+    // Hide all
     document.querySelectorAll('.tab-content').forEach(t => {
         t.classList.add('hidden');
         t.classList.remove('active', 'animate-slideUp');
     });
-    
-    // Parodome pasirinktą
+
+    // Show selected
     const activeTab = document.getElementById(`tab-${id}`);
     if (activeTab) {
         activeTab.classList.remove('hidden');
-        // ✅ KRITINIS PATAISYMAS: Pridedame 'active', kad CSS display: block suveiktų
+        // ✅ critical for v1.8 CSS: display: block via .active selector
         activeTab.classList.add('active');
         requestAnimationFrame(() => activeTab.classList.add('animate-slideUp'));
     }
-    
-    // Atnaujiname mygtukus
+
+    // Update nav buttons
     document.querySelectorAll('.nav-item').forEach(n => {
-        n.classList.remove('active', 'text-teal-500'); 
+        n.classList.remove('active', 'text-teal-500');
         n.classList.add('opacity-50');
     });
-    
+
     const activeBtn = document.getElementById(`btn-${id}`);
     if (activeBtn) {
-        activeBtn.classList.add('active', 'text-teal-500'); 
+        activeBtn.classList.add('active', 'text-teal-500');
         activeBtn.classList.remove('opacity-50');
     }
 
     state.currentTab = id;
+
+    // Refresh audit tab data
     if (id === 'audit') window.dispatchEvent(new Event('refresh-data'));
 }
+
+// ────────────────────────────────────────────────────────────────
+// PROGRESS UI HELPERS
+// ────────────────────────────────────────────────────────────────
 
 export function renderProgressBar(id, cur, tar, colors = {}) {
     const el = document.getElementById(id);
     if (!el) return;
-    
+
     const percent = tar > 0 ? Math.min((cur / tar) * 100, 100) : 0;
     el.style.width = `${percent}%`;
+
+    // Reset class to base, then apply color
     el.className = 'h-full transition-all duration-500 relative';
-    
-    if (percent < (colors.warning || 70)) el.classList.add('bg-red-500');
-    else if (percent < (colors.success || 90)) el.classList.add('bg-teal-500');
+
+    const warning = typeof colors.warning === 'number' ? colors.warning : 70;
+    const success = typeof colors.success === 'number' ? colors.success : 90;
+
+    if (percent < warning) el.classList.add('bg-red-500');
+    else if (percent < success) el.classList.add('bg-teal-500');
     else el.classList.add('bg-green-500');
 }
 
-export function renderProgressText(id, txt) { 
-    const el = document.getElementById(id); 
-    if (el) el.textContent = txt; 
+export function renderProgressText(id, txt) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+}
+
+// ────────────────────────────────────────────────────────────────
+// BOOTSTRAP HELPERS
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * Call once on app init (after userSettings loaded if possible).
+ * Safe even if called multiple times.
+ */
+export function initUI() {
+    applyTheme();
+    startClocks();
 }

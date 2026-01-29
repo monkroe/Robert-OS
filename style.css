@@ -878,3 +878,15 @@ body{
 :root.light .acc-body{
   border-top-color: rgba(0,0,0,.08);
   }
+
+/* AUTH screen inputs should NOT be bold/ugly */
+#auth-screen .input-field{
+  font-weight: 500 !important;
+  font-size: 16px !important;
+  line-height: 1.35 !important;
+}
+
+/* Optional: make placeholders cleaner */
+#auth-screen .input-field::placeholder{
+  opacity: .55;
+}

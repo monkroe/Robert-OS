@@ -1,10 +1,11 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - APP.JS v2.0.1
 // Purpose: System bootstrap + bindings + refresh cycle with safe cleanup
-// FIXES:
-// - Fix broken/duplicated shiftEarnings block (was causing 0/progress issues)
-// - Remove duplicate earningsEl assignment
-// - Do not await non-async Costs.calculateShiftEarnings()
+//
+// FIX v2.0.1:
+// - Daily target + Earnings no longer NaN (hard numeric guards)
+// - Uses await Costs.calculateShiftEarnings() (now async)
+// - Removes duplicate earningsEl block
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -22,7 +23,6 @@ let refreshBound = false;
 let lifecycleBound = false;
 
 async function init() {
-  // Keep your v1 label (optional)
   const startBtn = document.querySelector('#start-modal .btn-primary-os');
   if (startBtn) startBtn.textContent = 'START SHIFT';
 
@@ -37,14 +37,11 @@ async function init() {
     appContent?.classList.remove('hidden');
 
     try {
-      // 1) Settings first (clocks depend on it)
       await Settings.loadSettings();
 
-      // 2) Theme + clocks
       UI.applyTheme();
       UI.startClocks();
 
-      // 3) Fleet + refresh
       await Garage.fetchFleet();
       await refreshAll();
 
@@ -54,7 +51,6 @@ async function init() {
       console.error(e);
     }
   } else {
-    // Not logged in: stop intervals to avoid leaks
     UI.stopClocks?.();
     Shifts.stopTimer?.();
 
@@ -108,10 +104,6 @@ export async function refreshAll() {
 
     state.activeShift = shift || null;
 
-    // ────────────────────────────────────────────────────────
-    // TIMER & PAUSE BUTTON SYNC
-    // ────────────────────────────────────────────────────────
-
     const timerEl = document.getElementById('shift-timer');
     const pauseBtn = document.getElementById('btn-pause');
 
@@ -126,7 +118,6 @@ export async function refreshAll() {
         if (pauseBtn) {
           pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
           pauseBtn.classList.remove('bg-yellow-500/20', 'text-yellow-500');
-          // restore v1.8 “running” look (neutral)
           pauseBtn.classList.add('bg-yellow-500/10');
         }
       } else {
@@ -136,7 +127,6 @@ export async function refreshAll() {
 
         if (pauseBtn) {
           pauseBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-          // keep paused = yellow hint
           pauseBtn.classList.add('bg-yellow-500/20', 'text-yellow-500');
         }
       }
@@ -158,18 +148,24 @@ export async function refreshAll() {
   }
 }
 
+function toFiniteNumber(v, fallback = 0) {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
+  return Number.isFinite(n) ? n : fallback;
+}
+
 async function updateProgressBars() {
   if (!state.user) return;
 
   try {
     const rentalProgress = await Costs.calculateWeeklyRentalProgress();
-    UI.renderProgressBar('rental-bar', rentalProgress.earned, rentalProgress.target);
-    UI.renderProgressText('rental-val', `$${Math.round(rentalProgress.earned)} / $${rentalProgress.target}`);
+    const rentalEarned = toFiniteNumber(rentalProgress?.earned, 0);
+    const rentalTarget = toFiniteNumber(rentalProgress?.target, 0);
 
-    const dailyCost = await Costs.calculateDailyCost();
+    UI.renderProgressBar('rental-bar', rentalEarned, rentalTarget);
+    UI.renderProgressText('rental-val', `$${Math.round(rentalEarned)} / $${Math.round(rentalTarget)}`);
 
-    // IMPORTANT: calculateShiftEarnings is sync in your Costs.js
-    const shiftEarnings = Costs.calculateShiftEarnings();
+    const dailyCost = toFiniteNumber(await Costs.calculateDailyCost(), 0);
+    const shiftEarnings = toFiniteNumber(await Costs.calculateShiftEarnings(), 0);
 
     UI.renderProgressBar('grind-bar', shiftEarnings, dailyCost);
     UI.renderProgressText('grind-val', `$${Math.round(shiftEarnings)} / $${Math.round(dailyCost)}`);
@@ -182,7 +178,7 @@ async function updateProgressBars() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// GLOBAL BINDINGS (single source of truth)
+// GLOBAL BINDINGS
 // ────────────────────────────────────────────────────────────────
 
 window.login = Auth.login;
@@ -223,7 +219,6 @@ window.exportAI = Finance.exportAI;
 window.updateDeleteButtonLocal = Finance.updateDeleteButtonLocal;
 window.openShiftDetails = Finance.openShiftDetails;
 
-// optional if you actually implemented it in finance.js
 window.toggleAccordion = Finance.toggleAccordion;
 
 document.addEventListener('DOMContentLoaded', init);

@@ -1,7 +1,10 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS - STYLE.CSS v2.0.0                                     */
-/* Base v1.8 look + Auto/Light/Dark + Toast v1.8 (single)           */
-/* + Compact History Strips + Tree/Details modal safe styling       */
+/* ROBERT OS - STYLE.CSS v2.0.1                                     */
+/* Fixes:                                                           */
+/* - ✅ Inputs/fonts cleaned (no ugly mono)                          */
+/* - ✅ Logs restored to “v1.8 strips” look for NEW finance.js markup*/
+/* - ✅ Toasts remain v1.8 single-source (icons supported)           */
+/* - ✅ Day/Shift report modal (“rep-*”) styled + theme-safe          */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root{
@@ -64,7 +67,7 @@ body{
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Header & bottom nav                                               */
+/* Header & bottom nav                                              */
 /* ════════════════════════════════════════════════════════════════ */
 .global-header{
   position:fixed; top:0; left:0; right:0; z-index:50;
@@ -146,7 +149,7 @@ body{
 .header-btn:active{ transform:scale(.96); }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Inputs                                                            */
+/* Inputs                                                           */
 /* ════════════════════════════════════════════════════════════════ */
 .input-field{
   width:100%;
@@ -164,7 +167,7 @@ body{
 }
 :root.light .input-field{ border-color:#d1d5db; }
 
-/* Fix: settings/modal inputs font size (no giant monospace) */
+/* Fix: settings/modal inputs font (no ugly mono) */
 #settings-modal input,
 #settings-modal select,
 #garage-modal input,
@@ -173,15 +176,17 @@ body{
 .modal-content select,
 .input-field{
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-  font-weight: 650 !important;
+  font-weight: 700 !important;
   font-size: 14px !important;
   line-height: 1.25 !important;
   letter-spacing: 0 !important;
+  -webkit-text-size-adjust: 100%;
 }
 
 #tx-amount{
   font-size: 32px !important;
   font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
 }
 
 /* Segmented control */
@@ -236,13 +241,13 @@ body{
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Tabs                                                              */
+/* Tabs                                                             */
 /* ════════════════════════════════════════════════════════════════ */
 .tab-content{ display:none; opacity:0; }
 .tab-content.active{ display:block; animation: slideUp .25s cubic-bezier(.16,1,.3,1) forwards; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Bento cards                                                        */
+/* Bento cards                                                      */
 /* ════════════════════════════════════════════════════════════════ */
 .bento-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
 .bento-card{
@@ -259,7 +264,7 @@ body{
 :root.light .bento-card.clickable:active{ background-color: rgba(0,0,0,.05); }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Modals                                                             */
+/* Modals                                                           */
 /* ════════════════════════════════════════════════════════════════ */
 .modal-overlay{
   position:fixed; inset:0; z-index:100;
@@ -286,7 +291,7 @@ body{
 :root.light .modal-content{ box-shadow:0 10px 30px rgba(0,0,0,.10); }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Nav items                                                          */
+/* Nav items                                                        */
 /* ════════════════════════════════════════════════════════════════ */
 .nav-item{
   display:flex; flex-direction:column;
@@ -308,7 +313,7 @@ body{
 .no-scrollbar::-webkit-scrollbar{ display:none; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Typography                                                         */
+/* Typography                                                       */
 /* ════════════════════════════════════════════════════════════════ */
 .val-timer{
   font-size:3rem;
@@ -333,7 +338,7 @@ body{
 :root.light #rental-val, :root.light #grind-val{ color:#111827 !important; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Toasts — v1.8 single source of truth (NO DUPLICATES)              */
+/* Toasts — v1.8 single source of truth (NO DUPLICATES)             */
 /* ════════════════════════════════════════════════════════════════ */
 #toast-container{
   position:fixed;
@@ -361,13 +366,16 @@ body{
   letter-spacing: 0;
   text-transform: none;
 
-  color: #0b0b0c !important;         /* black text like v1.8 */
+  color: #0b0b0c !important;
   border: 1px solid rgba(0,0,0,.10);
   box-shadow: 0 18px 40px rgba(0,0,0,.28);
   pointer-events:auto;
 }
 
-#toast-container > div i{ font-size: 1.15rem; }
+#toast-container > div i{
+  font-size: 1.15rem;
+  opacity: .95;
+}
 
 /* keep bg-* tokens but match v1.8 feel */
 .bg-teal-500{ background-color:#14b8a6 !important; }
@@ -381,7 +389,7 @@ body{
 #toast-container > .bg-yellow-500{box-shadow: 0 18px 40px rgba(0,0,0,.28), 0 0 40px rgba(234,179,8,.20) !important; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Status badge                                                      */
+/* Status badge                                                     */
 /* ════════════════════════════════════════════════════════════════ */
 @keyframes badgePulseTeal{
   0%,100%{ box-shadow:0 0 0 rgba(20,184,166,0); }
@@ -416,73 +424,381 @@ body{
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* History / Audit — compact strips                                  */
-/* You can keep your existing render HTML; these styles improve it.  */
+/* HISTORY (finance.js v2.0.0 markup) — RESTORED “v1.8 strips” look  */
+/* Classes used by your finance.js:                                  */
+/* history-month/month-head/month-left/month-line/month-right        */
+/* day-block/day-head/day-title/day-sum/day-shifts                   */
+/* os-strip + children, log-checkbox, net-pos/net-neg                */
 /* ════════════════════════════════════════════════════════════════ */
-.shift-strip{
-  border-radius: 18px !important;
-  padding: 14px 14px !important;
-  border: 1px solid rgba(255,255,255,.10) !important;
-  background: rgba(255,255,255,.03) !important;
-  box-shadow: 0 12px 30px rgba(0,0,0,.40);
+
+.history-month{ margin-bottom: 18px; }
+
+.month-head{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  padding: 10px 2px 8px;
+  margin-bottom: 6px;
 }
-:root.light .shift-strip{
-  border-color: rgba(0,0,0,.08) !important;
-  background: #ffffff !important;
+.month-left{
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  opacity: .85;
+}
+.month-line{
+  flex:1;
+  height:1px;
+  background: var(--border-color);
+  opacity: .8;
+}
+.month-right{
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: -.01em;
+  opacity: .95;
+}
+
+/* Day block */
+.day-block{ margin-bottom: 10px; }
+
+.day-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  padding: 12px 14px;
+  cursor:pointer;
+
+  transition: transform .10s ease, background-color .15s ease, border-color .15s ease;
+}
+.day-head:active{ transform: scale(.992); }
+.day-title{
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .02em;
+  text-transform: capitalize;
+  opacity: .92;
+}
+.day-sum{
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: -.01em;
+  opacity: .98;
+}
+:root.light .day-head{
+  background: rgba(0,0,0,.03);
+  border-color: rgba(0,0,0,.08);
+}
+
+/* Shift strips container */
+.day-shifts{
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+  padding: 10px 0 2px;
+}
+
+/* The strip itself (v1.8 feel) */
+.os-strip{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+
+  border-radius: 18px;
+  padding: 14px 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  box-shadow: 0 12px 30px rgba(0,0,0,.40);
+
+  cursor:pointer;
+  transition: transform .10s ease, background-color .15s ease, border-color .15s ease;
+}
+.os-strip:active{ transform: scale(.992); }
+
+:root.light .os-strip{
+  border-color: rgba(0,0,0,.08);
+  background: #ffffff;
   box-shadow: 0 12px 24px rgba(17,24,39,.10);
 }
 
-/* Make DATE stronger than time (your request) */
-.shift-strip .text-\[10px\]{
-  font-size: 12px !important;
-  font-weight: 900 !important;
-  opacity: .72 !important;
-  letter-spacing: .08em !important;
-}
-.shift-strip .text-sm.font-bold{
-  font-size: 16px !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.01em !important;
-  opacity: .92 !important;
+/* Left side layout */
+.os-strip-left{
+  display:flex;
+  align-items:flex-start;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
-/* Right side net number calmer (no “NET PROFIT” styling here) */
-.shift-strip .font-bold.text-green-400,
-.shift-strip .font-bold.text-red-400{
-  font-size: 20px !important;
-  letter-spacing: -0.02em !important;
+.log-checkbox{
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.04);
+  accent-color: #14b8a6;
+  margin-top: 2px;
+  cursor:pointer;
+}
+:root.light .log-checkbox{
+  border: 1px solid rgba(0,0,0,.12);
+  background: rgba(0,0,0,.03);
 }
 
-/* Checkbox a bit cleaner */
-.shift-strip .log-checkbox{
-  width: 22px !important;
-  height: 22px !important;
-  border-radius: 8px !important;
-  border: 1px solid rgba(255,255,255,.18) !important;
-  background: rgba(255,255,255,.04) !important;
-}
-:root.light .shift-strip .log-checkbox{
-  border: 1px solid rgba(0,0,0,.12) !important;
-  background: rgba(0,0,0,.03) !important;
+/* Main text */
+.os-strip-main{ min-width:0; flex:1; }
+
+.os-strip-top{
+  display:flex;
+  align-items:baseline;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-/* If your HTML later adds a micro-row: <div class="micro"> ... </div> */
-.shift-strip .micro{
+.os-strip-date{
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  opacity: .78;
+}
+
+.os-strip-time{
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: -.01em;
+  opacity: .90;
+}
+
+.os-strip-dur{
+  font-size: 12px;
+  font-weight: 800;
+  opacity: .62;
+}
+
+/* Sub row */
+.os-strip-sub{
   margin-top: 8px;
   font-size: 12px;
-  font-weight: 700;
-  opacity: .70;
+  font-weight: 800;
+  opacity: .72;
   display:flex;
   align-items:center;
   gap: 10px;
   flex-wrap: wrap;
 }
-.shift-strip .micro i{ opacity:.70; }
-.shift-strip .micro .dot{ opacity:.45; }
+.os-strip-sub i{ opacity: .78; }
+.os-sub-dot{ opacity: .45; }
+
+/* Right side net */
+.os-strip-right{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex: 0 0 auto;
+}
+
+.os-strip-net{
+  font-size: 20px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.net-pos{ color:#4ade80; }
+.net-neg{ color:#fb7185; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Shift details modal (ASCII / tree) — theme-safe                   */
+/* REPORT / DETAILS MODAL (rep-*) — theme-safe + clean               */
+/* Used by openDayDetails + openShiftDetails                         */
 /* ════════════════════════════════════════════════════════════════ */
+
+.rep-card{
+  padding: 14px 14px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  box-shadow: 0 18px 40px rgba(0,0,0,.45);
+}
+:root.light .rep-card{
+  border-color: rgba(0,0,0,.10);
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(17,24,39,.10);
+}
+
+.rep-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed rgba(255,255,255,.14);
+}
+:root.light .rep-head{ border-bottom-color: rgba(0,0,0,.12); }
+
+.rep-bigdate{
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: .02em;
+  text-transform: capitalize;
+  opacity: .95;
+}
+.rep-small{
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  opacity: .65;
+}
+
+.rep-duration{
+  text-align:right;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+}
+:root.light .rep-duration{
+  border-color: rgba(0,0,0,.10);
+  background: rgba(0,0,0,.03);
+}
+.rep-durcap{
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  opacity: .70;
+}
+.rep-durval{
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: -.01em;
+  margin-top: 2px;
+}
+
+.rep-netbox{
+  display:flex;
+  align-items:stretch;
+  justify-content:space-between;
+  gap: 12px;
+
+  padding: 12px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+  margin-bottom: 12px;
+}
+:root.light .rep-netbox{
+  border-color: rgba(0,0,0,.10);
+  background: rgba(0,0,0,.03);
+}
+
+.rep-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.rep-key{
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  opacity: .85;
+  text-transform: uppercase;
+}
+.rep-val{
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+}
+.rep-strong .rep-key{ opacity: .95; }
+.rep-strong .rep-val{ opacity: .98; }
+.rep-muted{ opacity: .62; }
+
+.rep-net-right{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.rep-metrics{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+.rep-metric{
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.02);
+  border-radius: 14px;
+  padding: 10px 10px;
+}
+:root.light .rep-metric{
+  border-color: rgba(0,0,0,.10);
+  background: rgba(0,0,0,.02);
+}
+.rep-mcap{
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  opacity: .65;
+}
+.rep-mval{
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: -.01em;
+}
+
+.rep-divider{
+  height:1px;
+  background: rgba(255,255,255,.12);
+  margin: 12px 0;
+}
+:root.light .rep-divider{ background: rgba(0,0,0,.10); }
+.rep-divider.soft{
+  opacity: .55;
+  margin: 10px 0;
+}
+
+.rep-section{
+  margin-top: 10px;
+  padding-top: 8px;
+}
+.rep-title{
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  opacity: .70;
+  margin: 10px 0 6px;
+}
+
+.rep-close{
+  margin-top: 14px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* Shift details modal (ASCII / tree) — theme-safe                  */
+/* (kept for compatibility if you inject those blocks)               */
+/* ════════════════════════════════════════════════════════════════ */
+
 .shift-modal-paper{
   border: 1px solid rgba(255,255,255,.10);
   border-radius: 1.25rem;
@@ -519,7 +835,7 @@ body{
   opacity: .95;
 }
 
-/* Accordion wrapper used in earlier variant (safe if present) */
+/* Accordion wrapper (safe if present) */
 .acc-wrap{ display:flex; flex-direction:column; gap:.6rem; padding:.9rem; }
 .acc-item{
   border: 1px solid rgba(255,255,255,.10);
@@ -561,4 +877,4 @@ body{
 }
 :root.light .acc-body{
   border-top-color: rgba(0,0,0,.08);
-}
+  }

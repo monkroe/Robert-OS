@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.2.0
+// ROBERT OS - MODULES/FINANCE.JS v2.2.1
 // Goals:
 // - History: minimalist one-bar strip per shift:
 //   date + start-end + duration + miles (ONLY)
@@ -7,6 +7,10 @@
 // - Full details include: pause total + tx list + pause list + sums
 // - Keep delete checkbox behavior
 // - Keep tx modal behavior
+//
+// FIX v2.2.1:
+// - Transactions from Shift Details now bind to THAT shift (not only activeShift)
+//   via txShiftId captured in openTxModal() and used in confirmTx().
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -15,6 +19,7 @@ import { showToast, vibrate, formatCurrency } from '../utils.js';
 import { openModal, closeModals } from './ui.js';
 
 let txDraft = { direction: 'in', category: 'tips' };
+let txShiftId = null; // IMPORTANT: which shift the tx belongs to (details modal can override)
 let itemsToDelete = [];
 
 // ────────────────────────────────────────────────────────────────
@@ -92,7 +97,6 @@ function statusBadge(statusRaw) {
   if (s === 'paused') {
     return `<span class="status-badge status-paused">PAUSED</span>`;
   }
-  // completed / everything else
   return `
     <span class="status-badge" style="
       color:#9ca3af;
@@ -114,6 +118,10 @@ export function openTxModal(dir, shiftId = null) {
   vibrate();
   txDraft.direction = dir;
   txDraft.category = dir === 'in' ? 'tips' : 'fuel';
+
+  // IMPORTANT: if opened from details modal, bind tx to that shift
+  txShiftId = shiftId || null;
+
   updateTxModalUI(dir);
 
   const inp = document.getElementById('tx-amount');
@@ -141,16 +149,23 @@ export async function confirmTx() {
       meta.odometer = parseInt(document.getElementById('tx-odo')?.value || 0, 10) || 0;
     }
 
+    // Decide which shift to bind:
+    // 1) explicit txShiftId (from shift details modal)
+    // 2) fallback active shift (normal flow)
+    const shift_id = txShiftId || state.activeShift?.id || null;
+
     await db.from('expenses').insert({
       user_id: state.user.id,
-      // IMPORTANT: bind to active shift if exists (keeps earnings correct)
-      shift_id: state.activeShift?.id || null,
+      shift_id,
       type: txDraft.direction === 'in' ? 'income' : 'expense',
       category: txDraft.category,
       amount,
       ...meta,
       created_at: new Date().toISOString()
     });
+
+    // reset context so future tx from main flow doesn't accidentally bind old shift
+    txShiftId = null;
 
     closeModals();
     window.dispatchEvent(new Event('refresh-data'));
@@ -219,6 +234,7 @@ export async function refreshAudit() {
     // indexes (kept if you need later)
     const expByShift = groupBy(expenses.filter(e => e.shift_id), e => e.shift_id);
     const pauseByShift = groupBy(pauses.filter(p => p.shift_id), p => p.shift_id);
+    void expByShift; void pauseByShift;
 
     listEl.innerHTML = shifts.map(s => {
       const start = new Date(s.start_time);
@@ -233,7 +249,6 @@ export async function refreshAudit() {
 
       const miles = shiftMiles(s);
 
-      // Minimal strip = date + start-end + (dur) + miles
       return `
         <div class="shift-strip flex items-center justify-between gap-3" onclick="openShiftDetails('${s.id}')">
           <div class="flex items-center gap-3 min-w-0">
@@ -295,7 +310,6 @@ export function openShiftDetails(id) {
   const incSum = sum(income, x => x.amount);
   const expSum = sum(expense, x => x.amount);
 
-  // gross rule: max(shift.gross_earnings, sum(income))
   const gross = Math.max(incSum, Number(s.gross_earnings || 0));
   const net = gross - expSum;
 

@@ -1,534 +1,453 @@
-<!-- ════════════════════════════════════════════════════════════════
-     ROBERT OS - INDEX.HTML v2.0.0
-     Purpose: v1.8 UI layout + Header clocks hooks (primary/secondary)
-     ════════════════════════════════════════════════════════════════ -->
-
 <!DOCTYPE html>
 <html lang="lt">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
-    <link rel="preconnect" href="https://cdn.tailwindcss.com">
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="manifest" href="manifest.json" />
 
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#000000">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png">
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#000000" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png" />
 
-    <title>ROBERT OS 2.0.0</title>
+  <title>ROBERT OS 2.0.0</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=2.0.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="style.css?v=2.0.0" />
 </head>
 
 <body class="antialiased selection:bg-teal-500 selection:text-black">
 
-    <div id="toast-container"></div>
+  <!-- ✅ RESTORED v1.8 TOAST CONTAINER (look + positioning) -->
+  <div id="toast-container" class="fixed top-4 left-4 right-4 z-[2000] flex flex-col gap-2 pointer-events-none"></div>
 
-    <div id="auth-screen" class="fixed inset-0 z-[500] flex items-center justify-center p-6 hidden" style="background-color: var(--bg-color);">
-        <div class="w-full max-w-sm text-center space-y-8 animate-slideUp">
-            <div class="w-20 h-20 mx-auto bg-teal-500 rounded-2xl flex items-center justify-center shadow-2xl rotate-3">
-                <i class="fa-solid fa-bolt text-black text-4xl"></i>
-            </div>
-            <h1 class="text-3xl font-black uppercase tracking-tighter" style="color: var(--text-main);">Robert <span class="text-teal-500">OS</span></h1>
-            <div class="space-y-4">
-                <input type="email" id="auth-email" placeholder="Email" class="input-field" inputmode="email">
-                <input type="password" id="auth-pass" placeholder="Password" class="input-field">
-                <button onclick="login()" class="btn-primary-os">ENTER SYSTEM</button>
-            </div>
+  <div id="auth-screen" class="fixed inset-0 z-[500] flex items-center justify-center p-6 hidden" style="background-color: var(--bg-color);">
+    <div class="w-full max-w-sm text-center space-y-8 animate-slideUp">
+      <div class="w-20 h-20 mx-auto bg-teal-500 rounded-2xl flex items-center justify-center shadow-2xl rotate-3">
+        <i class="fa-solid fa-bolt text-black text-4xl"></i>
+      </div>
+      <h1 class="text-3xl font-black uppercase tracking-tighter" style="color: var(--text-main);">Robert <span class="text-teal-500">OS</span></h1>
+      <div class="space-y-4">
+        <input type="email" id="auth-email" placeholder="Email" class="input-field" inputmode="email" />
+        <input type="password" id="auth-pass" placeholder="Password" class="input-field" />
+        <button onclick="login()" class="btn-primary-os">ENTER SYSTEM</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-content" class="hidden h-full flex flex-col">
+
+    <header class="global-header">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
+        <div class="flex flex-col">
+          <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.0.0</span>
+          <span id="clock-primary" class="font-mono text-[9px] opacity-50 tracking-tighter">00:00:00</span>
         </div>
-    </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="openGarage()" class="header-btn"><i class="fa-solid fa-car"></i></button>
+        <button onclick="openSettings()" class="header-btn"><i class="fa-solid fa-gear"></i></button>
+        <button onclick="cycleTheme()" class="header-btn" id="btn-theme"><i class="fa-solid fa-circle-half-stroke"></i></button>
+        <button onclick="logout()" class="header-btn text-red-500"><i class="fa-solid fa-power-off"></i></button>
+      </div>
+    </header>
 
-    <div id="app-content" class="hidden h-full flex flex-col">
+    <main class="container flex-1 overflow-y-auto pb-24 no-scrollbar">
 
-        <header class="global-header">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
-
-                <!-- v1.8 look + v2 clocks hooks -->
-                <div class="flex flex-col leading-tight">
-                    <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.0.0</span>
-
-                    <!-- Primary clock (target timezone) -->
-                    <span id="clock-primary" class="font-mono text-[10px] opacity-60 tracking-tight">
-                        00:00:00
-                    </span>
-
-                    <!-- Secondary clock (LOCAL / secondary timezone) -->
-                    <span id="clock-secondary" class="font-mono text-[9px] opacity-40 uppercase tracking-widest">
-                        LOCAL: 00:00:00
-                    </span>
-                </div>
+      <section id="tab-cockpit" class="tab-content active space-y-4">
+        <div class="space-y-3">
+          <div>
+            <div class="flex justify-between items-end mb-1">
+              <span class="label-xs ml-1 text-teal-400 font-bold uppercase tracking-tighter">Rental Coverage</span>
+              <span class="text-[10px] font-bold" id="rental-val">$0 / $0</span>
             </div>
-
-            <div class="flex gap-2">
-                <button onclick="openGarage()" class="header-btn text-teal-500 border border-teal-500/30 bg-teal-500/10" aria-label="Garage">
-                    <i class="fa-solid fa-car"></i>
-                </button>
-                <button onclick="openSettings()" class="header-btn text-purple-500 border border-purple-500/30 bg-purple-500/10" aria-label="Settings">
-                    <i class="fa-solid fa-gear"></i>
-                </button>
-                <button onclick="cycleTheme()" class="header-btn" id="btn-theme" aria-label="Theme">
-                    <i class="fa-solid fa-circle-half-stroke"></i>
-                </button>
-                <button onclick="logout()" class="header-btn text-red-500" aria-label="Logout">
-                    <i class="fa-solid fa-power-off"></i>
-                </button>
+            <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
+              <div id="rental-bar" class="h-full bg-teal-500 transition-all duration-500 relative" style="width: 0%"></div>
             </div>
-        </header>
+          </div>
 
-        <main class="container flex-1 overflow-y-auto pb-24 no-scrollbar">
-
-            <section id="tab-cockpit" class="tab-content active space-y-4">
-
-                <div>
-                    <div class="flex justify-between items-end mb-1">
-                        <span class="label-xs ml-1 text-teal-400">RENTAL COVERAGE</span>
-                        <span class="text-[10px] font-bold" id="rental-val">$0 / $0</span>
-                    </div>
-                    <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
-                        <div id="rental-bar" class="h-full bg-teal-500 transition-all duration-500 relative" style="width: 0%"></div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="flex justify-between items-end mb-1">
-                        <span class="label-xs ml-1 text-red-400" id="grind-label">DAILY TARGET</span>
-                        <span class="text-[10px] font-bold" id="grind-val">$0 / $0</span>
-                    </div>
-                    <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
-                        <div id="grind-bar" class="h-full bg-red-500 transition-all duration-500 relative" style="width: 0%">
-                            <div class="absolute inset-0 bg-white/20 hidden" id="grind-glow"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bento-grid">
-                    <div class="bento-card col-span-2 text-center py-6 relative overflow-hidden group">
-                        <div class="absolute inset-0 bg-gradient-to-b from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <span class="label-xs relative z-10">Active Session</span>
-                        <h2 id="shift-timer" class="val-timer my-2 relative z-10">00:00:00</h2>
-
-                        <div id="shift-controls" class="mt-4 relative z-10">
-                            <button id="btn-start" onclick="openStartModal()" class="btn-primary-os py-3">
-                                <i class="fa-solid fa-play mr-2"></i> START SHIFT
-                            </button>
-
-                            <div id="active-controls" class="hidden grid grid-cols-4 gap-2">
-                                <button onclick="togglePause()" id="btn-pause" class="col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50" aria-label="Pause">
-                                    <i class="fa-solid fa-pause"></i>
-                                </button>
-                                <button onclick="openEndModal()" class="col-span-3 btn-primary-os bg-red-500 text-white shadow-red-500/20 py-3" aria-label="End">
-                                    <i class="fa-solid fa-stop mr-2"></i> END
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div onclick="switchTab('runway')" class="bento-card clickable col-span-1 aspect-square justify-center items-center text-center">
-                        <div class="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center mb-2 text-teal-500">
-                            <i class="fa-solid fa-wallet"></i>
-                        </div>
-                        <span class="label-xs block">Runway</span>
-                        <p id="runway-months" class="val-lg mt-1">0.0 <span class="text-xs opacity-50">mo</span></p>
-                    </div>
-
-                    <div onclick="switchTab('audit')" class="bento-card clickable col-span-1 aspect-square justify-center items-center text-center">
-                        <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-2 text-purple-500">
-                            <i class="fa-solid fa-list-check"></i>
-                        </div>
-                        <span class="label-xs block">Earnings</span>
-                        <p id="shift-earnings" class="val-lg text-green-400 mt-1">$0</p>
-                    </div>
-
-                    <div class="bento-card col-span-2 flex-row items-center gap-3 p-3">
-                        <button onclick="openTxModal('in')" class="btn-bento flex-1 hover:bg-green-500/10 hover:border-green-500/50">
-                            <i class="fa-solid fa-arrow-down text-green-500"></i> IN
-                        </button>
-                        <div class="w-px h-8 bg-current opacity-10"></div>
-                        <button onclick="openTxModal('out')" class="btn-bento flex-1 hover:bg-red-500/10 hover:border-red-500/50">
-                            <i class="fa-solid fa-arrow-up text-red-500"></i> OUT
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <section id="tab-audit" class="tab-content space-y-4">
-                <div class="flex justify-between items-center px-1">
-                    <div class="flex items-center gap-3">
-                        <div class="relative flex items-center h-full">
-                            <input type="checkbox" id="select-all-logs" onchange="toggleSelectAll()"
-                                class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-teal-500 focus:ring-offset-0 focus:ring-0 cursor-pointer">
-                        </div>
-                        <h2 class="font-bold uppercase tracking-tight text-lg">History</h2>
-                    </div>
-
-                    <div class="flex gap-2">
-                        <button id="btn-delete-logs" onclick="requestLogDelete()" class="hidden text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
-                            <i class="fa-solid fa-trash"></i> <span id="delete-count">0</span>
-                        </button>
-
-                        <button onclick="exportAI()" class="text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
-                            <i class="fa-solid fa-robot"></i> EXPORT
-                        </button>
-                    </div>
-                </div>
-
-                <div id="audit-list" class="space-y-2 pb-24">
-                    <div class="text-center py-10 opacity-50"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</div>
-                </div>
-            </section>
-
-            <section id="tab-runway" class="tab-content space-y-4 animate-slideUp">
-                <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
-                    <div class="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-4 text-teal-500 text-2xl">
-                        <i class="fa-solid fa-chart-line"></i>
-                    </div>
-                    <h2 class="text-2xl font-black uppercase tracking-tight">Runway</h2>
-                    <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Finansinis planavimas ir prognozės</p>
-                    <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-                        <span class="text-xs font-bold font-mono text-teal-400">COMING SOON</span>
-                    </div>
-                </div>
-            </section>
-
-            <section id="tab-future" class="tab-content space-y-4 animate-slideUp">
-                <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
-                    <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4 text-blue-500 text-2xl">
-                        <i class="fa-solid fa-bullseye"></i>
-                    </div>
-                    <h2 class="text-2xl font-black uppercase tracking-tight">Goals</h2>
-                    <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Tikslų sekimas ir pasiekimai</p>
-                    <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-                        <span class="text-xs font-bold font-mono text-blue-400">COMING SOON</span>
-                    </div>
-                </div>
-            </section>
-
-            <section id="tab-vault" class="tab-content space-y-4 animate-slideUp">
-                <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
-                    <div class="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mb-4 text-yellow-500 text-2xl">
-                        <i class="fa-solid fa-vault"></i>
-                    </div>
-                    <h2 class="text-2xl font-black uppercase tracking-tight">Vault</h2>
-                    <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Dokumentų saugykla ir archyvas</p>
-                    <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-                        <span class="text-xs font-bold font-mono text-yellow-400">COMING SOON</span>
-                    </div>
-                </div>
-            </section>
-
-        </main>
-
-        <nav class="bottom-nav">
-            <button onclick="switchTab('cockpit')" id="btn-cockpit" class="nav-item active"><i class="fa-solid fa-layer-group"></i><span>Home</span></button>
-            <button onclick="switchTab('runway')" id="btn-runway" class="nav-item"><i class="fa-solid fa-chart-simple"></i><span>Runway</span></button>
-            <button onclick="switchTab('future')" id="btn-future" class="nav-item"><i class="fa-solid fa-bullseye"></i><span>Goals</span></button>
-            <button onclick="switchTab('vault')" id="btn-vault" class="nav-item"><i class="fa-solid fa-vault"></i><span>Vault</span></button>
-            <button onclick="switchTab('audit')" id="btn-audit" class="nav-item"><i class="fa-solid fa-clock-rotate-left"></i><span>Log</span></button>
-        </nav>
-    </div>
-
-    <!-- START MODAL -->
-    <div id="start-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4">Start Shift</h3>
-            <div class="text-left mb-4">
-                <label class="label-xs ml-1">Vehicle</label>
-                <select id="start-vehicle" class="input-field text-sm mb-4 h-12">
-                    <option value="">Loading fleet...</option>
-                </select>
-
-                <label class="label-xs ml-1">Start Odometer</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-odo" class="input-field mb-2" placeholder="123456">
-
-                <label class="label-xs ml-1">Shift Target (hours)</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-goal" class="input-field" placeholder="12 (optional)">
+          <div>
+            <div class="flex justify-between items-end mb-1">
+              <span class="label-xs ml-1 text-red-400 font-bold uppercase tracking-tighter" id="grind-label">Daily Target</span>
+              <span class="text-[10px] font-bold" id="grind-val">$0 / $0</span>
             </div>
-            <button onclick="confirmStart()" class="btn-primary-os py-4 mb-3">CONFIRM</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+            <div class="bg-gray-800 h-2 rounded-full overflow-hidden w-full relative">
+              <div id="grind-bar" class="h-full bg-red-500 transition-all duration-500 relative" style="width: 0%"></div>
+            </div>
+          </div>
         </div>
-    </div>
 
-    <!-- END MODAL -->
-    <div id="end-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp text-center">
-            <h3 class="text-xl font-bold uppercase mb-4">End Shift</h3>
-            <div class="text-left mb-4">
-                <label class="label-xs ml-1">End Odometer</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="end-odo" class="input-field mb-4">
+        <div class="bento-grid">
+          <div class="bento-card col-span-2 text-center py-6 relative overflow-hidden group">
+            <div class="absolute inset-0 bg-gradient-to-b from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-                <label class="label-xs ml-1">Total Earnings ($)</label>
-                <input type="number" inputmode="decimal" pattern="[0-9]*" id="end-earn" class="input-field text-green-500 mb-4">
-
-                <label class="label-xs ml-1 block mb-2">Driving Conditions</label>
-                <div class="grid grid-cols-5 gap-2 mb-4">
-                    <button type="button" onclick="selectWeather('sunny')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-yellow-500/20 hover:border-yellow-500/50">☀️</button>
-                    <button type="button" onclick="selectWeather('rain')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-blue-500/20 hover:border-blue-500/50">🌧️</button>
-                    <button type="button" onclick="selectWeather('snow')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-cyan-500/20 hover:border-cyan-500/50">❄️</button>
-                    <button type="button" onclick="selectWeather('ice')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-purple-500/20 hover:border-purple-500/50">🧊</button>
-                    <button type="button" onclick="selectWeather('fog')" class="weather-btn p-3 border border-gray-700 rounded-lg text-2xl hover:bg-gray-500/20 hover:border-gray-500/50">🌫️</button>
-                </div>
-                <input type="hidden" id="end-weather" value="">
+            <div class="flex flex-col items-center mb-1">
+              <span id="clock-secondary" class="font-mono text-[9px] opacity-30 uppercase tracking-widest">LOCAL: 00:00:00</span>
+              <span class="label-xs relative z-10">Active Session</span>
             </div>
-            <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-4 mb-3">FINISH</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+
+            <h2 id="shift-timer" class="val-timer my-2 relative z-10">00:00:00</h2>
+
+            <div id="shift-controls" class="mt-4 relative z-10">
+              <button id="btn-start" onclick="openStartModal()" class="btn-primary-os py-3 uppercase font-black text-xs">
+                <i class="fa-solid fa-play mr-2"></i> Start Shift
+              </button>
+
+              <div id="active-controls" class="hidden grid grid-cols-4 gap-2">
+                <button onclick="togglePause()" id="btn-pause" class="col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50">
+                  <i class="fa-solid fa-pause"></i>
+                </button>
+                <button onclick="openEndModal()" class="col-span-3 btn-primary-os bg-red-500 text-white py-3 uppercase font-black text-xs shadow-red-500/20">
+                  <i class="fa-solid fa-stop mr-2"></i> End Session
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div onclick="switchTab('runway')" class="bento-card clickable col-span-1 aspect-square justify-center items-center text-center">
+            <div class="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center mb-2 text-teal-500"><i class="fa-solid fa-chart-simple"></i></div>
+            <span class="label-xs block">Runway</span>
+            <p id="runway-months" class="val-lg mt-1">0.0 <span class="text-[10px] opacity-50">mo</span></p>
+          </div>
+
+          <div onclick="switchTab('audit')" class="bento-card clickable col-span-1 aspect-square justify-center items-center text-center">
+            <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-2 text-purple-500"><i class="fa-solid fa-receipt"></i></div>
+            <span class="label-xs block">Net Profit</span>
+            <p id="shift-earnings" class="val-lg text-green-400 mt-1">$0</p>
+          </div>
+
+          <div class="bento-card col-span-2 flex-row items-center gap-3 p-3">
+            <button onclick="openTxModal('in')" class="btn-action-green flex-1 py-3">
+              <i class="fa-solid fa-plus mr-2"></i> INCOME
+            </button>
+            <button onclick="openTxModal('out')" class="btn-action-red flex-1 py-3">
+              <i class="fa-solid fa-minus mr-2"></i> EXPENSE
+            </button>
+          </div>
         </div>
-    </div>
+      </section>
 
-    <!-- TX MODAL -->
-    <div id="tx-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp text-center">
-            <h3 id="tx-title" class="text-xl font-bold uppercase mb-4">Transaction</h3>
-            <input type="number" inputmode="decimal" pattern="[0-9]*" id="tx-amount" class="input-field text-3xl mb-4 text-center" placeholder="$0.00">
+      <section id="tab-audit" class="tab-content hidden space-y-4">
+        <div class="flex justify-between items-center px-1">
+          <div class="flex items-center gap-3">
+            <input type="checkbox" id="select-all-logs" onchange="toggleSelectAll()"
+              class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-teal-500 focus:ring-0 cursor-pointer" />
+            <h2 class="font-bold uppercase tracking-tight text-lg">History</h2>
+          </div>
 
-            <div id="income-types" class="grid grid-cols-2 gap-3 mb-6 hidden">
-                <button onclick="setExpType('tips', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-hand-holding-dollar text-xl text-teal-500 group-hover:scale-110 transition-transform"></i>
-                    <span>Tips</span>
-                </button>
-                <button onclick="setExpType('private', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-car-side text-xl text-blue-400 group-hover:scale-110 transition-transform"></i>
-                    <span>Private</span>
-                </button>
-                <button onclick="setExpType('bonus', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-award text-xl text-yellow-400 group-hover:scale-110 transition-transform"></i>
-                    <span>Bonus</span>
-                </button>
-                <button onclick="setExpType('other', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-plus text-xl text-gray-400 group-hover:text-white transition-transform"></i>
-                    <span>Other</span>
-                </button>
-            </div>
+          <div class="flex gap-2">
+            <button id="btn-delete-logs" onclick="requestLogDelete()"
+              class="hidden text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
+              <i class="fa-solid fa-trash"></i> <span id="delete-count">0</span>
+            </button>
 
-            <div id="expense-types" class="grid grid-cols-3 gap-2 mb-6 hidden">
-                <button onclick="setExpType('fuel', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-gas-pump text-lg text-red-500 group-hover:scale-110 transition-transform"></i>
-                    <span>Fuel</span>
-                </button>
-                <button onclick="setExpType('food', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-utensils text-lg text-orange-400 group-hover:scale-110 transition-transform"></i>
-                    <span>Food</span>
-                </button>
-                <button onclick="setExpType('tolls', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-road-barrier text-lg text-yellow-500 group-hover:scale-110 transition-transform"></i>
-                    <span>Tolls</span>
-                </button>
-                <button onclick="setExpType('parking', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-square-parking text-lg text-blue-400 group-hover:scale-110 transition-transform"></i>
-                    <span>Parking</span>
-                </button>
-                <button onclick="setExpType('maintenance', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-wrench text-lg text-gray-400 group-hover:scale-110 transition-transform"></i>
-                    <span>Repair</span>
-                </button>
-                <button onclick="setExpType('other', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase hover:bg-red-500/10 transition-all flex flex-col items-center gap-2 group">
-                    <i class="fa-solid fa-ellipsis text-lg text-gray-500 group-hover:scale-110 transition-transform"></i>
-                    <span>Other</span>
-                </button>
-            </div>
-
-            <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">
-                <div>
-                    <label class="label-xs">Gallons</label>
-                    <input type="number" inputmode="decimal" id="tx-gal" class="input-field text-sm">
-                </div>
-                <div>
-                    <label class="label-xs">Odometer</label>
-                    <input type="number" inputmode="decimal" id="tx-odo" class="input-field text-sm">
-                </div>
-            </div>
-
-            <button onclick="confirmTx()" class="btn-primary-os py-4 mb-3">SAVE</button>
-            <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+            <button onclick="exportAI()"
+              class="text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
+              <i class="fa-solid fa-robot"></i> AI Export
+            </button>
+          </div>
         </div>
-    </div>
 
-    <!-- GARAGE MODAL (must exist) -->
-    <div id="garage-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp">
-            <h3 id="garage-modal-title" style="text-align: center; font-size: 1.25rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; color: #14b8a6;">GARAGE MANAGEMENT</h3>
-
-            <div style="text-align: left; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                <p class="label-xs">Add New</p>
-
-                <input type="text" id="veh-name" class="input-field" placeholder="Vehicle Name (e.g. Kia Forte)">
-                <input type="number" inputmode="numeric" id="veh-year" class="input-field" placeholder="Year (optional, e.g. 2024)" min="1990" max="2030">
-                <input type="number" inputmode="numeric" id="veh-initial-odo" class="input-field" placeholder="Initial Odometer (optional)">
-
-                <div class="veh-type-group mb-3">
-                    <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn active">RENTAL</button>
-                    <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn">OWNED</button>
-                </div>
-                <input type="hidden" id="veh-type" value="rental">
-
-                <div id="rental-fields" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <div>
-                        <label class="label-xs" style="margin-left: 0.25rem; display: block; margin-bottom: 0.25rem;">Rental Start Date (optional)</label>
-                        <input type="date" id="veh-rental-start" class="input-field">
-                    </div>
-                </div>
-
-                <input type="number" inputmode="decimal" id="veh-cost" class="input-field" placeholder="Weekly Cost ($)" step="0.01">
-                <input type="number" inputmode="decimal" id="veh-carwash" class="input-field" placeholder="Car Wash Membership ($/month, optional)" step="0.01">
-
-                <div onclick="toggleTestMode()" id="btn-test-mode" style="cursor: pointer; border: 1px solid #374151; border-radius: 0.5rem; padding: 0.75rem; display: flex; align-items: center; justify-content: space-between; opacity: 0.6; transition: all 0.2s;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fa-solid fa-flask" style="color: #facc15;"></i>
-                        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #9ca3af;">TEST DRIVE</span>
-                    </div>
-                    <div id="test-indicator" style="width: 0.75rem; height: 0.75rem; border-radius: 9999px; background-color: #374151;"></div>
-                    <input type="hidden" id="veh-is-test" value="false">
-                </div>
-
-                <button onclick="saveVehicle()" id="btn-save-veh" class="btn-primary-os" style="padding-top: 0.75rem; padding-bottom: 0.75rem; margin-top: 0.5rem;">ADD TO FLEET</button>
-            </div>
-
-            <div style="text-align: left; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
-                <p class="label-xs" style="margin-bottom: 0.5rem;">Your Fleet</p>
-                <div id="garage-list" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 10rem; overflow-y: auto;"></div>
-            </div>
-
-            <button onclick="closeModals()" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; opacity: 0.5; padding-top: 1rem; padding-bottom: 1rem; width: 100%; margin-top: 0.5rem; background: none; border: none; color: inherit;">CLOSE</button>
+        <div id="audit-list" class="space-y-4 pb-24">
+          <div class="text-center py-10 opacity-50 uppercase text-[10px] font-bold tracking-widest">
+            <i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading History...
+          </div>
         </div>
-    </div>
+      </section>
 
-    <!-- SETTINGS MODAL (must exist) -->
-    <div id="settings-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp" style="text-align: center; max-height: 85vh; overflow-y: auto;">
-            <h3 style="font-size: 1.25rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; color: #a855f7;">SETTINGS</h3>
-
-            <div style="text-align: left; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1.5rem;">
-                <p class="label-xs" style="margin-bottom: 0.75rem;">Time Zones</p>
-
-                <label class="label-xs" style="margin-left: 0.25rem; display: block; margin-bottom: 0.25rem;">Primary Timezone</label>
-                <select id="settings-tz-primary" class="input-field" style="font-size: 0.875rem; margin-bottom: 0.75rem;">
-                    <option value="America/Chicago">🇺🇸 Chicago (CST/CDT)</option>
-                    <option value="America/New_York">🇺🇸 New York (EST/EDT)</option>
-                    <option value="America/Los_Angeles">🇺🇸 Los Angeles (PST/PDT)</option>
-                    <option value="America/Denver">🇺🇸 Denver (MST/MDT)</option>
-                </select>
-
-                <label class="label-xs" style="margin-left: 0.25rem; display: block; margin-bottom: 0.25rem;">Secondary Timezone</label>
-                <select id="settings-tz-secondary" class="input-field" style="font-size: 0.875rem; margin-bottom: 0.75rem;">
-                    <option value="Europe/Vilnius">🇱🇹 Vilnius (EET/EEST)</option>
-                    <option value="Europe/London">🇬🇧 London (GMT/BST)</option>
-                    <option value="Europe/Paris">🇫🇷 Paris (CET/CEST)</option>
-                    <option value="Asia/Tokyo">🇯🇵 Tokyo (JST)</option>
-                </select>
-
-                <label class="label-xs" style="margin-left: 0.25rem; display: block; margin-bottom: 0.25rem;">Clock Position</label>
-                <select id="settings-clock-pos" class="input-field" style="font-size: 0.875rem;">
-                    <option value="header">Header</option>
-                    <option value="both">Both</option>
-                    <option value="hidden">Hidden</option>
-                </select>
-            </div>
-
-            <div style="text-align: left; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1.5rem;">
-                <p class="label-xs" style="margin-bottom: 0.75rem;">Financials</p>
-
-                <label class="label-xs" style="margin-left: 0.25rem; display: block; margin-bottom: 0.25rem;">Monthly Fixed Expenses ($)</label>
-                <input type="number" inputmode="decimal" id="settings-fixed-expenses" class="input-field" placeholder="0" style="margin-bottom: 0.75rem;">
-
-                <label class="label-xs" style="margin-left: 0.25rem; display: block; margin-bottom: 0.25rem;">Rental Week Starts On</label>
-                <select id="settings-rental-start-day" class="input-field" style="font-size: 0.875rem;">
-                    <option value="1">Monday</option>
-                    <option value="2">Tuesday</option>
-                    <option value="3">Wednesday</option>
-                    <option value="4">Thursday</option>
-                    <option value="5">Friday</option>
-                    <option value="6">Saturday</option>
-                    <option value="7">Sunday</option>
-                </select>
-            </div>
-
-            <div style="text-align: left; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1.5rem;">
-                <p class="label-xs" style="margin-bottom: 0.75rem;">Work</p>
-
-                <label class="label-xs" style="margin-left: 0.25rem; display: block; margin-bottom: 0.25rem;">Default Shift Target (hours)</label>
-                <input type="number" inputmode="decimal" id="settings-shift-target" class="input-field" placeholder="12" style="margin-bottom: 0.75rem;">
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; border: 1px solid #374151; border-radius: 0.5rem; transition: background-color 0.2s;">
-                    <input type="checkbox" id="settings-notifications" style="width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; accent-color: #14b8a6; cursor: pointer;">
-                    <div>
-                        <span style="font-size: 0.875rem; font-weight: 700; display: block;">Notifications</span>
-                        <span style="font-size: 0.75rem; color: #6b7280;">Enable shift reminders</span>
-                    </div>
-                </label>
-            </div>
-
-            <div style="text-align: left; margin-bottom: 1.5rem;">
-                <p class="label-xs" style="margin-bottom: 0.75rem;">Interface</p>
-
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; border: 1px solid #374151; border-radius: 0.5rem; transition: background-color 0.2s;">
-                    <input type="checkbox" id="settings-compact-mode" style="width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; accent-color: #14b8a6; cursor: pointer;">
-                    <div>
-                        <span style="font-size: 0.875rem; font-weight: 700; display: block;">Compact Mode</span>
-                        <span style="font-size: 0.75rem; color: #6b7280;">Smaller UI elements</span>
-                    </div>
-                </label>
-            </div>
-
-            <button onclick="saveSettings()" class="btn-primary-os" style="padding-top: 1rem; padding-bottom: 1rem; margin-bottom: 0.75rem;">SAVE SETTINGS</button>
-            <button onclick="closeModals()" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; opacity: 0.5; padding-top: 0.75rem; padding-bottom: 0.75rem; width: 100%; background: none; border: none; color: inherit;">CANCEL</button>
+      <section id="tab-runway" class="tab-content hidden space-y-4 animate-slideUp">
+        <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
+          <div class="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-4 text-teal-500 text-2xl shadow-[0_0_15px_rgba(20,184,166,0.2)]">
+            <i class="fa-solid fa-chart-line"></i>
+          </div>
+          <h2 class="text-2xl font-black uppercase tracking-tight">Runway</h2>
+          <p class="text-[10px] opacity-50 uppercase font-bold tracking-widest mt-2">Analysis Tool</p>
         </div>
-    </div>
+      </section>
 
-    <div id="delete-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp" style="text-align: center; border: 1px solid rgba(239, 68, 68, 0.3); box-shadow: 0 0 60px rgba(239, 68, 68, 0.4);">
-            <div style="width: 4rem; height: 4rem; margin: 0 auto 1rem auto; background-color: rgba(239, 68, 68, 0.1); border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #ef4444; font-size: 2rem;">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-            </div>
-            <h3 style="font-size: 1.25rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">DELETE LOGS?</h3>
-            <p style="font-size: 0.875rem; color: #9ca3af; margin-bottom: 1.5rem;">
-                Are you sure you want to delete <span id="del-modal-count" style="color: #ef4444; font-weight: 700;">0</span> records?
-                <br>This action cannot be undone.
-            </p>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                <button onclick="closeModals()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: #9ca3af; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">CANCEL</button>
-                <button onclick="confirmLogDelete()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: white; background-color: #ef4444; border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">DELETE</button>
-            </div>
+      <section id="tab-future" class="tab-content hidden space-y-4 animate-slideUp">
+        <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
+          <div class="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mb-4 text-yellow-500 text-2xl shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+            <i class="fa-solid fa-bullseye"></i>
+          </div>
+          <h2 class="text-2xl font-black uppercase tracking-tight">Goals</h2>
+          <p class="text-[10px] opacity-50 uppercase font-bold tracking-widest mt-2">Target Tracking</p>
         </div>
-    </div>
+      </section>
 
-    <div id="delete-vehicle-modal" class="modal-overlay hidden">
-        <div class="modal-content animate-slideUp" style="text-align: center; border: 1px solid rgba(239, 68, 68, 0.3); box-shadow: 0 0 60px rgba(239, 68, 68, 0.4);">
-            <div id="delete-vehicle-icon" style="width: 4rem; height: 4rem; margin: 0 auto 1rem auto; background-color: rgba(239, 68, 68, 0.1); border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #ef4444; font-size: 2rem;">
-                <i class="fa-solid fa-car"></i>
-            </div>
-            <h3 id="delete-vehicle-title" style="font-size: 1.25rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">DELETE VEHICLE?</h3>
-            <p id="delete-vehicle-message" style="font-size: 0.875rem; color: #9ca3af; margin-bottom: 1.5rem;">
-                Are you sure you want to delete this vehicle?
-            </p>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                <button onclick="cancelDeleteVehicle()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: #9ca3af; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">CANCEL</button>
-                <button onclick="confirmDeleteVehicle()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: white; background-color: #ef4444; border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">DELETE</button>
-            </div>
+      <section id="tab-vault" class="tab-content hidden space-y-4 animate-slideUp">
+        <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
+          <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4 text-blue-500 text-2xl shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+            <i class="fa-solid fa-vault"></i>
+          </div>
+          <h2 class="text-2xl font-black uppercase tracking-tight">Vault</h2>
+          <p class="text-[10px] opacity-50 uppercase font-bold tracking-widest mt-2">Document Storage</p>
         </div>
+      </section>
+
+    </main>
+
+    <nav class="bottom-nav">
+      <button onclick="switchTab('cockpit')" id="btn-cockpit" class="nav-item active"><i class="fa-solid fa-layer-group"></i><span>HOME</span></button>
+      <button onclick="switchTab('runway')" id="btn-runway" class="nav-item"><i class="fa-solid fa-chart-simple"></i><span>RUNWAY</span></button>
+      <button onclick="switchTab('future')" id="btn-future" class="nav-item"><i class="fa-solid fa-bullseye"></i><span>GOALS</span></button>
+      <button onclick="switchTab('vault')" id="btn-vault" class="nav-item"><i class="fa-solid fa-vault"></i><span>VAULT</span></button>
+      <button onclick="switchTab('audit')" id="btn-audit" class="nav-item"><i class="fa-solid fa-clock-rotate-left"></i><span>LOG</span></button>
+    </nav>
+  </div>
+
+  <!-- START MODAL -->
+  <div id="start-modal" class="modal-overlay hidden">
+    <div class="modal-content animate-slideUp text-center">
+      <h3 class="text-xl font-bold uppercase mb-4 text-teal-500">Start Shift</h3>
+      <div class="text-left mb-6 space-y-4">
+        <div>
+          <label class="label-xs ml-1">Vehicle</label>
+          <select id="start-vehicle" class="input-field text-sm h-12"></select>
+        </div>
+        <div>
+          <label class="label-xs ml-1">Start Odometer</label>
+          <input type="number" inputmode="decimal" id="start-odo" class="input-field" placeholder="000000" />
+        </div>
+        <div>
+          <label class="label-xs ml-1">Shift Target (Hours)</label>
+          <input type="number" id="start-goal" class="input-field" placeholder="12" />
+        </div>
+      </div>
+      <button onclick="confirmStart()" class="btn-primary-os py-4 mb-3 uppercase font-black">Confirm &amp; Go</button>
+      <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
     </div>
+  </div>
 
-    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-white/80 dark:bg-black/80 backdrop-blur-md flex items-center justify-center text-black dark:text-white font-mono font-bold">
-        SYNCING...
+  <!-- END MODAL -->
+  <div id="end-modal" class="modal-overlay hidden">
+    <div class="modal-content animate-slideUp">
+      <h3 class="text-xl font-bold uppercase mb-4 text-center text-red-500">End Session</h3>
+
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label-xs ml-1">End Odometer</label>
+            <input type="number" inputmode="decimal" id="end-odo" class="input-field font-mono font-bold" />
+          </div>
+          <div>
+            <label class="label-xs ml-1">Total Earnings</label>
+            <input type="number" inputmode="decimal" id="end-earn" class="input-field text-green-500 font-bold" placeholder="$0.00" />
+          </div>
+        </div>
+
+        <div class="p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="fa-solid fa-soap text-teal-500"></i>
+            <span class="text-xs font-bold uppercase tracking-widest">Car Wash</span>
+          </div>
+
+          <label class="flex items-center justify-between cursor-pointer group p-2 rounded hover:bg-white/5 transition-colors">
+            <div>
+              <span class="text-sm font-bold block">Membership Wash</span>
+              <span class="text-[9px] opacity-40 uppercase">Subscription Active</span>
+            </div>
+            <input type="checkbox" id="end-carwash-member" class="w-5 h-5 rounded border-gray-600 bg-black text-teal-500 focus:ring-0" />
+          </label>
+
+          <div class="space-y-2">
+            <label class="flex items-center justify-between cursor-pointer group p-2 rounded hover:bg-white/5 transition-colors">
+              <div>
+                <span class="text-sm font-bold block">Other / Paid Wash</span>
+                <span class="text-[9px] opacity-40 uppercase">One-time expense</span>
+              </div>
+              <input type="checkbox" id="end-carwash-other" onchange="document.getElementById('manual-wash-cost').classList.toggle('hidden')" class="w-5 h-5 rounded border-gray-600 bg-black text-yellow-500 focus:ring-0" />
+            </label>
+            <input type="number" id="manual-wash-cost" class="input-field hidden text-sm border-yellow-500/50 text-yellow-500" placeholder="Enter Cost ($)" />
+          </div>
+        </div>
+
+        <div>
+          <label class="label-xs ml-1 block mb-2">Conditions</label>
+          <div class="grid grid-cols-5 gap-2">
+            <button type="button" onclick="selectWeather('sunny')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">☀️</button>
+            <button type="button" onclick="selectWeather('rain')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">🌧️</button>
+            <button type="button" onclick="selectWeather('snow')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">❄️</button>
+            <button type="button" onclick="selectWeather('ice')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">🧊</button>
+            <button type="button" onclick="selectWeather('fog')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl">🌫️</button>
+          </div>
+        </div>
+
+        <input type="hidden" id="end-weather" value="" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mt-6">
+        <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3">Cancel</button>
+        <button onclick="confirmEnd()" class="btn-primary-os bg-red-500 text-white py-3 uppercase font-black shadow-red-500/20">Finish Shift</button>
+      </div>
     </div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="js/app.js"></script>
+  <!-- TX MODAL -->
+  <div id="tx-modal" class="modal-overlay hidden">
+    <div class="modal-content animate-slideUp text-center">
+      <h3 id="tx-title" class="text-xl font-bold uppercase mb-4 tracking-widest">Transaction</h3>
+      <input type="number" inputmode="decimal" id="tx-amount" class="input-field text-3xl mb-4 text-center font-black" placeholder="$0.00" />
 
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(() => console.log('SW Registered'))
-                    .catch(err => console.log('SW Failed', err));
-            });
-        }
-    </script>
+      <div id="income-types" class="grid grid-cols-2 gap-3 mb-6 hidden">
+        <button onclick="setExpType('tips', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2 group">
+          <i class="fa-solid fa-hand-holding-dollar text-lg text-teal-500 group-hover:scale-110 transition-transform"></i><span>Tips</span>
+        </button>
+        <button onclick="setExpType('private', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2 group">
+          <i class="fa-solid fa-car-side text-lg text-blue-400 group-hover:scale-110 transition-transform"></i><span>Private</span>
+        </button>
+        <button onclick="setExpType('bonus', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2 group">
+          <i class="fa-solid fa-award text-lg text-yellow-500 group-hover:scale-110 transition-transform"></i><span>Bonus</span>
+        </button>
+        <button onclick="setExpType('other', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2 group">
+          <i class="fa-solid fa-plus text-lg text-gray-500 group-hover:text-white transition-transform"></i><span>Other</span>
+        </button>
+      </div>
+
+      <div id="expense-types" class="grid grid-cols-3 gap-2 mb-6 hidden">
+        <button onclick="setExpType('fuel', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2">
+          <i class="fa-solid fa-gas-pump text-lg text-red-500"></i><span>Fuel</span>
+        </button>
+        <button onclick="setExpType('food', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2">
+          <i class="fa-solid fa-utensils text-lg text-orange-400"></i><span>Food</span>
+        </button>
+        <button onclick="setExpType('tolls', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2">
+          <i class="fa-solid fa-road-barrier text-lg text-yellow-500"></i><span>Tolls</span>
+        </button>
+        <button onclick="setExpType('parking', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2">
+          <i class="fa-solid fa-square-parking text-lg text-blue-400"></i><span>Parking</span>
+        </button>
+        <button onclick="setExpType('maintenance', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2">
+          <i class="fa-solid fa-wrench text-lg text-gray-400"></i><span>Repair</span>
+        </button>
+        <button onclick="setExpType('other', this)" class="exp-btn p-3 border border-gray-800 rounded-xl text-[10px] font-bold uppercase flex flex-col items-center gap-2">
+          <i class="fa-solid fa-ellipsis text-lg text-gray-500"></i><span>Other</span>
+        </button>
+      </div>
+
+      <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">
+        <div><label class="label-xs">Gallons</label><input type="number" inputmode="decimal" id="tx-gal" class="input-field text-sm" /></div>
+        <div><label class="label-xs">Odometer</label><input type="number" inputmode="decimal" id="tx-odo" class="input-field text-sm" /></div>
+      </div>
+
+      <button onclick="confirmTx()" class="btn-primary-os py-4 mb-3 uppercase font-black">Save Record</button>
+      <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+    </div>
+  </div>
+
+  <!-- GARAGE MODAL -->
+  <div id="garage-modal" class="modal-overlay hidden">
+    <div class="modal-content animate-slideUp">
+      <h3 id="garage-modal-title" class="text-center text-xl font-bold uppercase mb-4 text-teal-500 tracking-tighter">Garage Management</h3>
+
+      <div class="text-left flex flex-col gap-3 mb-6 pb-4 border-b border-white/10">
+        <input type="text" id="veh-name" class="input-field" placeholder="Vehicle Name" />
+        <input type="number" id="veh-year" class="input-field" placeholder="Year" />
+        <input type="number" id="veh-initial-odo" class="input-field" placeholder="Initial ODO" />
+
+        <div class="veh-type-group">
+          <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn active">RENTAL</button>
+          <button onclick="setVehType('owned')" id="btn-type-owned" class="veh-type-btn">OWNED</button>
+        </div>
+
+        <input type="hidden" id="veh-type" value="rental" />
+
+        <input type="number" inputmode="decimal" id="veh-cost" class="input-field" placeholder="Weekly Cost ($)" />
+        <input type="number" id="veh-carwash" class="input-field" placeholder="Wash Membership ($/mo)" />
+
+        <div onclick="toggleTestMode()" id="btn-test-mode" class="cursor-pointer border border-gray-700 opacity-60 rounded-lg p-3 flex items-center justify-between transition-all">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-flask text-yellow-500"></i>
+            <span class="text-[10px] font-bold uppercase">Test Mode</span>
+          </div>
+          <div id="test-indicator" class="w-3 h-3 rounded-full bg-gray-600"></div>
+          <input type="hidden" id="veh-is-test" value="false" />
+        </div>
+
+        <button onclick="saveVehicle()" id="btn-save-veh" class="btn-primary-os py-3 mt-2 uppercase font-black">Add Vehicle</button>
+      </div>
+
+      <div id="garage-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+
+      <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-4 w-full">Close</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settings-modal" class="modal-overlay hidden">
+    <div class="modal-content animate-slideUp max-h-[85vh] overflow-y-auto">
+      <h3 class="text-center text-xl font-bold uppercase mb-6 text-purple-500 tracking-widest">System Settings</h3>
+      <div class="text-left space-y-6">
+        <div class="space-y-2">
+          <p class="label-xs">Timezone Config</p>
+          <select id="settings-tz-primary" class="input-field text-sm">
+            <option value="America/Chicago">🇺🇸 Chicago (CST)</option>
+            <option value="Europe/Vilnius">🇱🇹 Vilnius (EET)</option>
+          </select>
+        </div>
+
+        <button onclick="saveSettings()" class="btn-primary-os py-4 uppercase font-black">Apply Changes</button>
+        <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE LOGS MODAL -->
+  <div id="delete-modal" class="modal-overlay hidden">
+    <div class="modal-content animate-slideUp text-center">
+      <div class="modal-icon-danger">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 class="text-xl font-black uppercase mb-4 text-red-500">DELETE LOGS?</h3>
+      <p class="text-sm opacity-60 mb-6 font-medium">Permanently remove <span id="del-modal-count" class="text-red-500 font-bold">0</span> entries?</p>
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="closeModals()" class="btn-cancel">No</button>
+        <button onclick="confirmLogDelete()" class="btn-danger-glow">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE VEHICLE MODAL -->
+  <div id="delete-vehicle-modal" class="modal-overlay hidden">
+    <div class="modal-content animate-slideUp text-center">
+      <div class="modal-icon-danger">
+        <i class="fa-solid fa-car"></i>
+      </div>
+      <h3 id="delete-vehicle-title" class="text-lg font-black uppercase mb-2">Delete Vehicle?</h3>
+      <p id="delete-vehicle-message" class="text-xs opacity-60 mb-6 px-4">This will remove the vehicle from your active fleet.</p>
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="cancelDeleteVehicle()" class="btn-cancel">Cancel</button>
+        <button onclick="confirmDeleteVehicle()" class="btn-danger-glow">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ SHIFT DETAILS MODAL (required for openShiftDetails) -->
+  <div id="shift-details-modal" class="modal-overlay hidden" style="z-index: 150;">
+    <div class="modal-content animate-slideUp p-0 bg-black overflow-hidden border border-white/10" style="max-width: 24rem; position: relative;">
+      <div class="absolute top-3 right-3 z-10">
+        <button onclick="closeModals()" class="w-8 h-8 rounded-full bg-black/50 border border-white/10 text-white flex items-center justify-center backdrop-blur-md">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="shift-details-content" class="h-full max-h-[85vh] overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <div id="loading" class="hidden fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-center justify-center text-teal-500 font-mono font-bold tracking-widest">
+    <div class="flex flex-col items-center gap-4">
+      <i class="fa-solid fa-bolt text-4xl animate-pulse"></i>
+      <span>SYNCING...</span>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>

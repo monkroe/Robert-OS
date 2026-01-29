@@ -1,10 +1,13 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/COSTS.JS v2.2.0
+// ROBERT OS - MODULES/COSTS.JS v2.1.1
 // Logic: Financial Projections & Rental Tracking
-// Fixes:
-// - timezone key: uses timezone_primary (not "timezone")
-// - shift earnings: live from DB transactions while shift is active
+//
+// FIXES v2.1.1:
+// - calculateShiftEarnings() now returns LIVE net earnings for ACTIVE shift:
 //   net = max(sum(income), shift.gross_earnings) - sum(expenses)
+//   => reacts immediately to tips/fuel.
+// - No NaN: always returns finite number.
+// - timezone uses settings.timezone_primary (was settings.timezone)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -35,13 +38,18 @@ function getDayOfWeek(timezone = 'America/Chicago') {
   return map[formatter.format(new Date())];
 }
 
+function toNumber(v) {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
 // ────────────────────────────────────────────────────────────────
 // SMART VEHICLE SELECTOR
 // ────────────────────────────────────────────────────────────────
 
 function getTargetVehicle() {
   if (state.activeShift?.vehicle_id) {
-    return (state.fleet || []).find(v => v.id === state.activeShift.vehicle_id) || null;
+    return state.fleet.find(v => v.id === state.activeShift.vehicle_id);
   }
   if (state.fleet && state.fleet.length > 0) {
     return state.fleet.find(v => v.type === 'rental') || state.fleet[0];
@@ -55,19 +63,18 @@ function getTargetVehicle() {
 
 export async function calculateDailyCost() {
   try {
-    const monthlyFixed = Number(state.userSettings?.monthly_fixed_expenses || 0);
+    const monthlyFixed = toNumber(state.userSettings?.monthly_fixed_expenses);
     const dailyFixed = monthlyFixed / 30;
 
     let dailyVehicle = 0;
     let dailyCarwash = 0;
 
     const vehicle = getTargetVehicle();
-
     if (vehicle) {
-      const weeklyCost = Number(vehicle.operating_cost_weekly || 0);
+      const weeklyCost = toNumber(vehicle.operating_cost_weekly);
       dailyVehicle = weeklyCost / 7;
 
-      const monthlyWash = Number(vehicle.carwash_monthly_cost || 0);
+      const monthlyWash = toNumber(vehicle.carwash_monthly_cost);
       dailyCarwash = monthlyWash / 30;
     }
 
@@ -84,15 +91,13 @@ export async function calculateDailyCost() {
 
 export async function calculateWeeklyRentalProgress() {
   try {
-    // FIX: settings key is timezone_primary in your system
     const timezone = state.userSettings?.timezone_primary || 'America/Chicago';
-
     const rentalWeekStartDay = state.userSettings?.rental_week_start_day ?? 2;
 
     const vehicle = getTargetVehicle();
-    const targetAmount = (vehicle?.type === 'rental') ? Number(vehicle.operating_cost_weekly || 0) : 0;
+    const targetAmount = (vehicle?.type === 'rental') ? toNumber(vehicle.operating_cost_weekly) : 0;
 
-    if (targetAmount === 0) return { earned: 0, target: 0, percentage: 100 };
+    if (!targetAmount) return { earned: 0, target: 0, percentage: 100 };
 
     const currentDayOfWeek = getDayOfWeek(timezone);
     let daysSinceStart = currentDayOfWeek - rentalWeekStartDay;
@@ -116,7 +121,7 @@ export async function calculateWeeklyRentalProgress() {
 
     if (error) throw error;
 
-    const earned = (shifts || []).reduce((acc, s) => acc + (Number(s.gross_earnings || 0)), 0);
+    const earned = (shifts || []).reduce((sum, s) => sum + toNumber(s.gross_earnings), 0);
     const percentage = Math.min((earned / targetAmount) * 100, 100);
 
     return {
@@ -131,37 +136,34 @@ export async function calculateWeeklyRentalProgress() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT EARNINGS (LIVE)  ✅
-// net = max(sum(income), shift.gross_earnings) - sum(expenses)
-// While shift is active, gross_earnings is often 0 → we must use tx.
+// SHIFT EARNINGS (LIVE NET for ACTIVE shift)
 // ────────────────────────────────────────────────────────────────
 
 export async function calculateShiftEarnings() {
   try {
-    const s = state.activeShift;
-    if (!s?.id || !state.user?.id) return 0;
+    const shiftId = state.activeShift?.id;
+    if (!shiftId || !state.user?.id) return 0;
 
-    const { data: rows, error } = await db
+    const { data, error } = await db
       .from('expenses')
       .select('type, amount')
       .eq('user_id', state.user.id)
-      .eq('shift_id', s.id);
+      .eq('shift_id', shiftId);
 
     if (error) throw error;
 
-    const income = (rows || []).filter(r => r.type === 'income');
-    const expense = (rows || []).filter(r => r.type === 'expense');
+    const rows = data || [];
+    const inc = rows.filter(r => r.type === 'income').reduce((s, r) => s + toNumber(r.amount), 0);
+    const exp = rows.filter(r => r.type === 'expense').reduce((s, r) => s + toNumber(r.amount), 0);
 
-    const incSum = income.reduce((a, r) => a + (Number(r.amount || 0)), 0);
-    const expSum = expense.reduce((a, r) => a + (Number(r.amount || 0)), 0);
+    const shiftGross = toNumber(state.activeShift?.gross_earnings);
+    const gross = Math.max(inc, shiftGross);
 
-    const gross = Math.max(incSum, Number(s.gross_earnings || 0));
-    const net = gross - expSum;
-
-    return Math.round(net);
-  } catch (error) {
-    console.error('Shift Earnings Error:', error);
-    return Math.round(Number(state.activeShift?.gross_earnings || 0));
+    const net = gross - exp;
+    return Number.isFinite(net) ? Math.round(net) : 0;
+  } catch (e) {
+    console.error('Shift Earnings Error:', e);
+    return 0;
   }
 }
 

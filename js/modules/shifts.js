@@ -1,10 +1,11 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/SHIFTS.JS v2.1.1
+// ROBERT OS - MODULES/SHIFTS.JS v2.2.0
+// Purpose: Shift lifecycle (start/pause/end) + safe timer + pause DB log
 // FIXES:
-// ✅ Odometer monotonicity per-vehicle (start/end cannot go below last completed end_odo)
-// ✅ End odometer cannot be < start_odo
-// ✅ Best-effort update vehicles.last_odo after END (safe if column exists)
-// ✅ Keeps your pause logging + double-click guards intact
+// 1) Start ODO auto-fills to MIN allowed for selected vehicle
+//    MIN = max(end_odo) of completed shifts for that vehicle OR vehicle.last_odo OR 0
+// 2) Guards: start_odo >= min, end_odo >= start_odo
+// 3) Keeps your pause safe logic (unique one_open_per_shift) + timer behavior
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -13,64 +14,118 @@ import { showToast, vibrate } from '../utils.js';
 import { openModal, closeModals } from './ui.js';
 
 let timerInterval = null;
-
-// Pause DB locking (prevents double click / double binding)
 let pauseInFlight = false;
 
+// Cache min-odo per vehicle to avoid repeated queries while modal open
+let startMinCache = {};
+
 // ────────────────────────────────────────────────────────────────
-// ODOMETER HELPERS (source of truth: finance_shifts history)
+// Helpers
 // ────────────────────────────────────────────────────────────────
 
-async function getLastCompletedOdo(vehicleId, excludeShiftId = null) {
-  if (!state.user?.id || !vehicleId) return 0;
-
-  let q = db
-    .from('finance_shifts')
-    .select('id, end_odo, end_time')
-    .eq('user_id', state.user.id)
-    .eq('vehicle_id', vehicleId)
-    .not('end_odo', 'is', null)
-    .order('end_time', { ascending: false })
-    .limit(1);
-
-  if (excludeShiftId) q = q.neq('id', excludeShiftId);
-
-  const { data, error } = await q.maybeSingle();
-  if (error) throw error;
-
-  const last = parseInt(data?.end_odo || 0, 10) || 0;
-  return last;
+function toInt(v) {
+  const n = parseInt(String(v ?? '').trim(), 10);
+  return Number.isFinite(n) ? n : 0;
 }
 
-async function tryUpdateVehicleLastOdo(vehicleId, odo) {
-  // Best-effort. If schema/column doesn't exist, ignore silently.
-  if (!vehicleId) return;
+function toFloat(v) {
+  const n = parseFloat(String(v ?? '').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getVehicleById(id) {
+  return (state.fleet || []).find(v => String(v.id) === String(id)) || null;
+}
+
+// Compute MIN allowed start ODO for selected vehicle
+async function fetchVehicleStartMinOdo(vehicleId) {
+  if (!state.user?.id || !vehicleId) return 0;
+
+  // In-memory cache for this modal session
+  const key = String(vehicleId);
+  if (startMinCache[key] != null) return startMinCache[key];
+
+  // 1) try DB: max end_odo from completed shifts for this vehicle
+  let min = 0;
+
   try {
-    await db
-      .from('vehicles')
-      .update({ last_odo: odo })
-      .eq('id', vehicleId);
+    const { data, error } = await db
+      .from('finance_shifts')
+      .select('end_odo')
+      .eq('user_id', state.user.id)
+      .eq('vehicle_id', vehicleId)
+      .eq('status', 'completed')
+      .not('end_odo', 'is', null)
+      .order('end_time', { ascending: false })
+      .limit(1);
+
+    if (!error && data && data.length) {
+      const lastEnd = toInt(data[0]?.end_odo);
+      if (lastEnd > min) min = lastEnd;
+    }
   } catch (_) {
-    // silent
+    // ignore; we'll fallback to fleet vehicle.last_odo
   }
+
+  // 2) fallback: vehicle.last_odo (if you keep it up to date)
+  const veh = getVehicleById(vehicleId);
+  const vLast = toInt(veh?.last_odo);
+  if (vLast > min) min = vLast;
+
+  startMinCache[key] = min;
+  return min;
+}
+
+async function applyStartMinToUI(vehicleId) {
+  const startOdoEl = document.getElementById('start-odo');
+  if (!startOdoEl) return;
+
+  const min = await fetchVehicleStartMinOdo(vehicleId);
+
+  // Put min as input min + placeholder and default value
+  startOdoEl.min = String(min);
+  startOdoEl.placeholder = `min ${min}`;
+
+  // Only auto-fill if empty OR current value < min
+  const cur = toInt(startOdoEl.value);
+  if (!startOdoEl.value || cur < min) {
+    startOdoEl.value = String(min);
+  }
+}
+
+function setStartVehicleChangeHandler() {
+  const select = document.getElementById('start-vehicle');
+  if (!select) return;
+
+  // Avoid stacking handlers if openStartModal called multiple times
+  select.onchange = async () => {
+    vibrate([10]);
+    await applyStartMinToUI(select.value);
+  };
 }
 
 // ────────────────────────────────────────────────────────────────
 // START SHIFT
 // ────────────────────────────────────────────────────────────────
 
-export function openStartModal() {
+export async function openStartModal() {
   vibrate();
+  startMinCache = {}; // reset cache for this open
+
   const select = document.getElementById('start-vehicle');
+  if (!select) return showToast('UI error: missing vehicle selector', 'error');
 
-  if (!select) {
-    showToast('UI error: missing vehicle selector', 'error');
-    return;
+  const fleet = state.fleet || [];
+  select.innerHTML = fleet.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+
+  setStartVehicleChangeHandler();
+
+  // Pre-apply min to the default selected vehicle
+  const initialVehicleId = select.value || fleet[0]?.id;
+  if (initialVehicleId) {
+    select.value = String(initialVehicleId);
+    await applyStartMinToUI(initialVehicleId);
   }
-
-  select.innerHTML = (state.fleet || [])
-    .map(v => `<option value="${v.id}">${v.name}</option>`)
-    .join('');
 
   openModal('start-modal');
 }
@@ -84,18 +139,17 @@ export async function confirmStart() {
 
   if (!vehicleId) return showToast('Pasirinkite automobilį', 'warning');
 
-  const startOdo = parseInt(startOdoRaw || '0', 10) || 0;
-  const target = parseFloat(targetRaw || '12') || 12;
+  const startOdo = toInt(startOdoRaw);
+  const target = toFloat(targetRaw || '12') || 12;
+
+  // HARD GUARD: start_odo must be >= min for that vehicle
+  const min = await fetchVehicleStartMinOdo(vehicleId);
+  if (startOdo < min) {
+    return showToast(`Start rida per maža. Min: ${min}`, 'warning');
+  }
 
   state.loading = true;
   try {
-    // ✅ Monotonic guard: start_odo cannot go below last completed end_odo for this vehicle
-    const lastOdo = await getLastCompletedOdo(vehicleId);
-    if (startOdo > 0 && startOdo < lastOdo) {
-      showToast(`Rida per maža. Paskutinė užfiksuota: ${lastOdo}`, 'warning');
-      return;
-    }
-
     const { data, error } = await db
       .from('finance_shifts')
       .insert({
@@ -132,6 +186,7 @@ export function openEndModal() {
 
   const endOdoEl = document.getElementById('end-odo');
   if (endOdoEl && !endOdoEl.value) {
+    // sensible default: start_odo
     endOdoEl.value = String(state.activeShift.start_odo || '');
   }
 
@@ -141,52 +196,35 @@ export function openEndModal() {
 export async function confirmEnd() {
   vibrate([20]);
 
-  if (!state.activeShift?.id) {
-    showToast('Nėra aktyvios pamainos', 'warning');
-    return;
-  }
+  if (!state.activeShift?.id) return showToast('Nėra aktyvios pamainos', 'warning');
 
-  const endOdoEl = document.getElementById('end-odo');
-  const earnEl = document.getElementById('end-earn');
-
-  const endOdoRaw = endOdoEl?.value;
-  const earnRaw = earnEl?.value;
+  const endOdoRaw = document.getElementById('end-odo')?.value;
+  const earnRaw = document.getElementById('end-earn')?.value;
 
   if (endOdoRaw === '' || endOdoRaw == null) return showToast('Įveskite ridą', 'warning');
   if (earnRaw === '' || earnRaw == null) return showToast('Įveskite uždarbį', 'warning');
 
-  const endOdo = parseInt(endOdoRaw || '0', 10) || 0;
-  const earn = parseFloat(earnRaw || '0') || 0;
-  const weather = document.getElementById('end-weather')?.value || 'sunny';
+  const endOdo = toInt(endOdoRaw);
+  const earn = toFloat(earnRaw);
 
-  // ✅ Guard 1: end >= start
-  const startOdo = parseInt(state.activeShift.start_odo || 0, 10) || 0;
-  if (endOdo > 0 && endOdo < startOdo) {
-    showToast('Pabaigos rida negali būti mažesnė už pradžios ridą', 'warning');
-    return;
+  // HARD GUARD: end_odo >= start_odo
+  const startOdo = toInt(state.activeShift.start_odo);
+  if (endOdo < startOdo) {
+    return showToast(`Pabaigos rida negali būti mažesnė už start (${startOdo})`, 'warning');
   }
+
+  const weather = document.getElementById('end-weather')?.value || 'sunny';
 
   state.loading = true;
   try {
-    const vehicleId = state.activeShift.vehicle_id;
-
-    // ✅ Guard 2: end >= last completed end_odo (excluding current shift)
-    const lastOdo = await getLastCompletedOdo(vehicleId, state.activeShift.id);
-    if (endOdo > 0 && endOdo < lastOdo) {
-      showToast(`Rida per maža. Paskutinė užfiksuota: ${lastOdo}`, 'warning');
-      return;
-    }
-
-    // Ensure no open pause remains (safety)
     await closeOpenPauseSilently(state.activeShift.id);
-
     stopTimer();
 
     const { error: updErr } = await db
       .from('finance_shifts')
       .update({
         end_time: new Date().toISOString(),
-        end_odo: endOdo || startOdo,
+        end_odo: endOdo,
         gross_earnings: earn,
         status: 'completed',
         weather
@@ -194,9 +232,6 @@ export async function confirmEnd() {
       .eq('id', state.activeShift.id);
 
     if (updErr) throw updErr;
-
-    // ✅ Best-effort: store last odo on vehicle record too (if you have that column)
-    await tryUpdateVehicleLastOdo(vehicleId, endOdo || startOdo);
 
     showToast('END SHIFT', 'success');
     state.activeShift = null;
@@ -210,11 +245,10 @@ export async function confirmEnd() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// PAUSE / RESUME (with DB log safe)
+// PAUSE / RESUME (DB log safe)
 // ────────────────────────────────────────────────────────────────
 
 export async function togglePause() {
-  // HARD GUARD: prevents double-insert / double-binding
   if (pauseInFlight) return;
   pauseInFlight = true;
 
@@ -229,7 +263,6 @@ export async function togglePause() {
   const btn = document.getElementById('btn-pause');
   if (btn) btn.disabled = true;
 
-  // Optimistic status change
   const wasActive = s.status === 'active';
   const newStatus = wasActive ? 'paused' : 'active';
   s.status = newStatus;
@@ -248,20 +281,11 @@ export async function togglePause() {
   }
 
   try {
-    // 1) update shift status
-    const { error: sErr } = await db
-      .from('finance_shifts')
-      .update({ status: newStatus })
-      .eq('id', s.id);
-
+    const { error: sErr } = await db.from('finance_shifts').update({ status: newStatus }).eq('id', s.id);
     if (sErr) throw sErr;
 
-    // 2) pause logging
-    if (newStatus === 'paused') {
-      await beginPauseSafe(s.id);
-    } else {
-      await endPauseSafe(s.id);
-    }
+    if (newStatus === 'paused') await beginPauseSafe(s.id);
+    else await endPauseSafe(s.id);
   } catch (e) {
     console.error(e);
     window.dispatchEvent(new Event('refresh-data'));
@@ -274,6 +298,7 @@ export async function togglePause() {
 
 // ────────────────────────────────────────────────────────────────
 // PAUSE DB HELPERS
+// Table: public.finance_shift_pauses
 // ────────────────────────────────────────────────────────────────
 
 async function beginPauseSafe(shiftId) {
@@ -322,11 +347,7 @@ async function endPauseSafe(shiftId) {
 
 async function closeOpenPauseSilently(shiftId) {
   try {
-    await db
-      .from('finance_shift_pauses')
-      .update({ end_time: new Date().toISOString() })
-      .eq('shift_id', shiftId)
-      .is('end_time', null);
+    await db.from('finance_shift_pauses').update({ end_time: new Date().toISOString() }).eq('shift_id', shiftId).is('end_time', null);
   } catch (_) {}
 }
 
@@ -382,7 +403,6 @@ function pad(n) {
 export function selectWeather(type) {
   vibrate();
 
-  // clear active state
   document.querySelectorAll('.weather-btn').forEach(b => {
     b.classList.remove('border-teal-500', 'bg-teal-500/20');
   });

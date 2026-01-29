@@ -3,7 +3,7 @@
 // Logic: Stale-While-Revalidate for Assets, Network Only for API
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'robert-os-v2.1.0';
+const CACHE_NAME = 'robert-os-v2.2.0';
 
 // Visų būtinų failų sąrašas (GitHub Pages struktūra)
 const ASSETS = [

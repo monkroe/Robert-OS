@@ -1,10 +1,11 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.0.1
-// FIX: Restore v1.8 History "strips" look + remove card/accordion
-// - One row = one shift strip
-// - No month/day blocks
-// - No SHIFT 1/2 labels
-// - Keeps delete selection + tx behavior
+// ROBERT OS - MODULES/FINANCE.JS v2.0.2
+// FIXES (per your requirements NOW):
+// ✅ Logs back to minimalist "shift strips" (single-row, no extra date row)
+// ✅ Strip shows ONLY: DATE • START–END • HOURS • MILES  (+ optional status badge)
+// ✅ Tap strip → full details modal (includes PAUSES breakdown)
+// ✅ Keeps delete selection + TX behavior
+// NOTE: Year/Month/Day accordion hierarchy = later (not in this file now)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -26,10 +27,14 @@ function safeText(v) {
 }
 
 function toLTDateShort(d) {
-  // match old "01-27" feel (you can change to your exact old formatter)
+  // Minimalist date on strip (adjust if you want exact legacy format)
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${mm}-${dd}`;
+}
+
+function toLTDateLong(d) {
+  return d.toLocaleDateString('lt-LT', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 function toLTTime(d) {
@@ -62,6 +67,27 @@ function sum(arr, fn) {
 
 function netClass(net) {
   return net >= 0 ? 'text-green-400' : 'text-red-400';
+}
+
+function badgeForShift(s) {
+  // Optional: nice badge (active/paused) without changing strip density
+  if (!s || s.status === 'completed') return '';
+  if (s.status === 'paused') return `<span class="status-badge status-paused">PAUSED</span>`;
+  return `<span class="status-badge status-active">ACTIVE</span>`;
+}
+
+function minsBetweenISO(aISO, bISO) {
+  const a = new Date(aISO).getTime();
+  const b = new Date(bISO).getTime();
+  const ms = Math.max(0, b - a);
+  return Math.round(ms / (1000 * 60));
+}
+
+function fmtMins(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h <= 0) return `${m}m`;
+  return `${h}h ${m}m`;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -135,14 +161,14 @@ function updateTxModalUI(dir) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT / HISTORY — v1.8 STRIPS ONLY
+// AUDIT / HISTORY — minimalist strips
 // ────────────────────────────────────────────────────────────────
 export async function refreshAudit() {
   const listEl = document.getElementById('audit-list');
   if (!state.user?.id || !listEl) return;
 
   try {
-    const [shiftsRes, expensesRes] = await Promise.all([
+    const [shiftsRes, expensesRes, pausesRes] = await Promise.all([
       db
         .from('finance_shifts')
         .select('*, vehicles(name)')
@@ -151,19 +177,25 @@ export async function refreshAudit() {
       db
         .from('expenses')
         .select('*')
+        .eq('user_id', state.user.id),
+      // pauses are optional (if table exists)
+      db
+        .from('finance_shift_pauses')
+        .select('*')
         .eq('user_id', state.user.id)
     ]);
 
     const shifts = shiftsRes.data || [];
     const expenses = expensesRes.data || [];
+    const pauses = pausesRes.data || []; // if table missing, tool usually returns error — we handle below
 
     if (!shifts.length) {
       listEl.innerHTML = '<div class="text-center py-10 opacity-30">Nėra duomenų</div>';
       return;
     }
 
-    // cache for shift modal
-    window._auditData = { shifts, expenses };
+    // Cache for details modal
+    window._auditData = { shifts, expenses, pauses };
 
     // index expenses by shift id
     const expByShift = {};
@@ -174,7 +206,15 @@ export async function refreshAudit() {
       expByShift[k].push(e);
     }
 
-    // Render strips
+    // index pauses by shift id (best effort)
+    const pauseByShift = {};
+    for (const p of pauses) {
+      const k = String(p.shift_id || '');
+      if (!k) continue;
+      if (!pauseByShift[k]) pauseByShift[k] = [];
+      pauseByShift[k].push(p);
+    }
+
     listEl.innerHTML = shifts.map(s => {
       const sExp = expByShift[String(s.id)] || [];
       const income = sExp.filter(x => x.type === 'income');
@@ -189,14 +229,16 @@ export async function refreshAudit() {
       const start = new Date(s.start_time);
       const end = s.end_time ? new Date(s.end_time) : null;
 
-      const dateShort = toLTDateShort(start);      // "01-27"
-      const timeStr = toLTTime(start);             // "20:11"
-      const vehicle = safeText(s.vehicles?.name || 'Vehicle');
+      const dateShort = toLTDateShort(start);          // "01-27"
+      const startT = toLTTime(start);                  // "20:11"
+      const endT = end ? toLTTime(end) : '--:--';
 
-      // v1.8-ish: date line stronger than time line uses your existing hooks:
-      // - date uses class text-[10px]
-      // - time uses class text-sm font-bold
-      // - net uses font-bold text-green-400 / text-red-400
+      // duration: for completed shift use end_time; for active use now
+      const hrs = hoursBetween(s.start_time, s.end_time);
+      const dur = fmtHHMM(hrs);
+
+      const miles = shiftMiles(s);
+
       return `
         <div class="shift-strip flex items-center justify-between gap-3" onclick="openShiftDetails('${s.id}')">
           <div class="flex items-center gap-3 min-w-0">
@@ -207,25 +249,25 @@ export async function refreshAudit() {
               value="shift:${s.id}"
             />
 
-            <div class="w-10 h-10 rounded-full bg-black/25 flex items-center justify-center shrink-0">
-              <i class="fa-regular fa-clock opacity-70"></i>
-            </div>
+            <div class="min-w-0 flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] font-black uppercase tracking-widest opacity-70">${dateShort}</span>
+              <span class="text-[10px] uppercase tracking-widest opacity-35">•</span>
 
-            <div class="min-w-0">
-              <div class="text-[10px] uppercase tracking-widest opacity-70">
-                ${dateShort} • PAMAINA
-              </div>
-              <div class="text-sm font-bold tracking-tight">
-                ${timeStr}
-              </div>
-              <div class="text-[10px] uppercase tracking-widest opacity-50 truncate">
-                ${vehicle}
-              </div>
+              <span class="text-sm font-bold tracking-tight opacity-90">${startT}–${endT}</span>
+              <span class="text-[10px] uppercase tracking-widest opacity-35">•</span>
+
+              <span class="text-[10px] font-black uppercase tracking-widest opacity-70">${safeText(dur)}</span>
+              <span class="text-[10px] uppercase tracking-widest opacity-35">•</span>
+
+              <span class="text-[10px] font-black uppercase tracking-widest opacity-70">${miles} mi</span>
             </div>
           </div>
 
-          <div class="font-bold ${netClass(net)} text-right">
-            ${formatCurrency(net)}
+          <div class="flex items-center gap-2 shrink-0">
+            ${badgeForShift(s)}
+            <div class="font-bold ${netClass(net)} text-right">
+              ${formatCurrency(net)}
+            </div>
           </div>
         </div>
       `;
@@ -234,19 +276,112 @@ export async function refreshAudit() {
     updateDeleteButtonLocal();
   } catch (e) {
     console.error(e);
+    // If pauses table not present, try again without pauses (so UI still works)
+    const msg = String(e?.message || '');
+    const pausesMissing =
+      msg.toLowerCase().includes('finance_shift_pauses') ||
+      msg.toLowerCase().includes('does not exist');
+
+    if (pausesMissing) {
+      try {
+        const [shiftsRes, expensesRes] = await Promise.all([
+          db
+            .from('finance_shifts')
+            .select('*, vehicles(name)')
+            .eq('user_id', state.user.id)
+            .order('start_time', { ascending: false }),
+          db
+            .from('expenses')
+            .select('*')
+            .eq('user_id', state.user.id)
+        ]);
+
+        const shifts = shiftsRes.data || [];
+        const expenses = expensesRes.data || [];
+        window._auditData = { shifts, expenses, pauses: [] };
+
+        const expByShift = {};
+        for (const ex of expenses) {
+          const k = String(ex.shift_id || '');
+          if (!k) continue;
+          if (!expByShift[k]) expByShift[k] = [];
+          expByShift[k].push(ex);
+        }
+
+        listEl.innerHTML = shifts.map(s => {
+          const sExp = expByShift[String(s.id)] || [];
+          const income = sExp.filter(x => x.type === 'income');
+          const expense = sExp.filter(x => x.type === 'expense');
+
+          const incSum = sum(income, x => x.amount);
+          const expSum = sum(expense, x => x.amount);
+
+          const gross = Math.max(incSum, Number(s.gross_earnings || 0));
+          const net = gross - expSum;
+
+          const start = new Date(s.start_time);
+          const end = s.end_time ? new Date(s.end_time) : null;
+
+          const dateShort = toLTDateShort(start);
+          const startT = toLTTime(start);
+          const endT = end ? toLTTime(end) : '--:--';
+
+          const hrs = hoursBetween(s.start_time, s.end_time);
+          const dur = fmtHHMM(hrs);
+          const miles = shiftMiles(s);
+
+          return `
+            <div class="shift-strip flex items-center justify-between gap-3" onclick="openShiftDetails('${s.id}')">
+              <div class="flex items-center gap-3 min-w-0">
+                <input
+                  type="checkbox"
+                  class="log-checkbox"
+                  onclick="event.stopPropagation(); updateDeleteButtonLocal()"
+                  value="shift:${s.id}"
+                />
+
+                <div class="min-w-0 flex items-center gap-2 flex-wrap">
+                  <span class="text-[10px] font-black uppercase tracking-widest opacity-70">${dateShort}</span>
+                  <span class="text-[10px] uppercase tracking-widest opacity-35">•</span>
+                  <span class="text-sm font-bold tracking-tight opacity-90">${startT}–${endT}</span>
+                  <span class="text-[10px] uppercase tracking-widest opacity-35">•</span>
+                  <span class="text-[10px] font-black uppercase tracking-widest opacity-70">${safeText(dur)}</span>
+                  <span class="text-[10px] uppercase tracking-widest opacity-35">•</span>
+                  <span class="text-[10px] font-black uppercase tracking-widest opacity-70">${miles} mi</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                ${badgeForShift(s)}
+                <div class="font-bold ${netClass(net)} text-right">
+                  ${formatCurrency(net)}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        updateDeleteButtonLocal();
+        return;
+      } catch (e2) {
+        console.error(e2);
+      }
+    }
+
     listEl.innerHTML = 'Klaida';
   }
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT DETAILS MODAL — keep simple, NO report cards
-// (Only what you need; we can expand later without changing list UI)
+// SHIFT DETAILS MODAL — full info (includes PAUSES)
 // ────────────────────────────────────────────────────────────────
 export function openShiftDetails(id) {
   vibrate([10]);
 
   const shifts = window._auditData?.shifts || [];
   const expenses = window._auditData?.expenses || [];
+  const pauses = window._auditData?.pauses || [];
+
   const s = shifts.find(x => String(x.id) === String(id));
   if (!s) return;
 
@@ -259,32 +394,89 @@ export function openShiftDetails(id) {
   const gross = Math.max(incSum, Number(s.gross_earnings || 0));
   const net = gross - expSum;
 
-  const dist = shiftMiles(s);
+  const miles = shiftMiles(s);
   const hrs = hoursBetween(s.start_time, s.end_time);
 
-  const vehicleName = safeText(s.vehicles?.name || 'Unknown');
   const start = new Date(s.start_time);
   const end = s.end_time ? new Date(s.end_time) : null;
+
+  const vehicleName = safeText(s.vehicles?.name || 'Unknown');
+  const dateLine = safeText(toLTDateLong(start));
+  const timeLine = `${toLTTime(start)}${end ? `–${toLTTime(end)}` : ''}`;
+
+  // PAUSES
+  const pList = pauses
+    .filter(p => String(p.shift_id) === String(id))
+    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+  let pauseTotalMins = 0;
+  const pauseLines = pList.length
+    ? pList.map((p, idx) => {
+        const a = p.start_time;
+        const b = p.end_time || new Date().toISOString();
+        const mins = minsBetweenISO(a, b);
+        pauseTotalMins += mins;
+
+        const aT = toLTTime(new Date(a));
+        const bT = p.end_time ? toLTTime(new Date(b)) : '...';
+        return `Pause ${idx + 1}: ${aT}–${bT} (${fmtMins(mins)})`;
+      })
+    : [];
+
+  // Earnings lines (prefer actual income entries; fallback to gross)
+  const incLines = income.length
+    ? income.map(i => `+ ${safeText(i.category)}: ${formatCurrency(i.amount || 0)}`)
+    : [`+ App: ${formatCurrency(gross)}`];
+
+  const expLines = expense.length
+    ? expense.map(e => {
+        const extra = e.category === 'fuel' && e.gallons ? ` (${Number(e.gallons)}g)` : '';
+        return `- ${safeText(e.category)}${safeText(extra)}: ${formatCurrency(e.amount || 0)}`;
+      })
+    : ['- None'];
 
   const header = `${toLTDateShort(start)} • ${toLTTime(start)}${end ? `–${toLTTime(end)}` : ''}`;
 
   const lines = [
+    `DATE: ${dateLine}`,
+    `TIME: ${timeLine}`,
+    `STATUS: ${safeText(s.status || '—')}`,
     `VEHICLE: ${vehicleName}`,
-    `TIME: ${header}`,
+    `ODOMETER: ${Number(s.start_odo || 0)} → ${Number(s.end_odo || 0)}`,
     `DURATION: ${fmtHHMM(hrs)}`,
-    `MILES: ${dist} mi`,
-    `EARNINGS: ${formatCurrency(gross)}`,
-    `EXPENSES: -${formatCurrency(expSum)}`,
-    `NET: ${formatCurrency(net)}`
+    `MILES: ${miles} mi`,
+    ``,
+    `EARNINGS:`,
+    ...incLines,
+    `TOTAL: ${formatCurrency(gross)}`,
+    ``,
+    `EXPENSES:`,
+    ...expLines,
+    `TOTAL: -${formatCurrency(expSum)}`,
+    ``,
+    `NET: ${formatCurrency(net)}`,
   ];
+
+  if (pList.length) {
+    lines.push(``, `PAUSES (total ${fmtMins(pauseTotalMins)}):`, ...pauseLines);
+  } else {
+    lines.push(``, `PAUSES: none`);
+  }
 
   const target = document.getElementById('shift-details-content');
   if (target) {
     target.innerHTML = `
       <div class="shift-modal-paper">
-        <div class="shift-modal-head">
-          <div class="ascii-head font-bold">${safeText(header)}</div>
+        <div class="shift-modal-head flex items-center justify-between gap-3">
+          <div>
+            <div class="ascii-head font-bold">${safeText(header)}</div>
+            <div class="text-[10px] uppercase tracking-widest opacity-60">${vehicleName}</div>
+          </div>
+          <div class="shrink-0">
+            ${badgeForShift(s)}
+          </div>
         </div>
+
         <div style="padding: 1rem;">
           <pre class="ascii-pre">${safeText(lines.join('\n'))}</pre>
           <button class="btn-primary-os" style="margin-top:1rem;" onclick="closeModals()">CLOSE</button>
@@ -294,6 +486,11 @@ export function openShiftDetails(id) {
   }
 
   openModal('shift-details-modal');
+}
+
+// Expose for inline onclick in HTML
+if (typeof window !== 'undefined') {
+  window.openShiftDetails = openShiftDetails;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -322,6 +519,8 @@ export async function confirmLogDelete() {
 
     if (sIds.length) {
       await db.from('expenses').delete().in('shift_id', sIds);
+      // pauses table optional
+      try { await db.from('finance_shift_pauses').delete().in('shift_id', sIds); } catch (_) {}
       await db.from('finance_shifts').delete().in('id', sIds);
     }
     if (tIds.length) {

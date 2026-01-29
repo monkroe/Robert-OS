@@ -1,10 +1,10 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS - STYLE.CSS v2.0.1                                     */
-/* Goals:                                                           */
-/* - Fix ugly bold fonts in inputs/login/modals                     */
-/* - Restore logs to strip + accordion hierarchy look               */
-/* - Keep bento + toast v1.8 feel                                   */
-/* - Keep auto/light/dark working                                   */
+/* ROBERT OS - STYLE.CSS v2.0.2                                     */
+/* Fixes:                                                          */
+/* - Inputs/login/modals: NOT bold, no inherit traps               */
+/* - Logs: v1.8 STRIPS feel (shift-strip) + SAFE tweak vars        */
+/* - Toast: keep v1.8 feel w/ icons                               */
+/* - Auto/Light/Dark preserved                                     */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root{
@@ -26,9 +26,19 @@
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  --fw-normal: 500;
-  --fw-semibold: 700;
+  /* weights: keep UI clean (avoid accidental heavy everywhere) */
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 650;
   --fw-heavy: 900;
+
+  /* === v1.8 strip feel (tweak safely here) === */
+  --log-strip-radius: 12px;
+  --log-strip-pad-y: 10px;
+  --log-strip-pad-x: 12px;
+  --log-strip-border: var(--border-color);
+  --log-strip-bg: transparent;
+  --log-strip-shadow: none;
 }
 
 :root.light{
@@ -43,7 +53,6 @@
 }
 
 *{ box-sizing:border-box; }
-
 html, body{ height:100%; }
 
 body{
@@ -66,7 +75,7 @@ body{
 .no-scrollbar::-webkit-scrollbar{ display:none; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Animations                                                        */
+/* Animations                                                       */
 /* ════════════════════════════════════════════════════════════════ */
 @keyframes slideUp{
   from{ opacity:0; transform:translateY(14px); }
@@ -86,7 +95,7 @@ body{
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Header & bottom nav                                               */
+/* Header & bottom nav                                              */
 /* ════════════════════════════════════════════════════════════════ */
 .global-header{
   position:fixed; top:0; left:0; right:0; z-index:50;
@@ -117,7 +126,7 @@ body{
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Buttons                                                           */
+/* Buttons                                                          */
 /* ════════════════════════════════════════════════════════════════ */
 .btn-primary-os{
   width:100%;
@@ -168,7 +177,7 @@ body{
 .header-btn:active{ transform:scale(.96); }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Inputs (FIX UGLY BOLD)                                            */
+/* Inputs (clean, NOT bold)                                         */
 /* ════════════════════════════════════════════════════════════════ */
 .input-field{
   width:100%;
@@ -181,8 +190,8 @@ body{
 
   font-family: var(--font-ui);
   font-weight: var(--fw-normal);
-  font-size: 14px;
-  line-height: 1.25;
+  font-size: 16px;         /* 16px avoids mobile zoom */
+  line-height: 1.3;
   letter-spacing: 0;
 
   transition: border-color .15s ease, box-shadow .15s ease;
@@ -193,7 +202,7 @@ body{
 }
 :root.light .input-field{ border-color:#d1d5db; }
 
-/* Ensure ALL modal inputs/selects are NOT bold and not weird */
+/* Auth/Settings/Garage/Modal inputs: FORCE clean (no inherit traps) */
 #auth-screen input,
 #auth-screen select,
 #settings-modal input,
@@ -203,13 +212,13 @@ body{
 .modal-content input,
 .modal-content select{
   font-family: var(--font-ui) !important;
-  font-weight: var(--fw-normal) !important;
-  font-size: 14px !important;
-  line-height: 1.25 !important;
+  font-weight: 400 !important;
+  font-size: 16px !important;
+  line-height: 1.3 !important;
   letter-spacing: 0 !important;
 }
 
-/* tx amount big but clean */
+/* TX amount big but clean */
 #tx-amount{
   font-size: 32px !important;
   font-weight: var(--fw-heavy) !important;
@@ -267,13 +276,13 @@ body{
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Tabs                                                              */
+/* Tabs                                                             */
 /* ════════════════════════════════════════════════════════════════ */
 .tab-content{ display:none; opacity:0; }
 .tab-content.active{ display:block; animation: slideUp .25s cubic-bezier(.16,1,.3,1) forwards; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Bento cards                                                       */
+/* Bento cards                                                      */
 /* ════════════════════════════════════════════════════════════════ */
 .bento-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
 .bento-card{
@@ -290,7 +299,7 @@ body{
 :root.light .bento-card.clickable:active{ background-color: rgba(0,0,0,.05); }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Modals                                                            */
+/* Modals                                                           */
 /* ════════════════════════════════════════════════════════════════ */
 .modal-overlay{
   position:fixed; inset:0; z-index:100;
@@ -317,7 +326,7 @@ body{
 :root.light .modal-content{ box-shadow:0 10px 30px rgba(0,0,0,.10); }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Nav items                                                         */
+/* Nav items                                                        */
 /* ════════════════════════════════════════════════════════════════ */
 .nav-item{
   display:flex; flex-direction:column;
@@ -336,7 +345,7 @@ body{
 .nav-item:active{ transform:scale(.97); }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Typography                                                        */
+/* Typography                                                       */
 /* ════════════════════════════════════════════════════════════════ */
 .val-timer{
   font-size:3rem;
@@ -362,7 +371,7 @@ body{
 :root.light #rental-val, :root.light #grind-val{ color:#111827 !important; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Toasts — v1.8 single source of truth (NO DUPLICATES)             */
+/* Toasts — v1.8 single source of truth                             */
 /* ════════════════════════════════════════════════════════════════ */
 #toast-container{
   position:fixed;
@@ -390,11 +399,12 @@ body{
   letter-spacing: 0;
   text-transform: none;
 
-  color: #0b0b0c !important;         /* black text like v1.8 */
+  color: #0b0b0c !important; /* black text like v1.8 */
   border: 1px solid rgba(0,0,0,.10);
   box-shadow: 0 18px 40px rgba(0,0,0,.28);
   pointer-events:auto;
 }
+
 #toast-container > div i{ font-size: 1.15rem; }
 
 /* keep bg-* tokens but match v1.8 feel */
@@ -409,7 +419,7 @@ body{
 #toast-container > .bg-yellow-500{box-shadow: 0 18px 40px rgba(0,0,0,.28), 0 0 40px rgba(234,179,8,.20) !important; }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* Status badge                                                      */
+/* Status badge                                                     */
 /* ════════════════════════════════════════════════════════════════ */
 @keyframes badgePulseTeal{
   0%,100%{ box-shadow:0 0 0 rgba(20,184,166,0); }
@@ -444,144 +454,23 @@ body{
 }
 
 /* ════════════════════════════════════════════════════════════════ */
-/* HISTORY / LOGS — restore STRIPS + ACCORDION feel                  */
-/* Works with:                                                      */
-/* - old renderer: .shift-strip                                      */
-/* - new renderer: .history-month/.month-head/.day-head/.os-strip     */
+/* HISTORY / LOGS — v1.8 STRIPS (shift-strip)                        */
 /* ════════════════════════════════════════════════════════════════ */
-
-/* Month header (accordion hook) */
-.history-month{ margin-bottom: 14px; }
-
-.month-head{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding: 10px 6px 6px;
-  user-select:none;
-}
-.month-left{
-  font-size: 11px;
-  font-weight: var(--fw-heavy);
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  opacity:.85;
-}
-.month-line{
-  flex:1;
-  height:1px;
-  background: var(--border-color);
-  opacity:.6;
-}
-.month-right{
-  font-size: 12px;
-  font-weight: var(--fw-heavy);
-  letter-spacing: .02em;
-  opacity:.92;
+.shift-strip{
+  border-radius: var(--log-strip-radius);
+  padding: var(--log-strip-pad-y) var(--log-strip-pad-x);
+  border: 1px solid var(--log-strip-border);
+  background: var(--log-strip-bg);
+  box-shadow: var(--log-strip-shadow);
 }
 
-/* Day accordion header (tap line) */
-.day-block{ margin-top: 10px; }
-
-.day-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.02);
-  cursor:pointer;
-  user-select:none;
-}
-:root.light .day-head{
-  border-color: rgba(0,0,0,.10);
-  background: rgba(0,0,0,.02);
-}
-.day-title{
-  font-size: 12px;
-  font-weight: var(--fw-heavy);
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  opacity:.88;
-}
-.day-sum{
-  font-size: 13px;
-  font-weight: var(--fw-heavy);
-  opacity:.92;
-}
-
-/* Container for strips under day */
-.day-shifts{ margin-top: 10px; display:flex; flex-direction:column; gap:10px; }
-
-/* NEW strip (os-strip) — all info on ONE BAR */
-.os-strip{
-  border-radius: 18px;
-  padding: 12px 12px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-  box-shadow: 0 12px 30px rgba(0,0,0,.40);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  cursor:pointer;
-}
-.os-strip:active{ transform: scale(.995); }
-:root.light .os-strip{
+:root.light .shift-strip{
   border-color: rgba(0,0,0,.08);
-  background: #ffffff;
-  box-shadow: 0 12px 24px rgba(17,24,39,.10);
+  background: transparent;
+  box-shadow: none;
 }
 
-.os-strip-left{ display:flex; align-items:center; gap:10px; min-width: 0; flex: 1; }
-.os-strip-main{ min-width:0; flex:1; }
-.os-strip-top{
-  display:flex;
-  align-items:baseline;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.os-strip-date{
-  font-size: 11px;
-  font-weight: var(--fw-heavy);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  opacity:.85;
-}
-.os-strip-time{
-  font-size: 12px;
-  font-weight: var(--fw-semibold);
-  opacity:.80;
-}
-.os-strip-dur{
-  font-size: 12px;
-  font-weight: var(--fw-semibold);
-  opacity:.70;
-}
-.os-strip-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: var(--fw-normal);
-  opacity:.72;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.os-strip-sub i{ opacity:.75; }
-.os-sub-dot{ opacity:.45; }
-
-.os-strip-right{ display:flex; align-items:center; justify-content:flex-end; }
-.os-strip-net{
-  font-size: 18px;
-  font-weight: var(--fw-heavy);
-  letter-spacing: -0.02em;
-}
-.net-pos{ color:#22c55e; }
-.net-neg{ color:#ef4444; }
-
-/* Checkbox clean (works for both renderers) */
+/* Checkbox clean */
 .log-checkbox{
   width: 22px !important;
   height: 22px !important;
@@ -593,20 +482,6 @@ body{
 :root.light .log-checkbox{
   border: 1px solid rgba(0,0,0,.12) !important;
   background: rgba(0,0,0,.03) !important;
-}
-
-/* OLD strip class support (if your renderer outputs shift-strip) */
-.shift-strip{
-  border-radius: 18px !important;
-  padding: 14px 14px !important;
-  border: 1px solid rgba(255,255,255,.10) !important;
-  background: rgba(255,255,255,.03) !important;
-  box-shadow: 0 12px 30px rgba(0,0,0,.40);
-}
-:root.light .shift-strip{
-  border-color: rgba(0,0,0,.08) !important;
-  background: #ffffff !important;
-  box-shadow: 0 12px 24px rgba(17,24,39,.10);
 }
 
 /* ════════════════════════════════════════════════════════════════ */
@@ -648,7 +523,7 @@ body{
   opacity: .95;
 }
 
-/* Accordion wrapper (safe if present) */
+/* Accordion wrapper (safe if present elsewhere) */
 .acc-wrap{ display:flex; flex-direction:column; gap:.6rem; padding:.9rem; }
 .acc-item{
   border: 1px solid rgba(255,255,255,.10);
@@ -698,4 +573,4 @@ body{
 #loading{
   font-family: var(--font-mono);
   font-weight: 800;
-  }
+}

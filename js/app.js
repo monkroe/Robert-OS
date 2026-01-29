@@ -217,4 +217,6 @@ window.exportAI = Finance.exportAI;
 window.updateDeleteButtonLocal = Finance.updateDeleteButtonLocal;
 window.openShiftDetails = Finance.openShiftDetails;
 
+window.toggleAccordion = Finance.toggleAccordion;
+
 document.addEventListener('DOMContentLoaded', init);

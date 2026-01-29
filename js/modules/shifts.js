@@ -1,10 +1,13 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/SHIFTS.JS v2.1.0
-// Purpose: Shift lifecycle (start/pause/end) + 3 timers + DB pause log
+// ROBERT OS - MODULES/SHIFTS.JS v2.1.1 (PAUSE FIX + 3 TIMERS SAFE)
+// Fixes:
+//  - Makes pause callable from HTML onclick (pauseShift/togglePauseShift)
+//  - Supports multiple button ids (btn-pause, pause-btn, btnPause, etc.)
+//  - If DB pause table missing -> UI pause still works + toast warning
 // Timers:
-//  - TOTAL (on-duty): from start to now, ignores pauses
-//  - ACTIVE (work): total minus pauses
-//  - REMAIN (target): target - active
+//  - TOTAL (on-duty): start->now (ignores pauses)
+//  - ACTIVE: total - pauses
+//  - REMAIN: target - active
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -14,10 +17,30 @@ import { openModal, closeModals } from './ui.js';
 
 let timerInterval = null;
 
-// pause cache (module scoped; avoids touching Proxy state with unknown keys)
+// pause cache
 let pauseRows = []; // [{id,start_time,end_time}]
 let openPauseId = null;
 let pauseLoadedForShiftId = null;
+
+function getPauseBtn() {
+  return (
+    document.getElementById('btn-pause') ||
+    document.getElementById('pause-btn') ||
+    document.getElementById('btnPause') ||
+    document.getElementById('pauseShiftBtn') ||
+    document.querySelector('[data-action="pause"]') ||
+    null
+  );
+}
+
+function isPausedStatus(status) {
+  // be tolerant: some old builds might use 'pause', 'paused', etc.
+  return String(status || '').toLowerCase().includes('paus');
+}
+
+function normalizeStatus(status) {
+  return isPausedStatus(status) ? 'paused' : 'active';
+}
 
 // ────────────────────────────────────────────────────────────────
 // START SHIFT
@@ -26,11 +49,7 @@ let pauseLoadedForShiftId = null;
 export function openStartModal() {
   vibrate();
   const select = document.getElementById('start-vehicle');
-
-  if (!select) {
-    showToast('UI error: missing vehicle selector', 'error');
-    return;
-  }
+  if (!select) return showToast('UI error: missing vehicle selector', 'error');
 
   select.innerHTML = (state.fleet || [])
     .map(v => `<option value="${v.id}">${v.name}</option>`)
@@ -58,13 +77,9 @@ export async function confirmStart() {
       vehicle_id: vehicleId,
       start_odo: startOdo,
       start_time: new Date().toISOString(),
-      target_hours: targetHours || null, // keep your existing column
+      target_hours: targetHours || null,
       status: 'active'
     };
-
-    // Optional compatibility: if you added target_minutes column, set it too
-    // (won't error if column doesn't exist? Supabase WILL error if unknown)
-    // So we do NOT include it here unless you confirm it's in your schema.
 
     const { data, error } = await db
       .from('finance_shifts')
@@ -81,7 +96,9 @@ export async function confirmStart() {
     openPauseId = null;
     pauseLoadedForShiftId = String(data.id);
 
+    syncPauseButtonUI('active');
     showToast('START SHIFT', 'success');
+
     closeModals();
     window.dispatchEvent(new Event('refresh-data'));
   } catch (e) {
@@ -110,16 +127,11 @@ export function openEndModal() {
 export async function confirmEnd() {
   vibrate([20]);
 
-  if (!state.activeShift?.id) {
-    showToast('Nėra aktyvios pamainos', 'warning');
-    return;
-  }
+  if (!state.activeShift?.id) return showToast('Nėra aktyvios pamainos', 'warning');
 
-  const endOdoEl = document.getElementById('end-odo');
-  const earnEl = document.getElementById('end-earn');
-
-  const endOdoRaw = endOdoEl?.value;
-  const earnRaw = earnEl?.value;
+  const endOdoRaw = document.getElementById('end-odo')?.value;
+  const earnRaw = document.getElementById('end-earn')?.value;
+  const weather = document.getElementById('end-weather')?.value || 'sunny';
 
   if (endOdoRaw === '' || endOdoRaw == null) return showToast('Įveskite ridą', 'warning');
   if (earnRaw === '' || earnRaw == null) return showToast('Įveskite uždarbį', 'warning');
@@ -127,16 +139,14 @@ export async function confirmEnd() {
   const endOdo = parseInt(endOdoRaw || '0', 10) || 0;
   const earn = parseFloat(earnRaw || '0') || 0;
 
-  const weather = document.getElementById('end-weather')?.value || 'sunny';
-
   state.loading = true;
   try {
-    // If currently paused: close open pause first (so analytics is correct)
+    // If paused: close open pause (if table exists)
     await ensurePauseClosedIfNeeded(state.activeShift.id);
 
     stopTimer();
 
-    const { error: updErr } = await db
+    const { error } = await db
       .from('finance_shifts')
       .update({
         end_time: new Date().toISOString(),
@@ -147,7 +157,7 @@ export async function confirmEnd() {
       })
       .eq('id', state.activeShift.id);
 
-    if (updErr) throw updErr;
+    if (error) throw error;
 
     showToast('END SHIFT', 'success');
 
@@ -167,7 +177,7 @@ export async function confirmEnd() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// PAUSE / RESUME (DB logged)
+// PAUSE / RESUME
 // ────────────────────────────────────────────────────────────────
 
 export async function togglePause() {
@@ -175,19 +185,40 @@ export async function togglePause() {
   const s = state.activeShift;
   if (!s?.id) return;
 
-  // Ensure pause list is loaded for correct resume handling after refresh
-  await syncPausesFromDB(s.id);
+  // normalize status so old values don't break
+  s.status = normalizeStatus(s.status);
 
-  const isActive = s.status === 'active';
-  const newStatus = isActive ? 'paused' : 'active';
+  // load pauses (if table exists)
+  await syncPausesFromDB_SAFE(s.id);
 
-  // Optimistic UI
+  const newStatus = s.status === 'active' ? 'paused' : 'active';
+
+  // Immediate UI feedback (even if DB fails)
   s.status = newStatus;
   syncPauseButtonUI(newStatus);
 
+  if (newStatus === 'paused') {
+    stopTimer();
+  } else {
+    startTimer();
+  }
+  updateTimerDisplay();
+
+  // Persist shift status (this should exist)
+  try {
+    const { error: stErr } = await db
+      .from('finance_shifts')
+      .update({ status: newStatus })
+      .eq('id', s.id);
+
+    if (stErr) throw stErr;
+  } catch (e) {
+    showToast(e?.message || 'Pause status update failed', 'error');
+  }
+
+  // Persist pause rows (optional; can fail if table missing)
   try {
     if (newStatus === 'paused') {
-      // create a new pause row
       const { data, error } = await db
         .from('finance_shift_pauses')
         .insert({
@@ -202,12 +233,9 @@ export async function togglePause() {
       if (error) throw error;
 
       openPauseId = data?.id || null;
-      // update local cache
       pauseRows.push({ id: data.id, start_time: data.start_time, end_time: data.end_time });
-      stopTimer(); // active timer should freeze
-      updateTimerDisplay(); // refresh UI immediately
+      pauseLoadedForShiftId = String(s.id);
     } else {
-      // resume: close the latest open pause
       const pid = openPauseId || findOpenPauseId();
       if (pid) {
         const { error } = await db
@@ -217,78 +245,54 @@ export async function togglePause() {
 
         if (error) throw error;
 
-        // update local cache
-        pauseRows = pauseRows.map(p => (String(p.id) === String(pid) ? { ...p, end_time: new Date().toISOString() } : p));
+        pauseRows = pauseRows.map(p =>
+          String(p.id) === String(pid) ? { ...p, end_time: new Date().toISOString() } : p
+        );
         openPauseId = null;
       }
-
-      startTimer();
     }
-
-    // persist shift status
-    const { error: stErr } = await db
-      .from('finance_shifts')
-      .update({ status: newStatus })
-      .eq('id', s.id);
-
-    if (stErr) throw stErr;
   } catch (e) {
-    console.error(e);
-    // revert via refresh (single source of truth)
-    window.dispatchEvent(new Event('refresh-data'));
+    // This is the typical “table missing / RLS” case.
+    // UI already paused/resumed, but analytics won't have pause breakdown.
+    showToast('Pause DB log neveikia (trūksta lentelės/RLS)', 'warning');
   }
 }
 
 function syncPauseButtonUI(status) {
-  const btn = document.getElementById('btn-pause');
+  const btn = getPauseBtn();
   if (!btn) return;
 
-  if (status === 'active') {
-    btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-    btn.classList.remove('bg-yellow-500/20', 'text-yellow-500');
-  } else {
-    btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-    btn.classList.add('bg-yellow-500/20', 'text-yellow-500');
-  }
+  const paused = status === 'paused';
+
+  // icon swap: pause -> play
+  // support both <button> innerHTML and <i> child
+  try {
+    if (paused) {
+      btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+      btn.classList.add('bg-yellow-500/20', 'text-yellow-500');
+    } else {
+      btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+      btn.classList.remove('bg-yellow-500/20', 'text-yellow-500');
+    }
+  } catch (_) {}
 }
 
-// ────────────────────────────────────────────────────────────────
-// TIMER (3 displays, theme-safe)
-// ────────────────────────────────────────────────────────────────
-
-export function startTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-
-  // load pauses once per active shift to make ACTIVE time correct after refresh
-  const s = state.activeShift;
-  if (s?.id) {
-    syncPausesFromDB(s.id)
-      .catch(() => {})
-      .finally(() => {
-        updateTimerDisplay();
-        timerInterval = setInterval(updateTimerDisplay, 1000);
-      });
-  } else {
-    updateTimerDisplay();
-    timerInterval = setInterval(updateTimerDisplay, 1000);
-  }
+function findOpenPauseId() {
+  const open = pauseRows.find(p => !p.end_time);
+  return open?.id || null;
 }
 
-export function stopTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = null;
-
-  const timerEl = document.getElementById('shift-timer');
-  if (timerEl) {
-    timerEl.classList.add('opacity-50');
-    timerEl.classList.remove('pulse-text');
+async function syncPausesFromDB_SAFE(shiftId) {
+  try {
+    await syncPausesFromDB(shiftId);
+  } catch (_) {
+    // ignore: table may not exist or RLS
   }
 }
 
 async function syncPausesFromDB(shiftId) {
   const sid = String(shiftId);
   if (!sid) return;
-
   if (pauseLoadedForShiftId === sid) return;
 
   const { data, error } = await db
@@ -306,36 +310,59 @@ async function syncPausesFromDB(shiftId) {
     end_time: p.end_time
   }));
 
-  // detect open pause
   const open = pauseRows.find(p => !p.end_time);
   openPauseId = open?.id || null;
 
   pauseLoadedForShiftId = sid;
 }
 
-function findOpenPauseId() {
-  const open = pauseRows.find(p => !p.end_time);
-  return open?.id || null;
-}
-
 async function ensurePauseClosedIfNeeded(shiftId) {
-  // refresh local cache first
-  try {
-    await syncPausesFromDB(shiftId);
-  } catch (_) {}
+  await syncPausesFromDB_SAFE(shiftId);
 
   const pid = openPauseId || findOpenPauseId();
   if (!pid) return;
 
-  // close it
-  await db
-    .from('finance_shift_pauses')
-    .update({ end_time: new Date().toISOString() })
-    .eq('id', pid);
+  try {
+    await db
+      .from('finance_shift_pauses')
+      .update({ end_time: new Date().toISOString() })
+      .eq('id', pid);
 
-  // local cache update
-  pauseRows = pauseRows.map(p => (String(p.id) === String(pid) ? { ...p, end_time: new Date().toISOString() } : p));
-  openPauseId = null;
+    pauseRows = pauseRows.map(p =>
+      String(p.id) === String(pid) ? { ...p, end_time: new Date().toISOString() } : p
+    );
+    openPauseId = null;
+  } catch (_) {
+    // ignore if table missing
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// TIMER
+// ────────────────────────────────────────────────────────────────
+
+export function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+
+  const s = state.activeShift;
+  if (s?.id) {
+    syncPausesFromDB_SAFE(s.id)
+      .finally(() => {
+        updateTimerDisplay();
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+      });
+  } else {
+    updateTimerDisplay();
+    timerInterval = setInterval(updateTimerDisplay, 1000);
+  }
+}
+
+export function stopTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+
+  const timerEl = document.getElementById('shift-timer');
+  if (timerEl) timerEl.classList.add('opacity-50');
 }
 
 function updateTimerDisplay() {
@@ -344,21 +371,20 @@ function updateTimerDisplay() {
 
   const nowMs = Date.now();
   const startMs = new Date(s.start_time).getTime();
-
   const endMs = s.end_time ? new Date(s.end_time).getTime() : nowMs;
+
   const totalMs = Math.max(0, endMs - startMs);
 
   // pause sum
   const pauseMs = sumPauseMs(endMs);
-
   const activeMs = Math.max(0, totalMs - pauseMs);
 
-  // target (hours from your existing column)
+  // target
   const targetHours = parseFloat(s.target_hours || 0) || 0;
   const targetMs = targetHours > 0 ? targetHours * 60 * 60 * 1000 : 0;
   const remainMs = targetMs > 0 ? Math.max(0, targetMs - activeMs) : 0;
 
-  // Render into optional elements
+  // optional multi-displays
   const elTotal = document.getElementById('shift-timer-total');
   const elActive = document.getElementById('shift-timer-active');
   const elRemain = document.getElementById('shift-timer-remaining');
@@ -367,19 +393,15 @@ function updateTimerDisplay() {
   if (elActive) elActive.textContent = fmtHMS(activeMs);
   if (elRemain) elRemain.textContent = targetMs > 0 ? fmtHMS(remainMs) : '--:--:--';
 
-  // Backward compatible: existing single timer shows ACTIVE (most useful)
+  // main timer shows ACTIVE (useful)
   const el = document.getElementById('shift-timer');
-  if (el) {
-    el.textContent = fmtHMS(activeMs);
+  if (el) el.textContent = fmtHMS(activeMs);
 
-    // if paused, freeze look
-    if (s.status === 'paused') {
-      el.classList.add('opacity-50');
-      el.classList.remove('pulse-text');
-    } else {
-      el.classList.remove('opacity-50');
-      el.classList.add('pulse-text');
-    }
+  // paused look
+  if (normalizeStatus(s.status) === 'paused') {
+    if (el) el.classList.add('opacity-50');
+  } else {
+    if (el) el.classList.remove('opacity-50');
   }
 }
 
@@ -390,9 +412,7 @@ function sumPauseMs(endOrNowMs) {
   for (const p of pauseRows) {
     const ps = new Date(p.start_time).getTime();
     const pe = p.end_time ? new Date(p.end_time).getTime() : endOrNowMs;
-    if (Number.isFinite(ps) && Number.isFinite(pe) && pe > ps) {
-      sum += (pe - ps);
-    }
+    if (Number.isFinite(ps) && Number.isFinite(pe) && pe > ps) sum += (pe - ps);
   }
   return sum;
 }
@@ -415,11 +435,20 @@ function pad(n) {
 
 export function selectWeather(type) {
   vibrate();
-
   document.querySelectorAll('.weather-btn').forEach(b => {
     b.classList.remove('border-teal-500', 'bg-teal-500/20');
   });
-
   const hidden = document.getElementById('end-weather');
   if (hidden) hidden.value = type;
 }
+
+// ────────────────────────────────────────────────────────────────
+// GLOBAL HOOKS (CRITICAL for phone-friendly onclick)
+// ────────────────────────────────────────────────────────────────
+
+// If your HTML has onclick="pauseShift()" it MUST exist on window.
+try {
+  window.pauseShift = togglePause;
+  window.togglePauseShift = togglePause;
+  window.togglePause = togglePause;
+} catch (_) {}

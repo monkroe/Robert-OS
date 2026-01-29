@@ -385,3 +385,165 @@ body{
   border-color: rgba(34,197,94,0.30);
   animation: badgePulseGreen 1.25s ease-in-out infinite;
     }
+
+/* ════════════════════════════════════════════════════════════════ */
+/* PATCH: HISTORY (finance.js current markup) + SHIFT DETAILS        */
+/* Paste at END of style.css                                         */
+/* ════════════════════════════════════════════════════════════════ */
+
+/* Tailwind-like classes used in finance.js (so they actually work) */
+.bg-white\/5{ background: rgba(255,255,255,0.05) !important; }
+.border-white\/10{ border-color: rgba(255,255,255,0.10) !important; }
+:root.light .bg-white\/5{ background: rgba(0,0,0,0.03) !important; }
+:root.light .border-white\/10{ border-color: rgba(0,0,0,0.08) !important; }
+
+/* Year row */
+#audit-list .text-xs.opacity-50.font-bold{
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  opacity: .60 !important;
+  letter-spacing: .02em;
+}
+
+/* Month title row (SAUSIS...) */
+#audit-list .text-teal-500.font-bold.text-xs.uppercase.tracking-widest{
+  display:flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 4px;
+  margin: 10px 0 12px;
+  font-size: 34px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.03em !important;
+  text-transform: uppercase !important;
+  color: var(--accent) !important;
+  position: relative;
+}
+#audit-list .text-teal-500.font-bold.text-xs.uppercase.tracking-widest::after{
+  content:"";
+  height: 1px;
+  flex: 1;
+  background: color-mix(in srgb, var(--border-color) 85%, transparent);
+  transform: translateY(-6px);
+  margin-left: 10px;
+}
+
+/* SHIFT STRIP card (your clickable row) */
+.shift-strip{
+  border-radius: 18px !important;
+  padding: 14px 14px !important;
+  border: 1px solid var(--border-color) !important;
+  background: color-mix(in srgb, var(--card-bg) 92%, transparent) !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.40) !important;
+}
+:root.light .shift-strip{
+  box-shadow: 0 12px 24px rgba(17,24,39,0.10) !important;
+}
+
+/* Inside shift strip typography tuning */
+.shift-strip .text-\[10px\]{
+  font-size: 12px !important; /* instead of tiny 10px */
+  font-weight: 800 !important;
+  opacity: .55 !important;
+  letter-spacing: .08em !important;
+}
+.shift-strip .text-sm.font-bold{
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+}
+.shift-strip .font-bold.text-green-400,
+.shift-strip .font-bold.text-red-400{
+  font-size: 28px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1 !important;
+}
+
+/* Checkbox look */
+.log-checkbox{
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 8px !important;
+  border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent) !important;
+  background: color-mix(in srgb, var(--card-bg) 88%, transparent) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────── */
+/* SHIFT DETAILS (ASCII ACCORDION) — theme-safe + not too bold       */
+/* ──────────────────────────────────────────────────────────────── */
+
+.shift-modal-paper{
+  border: 1px solid var(--border-color);
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+  overflow: hidden;
+  box-shadow: 0 18px 55px rgba(0,0,0,0.35);
+}
+:root.light .shift-modal-paper{
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.88));
+  box-shadow: 0 18px 55px rgba(17,24,39,0.10);
+}
+
+.shift-modal-head{
+  padding: 1rem 1rem .75rem;
+  border-bottom: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent);
+}
+
+.ascii-pre{
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+  color: var(--text-main) !important;
+  font-weight: 600 !important;   /* FIX: buvo per riebus */
+  font-size: 0.92rem !important;
+  line-height: 1.55 !important;
+  opacity: .92;
+}
+.ascii-head{
+  font-size: 0.95rem !important;
+  font-weight: 650 !important;
+}
+
+.acc-wrap{ display:flex; flex-direction:column; gap:.6rem; padding:.9rem; }
+
+.acc-item{
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+  overflow: hidden;
+}
+:root.light .acc-item{ background: rgba(0,0,0,0.02); }
+
+.acc-header{
+  width: 100%;
+  display:flex; align-items:center; justify-content:space-between;
+  padding: .85rem .95rem;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+}
+.acc-head-left{ display:flex; align-items:center; gap:.6rem; }
+
+/* icon/label calmer (and avoids “double icons” feeling) */
+.acc-ico{ width: 1.35rem; text-align:center; opacity:.75; font-size:.95rem; }
+.acc-title{
+  font-weight: 800 !important;
+  letter-spacing: .06em !important;
+  text-transform: uppercase;
+  font-size: 10px !important;
+  opacity: .85;
+}
+
+.acc-chevron{ opacity:.55; transition: transform .18s ease, opacity .18s ease; }
+.acc-chevron.open{ transform: rotate(180deg); opacity: .95; }
+
+.acc-panel{ display:none; }
+.acc-panel.open{ display:block; }
+
+.acc-body{
+  padding: .75rem .95rem 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
+}

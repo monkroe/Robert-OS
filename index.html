@@ -1,10 +1,7 @@
 <!-- ════════════════════════════════════════════════════════════════
-     ROBERT OS - INDEX.HTML v2.0.1
+     ROBERT OS - INDEX.HTML v2.0.2
      Fixes:
-     - ✅ No theme flicker on load (preload :root.light BEFORE CSS)
-     - ✅ Audit/Logs layout restored to v1.8 “History strips” look hooks
-     - ✅ Weather icons modernized (FontAwesome)
-     - ✅ Toast container kept (icons supported by utils.js)
+     - ✅ Full tank checkbox added to Fuel TX fields (tx-full)
      ════════════════════════════════════════════════════════════════ -->
 
 <!DOCTYPE html>
@@ -19,7 +16,7 @@
   <meta name="theme-color" content="#000000" />
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png" />
 
-  <title>ROBERT OS 2.0.1</title>
+  <title>ROBERT OS 2.0.2</title>
 
   <!-- ✅ THEME PRELOAD (prevents dark->light flash) -->
   <script>
@@ -41,7 +38,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="style.css?v=2.0.1" />
+  <link rel="stylesheet" href="style.css?v=2.0.2" />
 </head>
 
 <body class="antialiased selection:bg-teal-500 selection:text-black">
@@ -175,8 +172,6 @@
 
       <!-- AUDIT / HISTORY -->
       <section id="tab-audit" class="tab-content space-y-4">
-
-        <!-- v1.8-ish header -->
         <div class="flex justify-between items-center px-1">
           <div class="flex items-center gap-3">
             <div class="relative flex items-center h-full">
@@ -187,7 +182,6 @@
           </div>
 
           <div class="flex gap-2">
-            <!-- keep your existing handlers -->
             <button id="btn-delete-logs" onclick="requestLogDelete()" class="hidden text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-2 rounded-xl flex items-center gap-2 active:scale-95 transition-transform">
               <i class="fa-solid fa-trash"></i> <span id="delete-count">0</span>
             </button>
@@ -198,9 +192,6 @@
           </div>
         </div>
 
-        <!-- finance.js should render items here.
-             IMPORTANT: for v1.8 look, your renderer should output class="shift-strip" on each row (CSS already has it).
-             If your renderer still outputs "log-card", I’ll align CSS next message. -->
         <div id="audit-list" class="space-y-3 pb-24">
           <div class="text-center py-10 opacity-50"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</div>
         </div>
@@ -294,7 +285,6 @@
 
         <label class="label-xs ml-1 block mb-2">Driving Conditions</label>
 
-        <!-- ✅ Modern weather icons (keeps your selectWeather keys) -->
         <div class="grid grid-cols-5 gap-2 mb-4">
           <button type="button" onclick="selectWeather('sunny')" class="weather-btn p-3 border border-gray-700 rounded-lg text-xl hover:bg-yellow-500/20 hover:border-yellow-500/50" aria-label="Sunny">
             <i class="fa-solid fa-sun text-yellow-400"></i>
@@ -372,6 +362,7 @@
         </button>
       </div>
 
+      <!-- FUEL FIELDS -->
       <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">
         <div>
           <label class="label-xs">Gallons</label>
@@ -380,6 +371,18 @@
         <div>
           <label class="label-xs">Odometer</label>
           <input type="number" inputmode="decimal" id="tx-odo" class="input-field text-sm" />
+        </div>
+
+        <!-- ✅ FULL TANK FLAG (new) -->
+        <div class="col-span-2 mt-2">
+          <label class="label-xs ml-1">Fuel Fill Type</label>
+          <label style="display:flex; align-items:center; gap:.75rem; cursor:pointer; padding:.75rem; border:1px solid #374151; border-radius:.75rem; transition:background-color .2s;">
+            <input type="checkbox" id="tx-full" style="width:1.25rem; height:1.25rem; border-radius:.25rem; accent-color:#14b8a6; cursor:pointer;" />
+            <div style="line-height:1.1;">
+              <span style="font-size:.875rem; font-weight:800; display:block; letter-spacing:.08em; text-transform:uppercase;">FULL TANK</span>
+              <span style="font-size:.75rem; color:#6b7280;">Use for MPG / cost-per-mile tracking</span>
+            </div>
+          </label>
         </div>
       </div>
 
@@ -574,7 +577,7 @@
     </div>
   </div>
 
-  <!-- SHIFT DETAILS MODAL (CRITICAL: required by finance.js openShiftDetails) -->
+  <!-- SHIFT DETAILS MODAL -->
   <div id="shift-details-modal" class="modal-overlay hidden" style="z-index: 150;">
     <div class="modal-content animate-slideUp p-0 bg-black overflow-hidden border border-white/10" style="max-width: 24rem;">
       <div class="absolute top-3 right-3 z-10">
@@ -585,9 +588,7 @@
         </button>
       </div>
 
-      <div id="shift-details-content" class="h-full max-h-[85vh] overflow-y-auto">
-        <!-- injected by Finance.openShiftDetails(...) -->
-      </div>
+      <div id="shift-details-content" class="h-full max-h-[85vh] overflow-y-auto"></div>
     </div>
   </div>
 

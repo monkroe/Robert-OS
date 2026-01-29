@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.2.2
+// ROBERT OS - MODULES/FINANCE.JS v2.2.3
 // Goals:
 // - History: minimalist one-bar strip per shift:
 //   date + start-end + duration + miles (ONLY)
@@ -8,10 +8,18 @@
 // - Keep delete checkbox behavior
 // - Keep tx modal behavior
 //
-// ADD v2.2.2:
-// - Fuel TX supports "FULL TANK" flag (tx-full -> is_full)
+// v2.2.1:
+// - TX from Shift Details binds to THAT shift (txShiftId)
+//
+// v2.2.2:
+// - Fuel TX supports "FULL TANK" (tx-full -> is_full)
 // - Fuel TX binds vehicle_id (from shift if possible; else active shift)
 // - Fuel lines in Shift Details show FULL marker
+//
+// ADD v2.2.3:
+// - UI guard: blocks fuel odometer < shift.start_odo
+// - UI guard: blocks fuel odometer < previous max fuel odometer (per user+vehicle)
+// - Expose inline-handler functions to window (safer for onclick)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -69,16 +77,6 @@ function sum(arr, fn) {
   return (arr || []).reduce((acc, x) => acc + (Number(fn(x)) || 0), 0);
 }
 
-function groupBy(arr, keyFn) {
-  const out = {};
-  for (const x of arr || []) {
-    const k = String(keyFn(x));
-    if (!out[k]) out[k] = [];
-    out[k].push(x);
-  }
-  return out;
-}
-
 function calcPauseMs(pauses) {
   return (pauses || []).reduce((acc, p) => {
     const a = p.start_time ? new Date(p.start_time).getTime() : 0;
@@ -124,12 +122,46 @@ function resolveVehicleIdForTx() {
   return null;
 }
 
+// UI guard helpers
+function getShiftStartOdo(shift_id) {
+  if (!shift_id) return 0;
+
+  // Try from cached audit shifts
+  if (window._auditData?.shifts?.length) {
+    const s = window._auditData.shifts.find(x => String(x.id) === String(shift_id));
+    return Number(s?.start_odo || 0);
+  }
+
+  // Fallback active shift
+  if (state.activeShift?.id && String(state.activeShift.id) === String(shift_id)) {
+    return Number(state.activeShift.start_odo || 0);
+  }
+
+  return 0;
+}
+
+function getPrevMaxFuelOdo(vehicle_id) {
+  if (!vehicle_id) return 0;
+  const ex = window._auditData?.expenses || [];
+  let maxOdo = 0;
+
+  for (const e of ex) {
+    if (String(e.category || '') !== 'fuel') continue;
+    if (String(e.vehicle_id || '') !== String(vehicle_id)) continue;
+    const o = Number(e.odometer || 0);
+    if (Number.isFinite(o) && o > maxOdo) maxOdo = o;
+  }
+
+  return maxOdo;
+}
+
 // ────────────────────────────────────────────────────────────────
 // TRANSACTIONS
 // ────────────────────────────────────────────────────────────────
 
 export function openTxModal(dir, shiftId = null) {
   vibrate();
+
   txDraft.direction = dir;
   txDraft.category = dir === 'in' ? 'tips' : 'fuel';
   txShiftId = shiftId || null;
@@ -150,6 +182,7 @@ export function openTxModal(dir, shiftId = null) {
     setTimeout(() => inp.focus(), 100);
   }
 
+  // keep modal stacking safe
   if (shiftId) document.getElementById('shift-details-modal')?.classList.add('hidden');
   openModal('tx-modal');
 }
@@ -174,19 +207,27 @@ export async function confirmTx() {
       meta.gallons = asNum(document.getElementById('tx-gal')?.value);
       meta.odometer = parseInt(document.getElementById('tx-odo')?.value || 0, 10) || 0;
 
-      // FULL TANK flag (new)
-      const isFull = !!document.getElementById('tx-full')?.checked;
-      meta.is_full = isFull;
+      // FULL TANK flag
+      meta.is_full = !!document.getElementById('tx-full')?.checked;
 
       // light validation for fuel
       if (meta.gallons <= 0) return showToast('Įveskite gallons', 'warning');
       if (meta.odometer <= 0) return showToast('Įveskite odometer', 'warning');
+
+      // ── UI HARD GUARDS (prevents bad inserts + avoids DB error surprises)
+      const shiftStart = getShiftStartOdo(shift_id);
+      const prevFuelMax = getPrevMaxFuelOdo(vehicle_id);
+      const minAllowed = Math.max(shiftStart || 0, prevFuelMax || 0);
+
+      if (minAllowed > 0 && meta.odometer < minAllowed) {
+        return showToast(`ODO per mažas. Min: ${minAllowed}`, 'error');
+      }
     }
 
     const payload = {
       user_id: state.user.id,
       shift_id,
-      vehicle_id, // NEW
+      vehicle_id, // NEW (for fuel analytics per car)
       type: txDraft.direction === 'in' ? 'income' : 'expense',
       category: txDraft.category,
       amount,
@@ -210,6 +251,7 @@ export async function confirmTx() {
 
 export function setExpType(cat, el) {
   txDraft.category = cat;
+
   document.querySelectorAll('.exp-btn, .inc-btn').forEach(b => b.classList.remove('active'));
   if (el) el.classList.add('active');
 
@@ -225,7 +267,6 @@ function updateTxModalUI(dir) {
   document.getElementById('expense-types')?.classList.toggle('hidden', dir === 'in');
 
   // show fuel-fields by default for OUT (fuel default)
-  // (user can still switch category; setExpType handles visibility)
   const fuelFields = document.getElementById('fuel-fields');
   if (fuelFields) {
     if (dir === 'out' && txDraft.category === 'fuel') fuelFields.classList.remove('hidden');
@@ -267,50 +308,56 @@ export async function refreshAudit() {
       return;
     }
 
+    // cache for details modal + guards
     window._auditData = { shifts, expenses, pauses };
 
-    listEl.innerHTML = shifts.map(s => {
-      const start = new Date(s.start_time);
-      const end = s.end_time ? new Date(s.end_time) : null;
+    listEl.innerHTML = shifts
+      .map(s => {
+        const start = new Date(s.start_time);
+        const end = s.end_time ? new Date(s.end_time) : null;
 
-      const dateStr = toLTDateISO(start);
-      const startT = toLTTime(start);
-      const endT = end ? toLTTime(end) : '…';
+        const dateStr = toLTDateISO(start);
+        const startT = toLTTime(start);
+        const endT = end ? toLTTime(end) : '…';
 
-      const durMs = msBetween(s.start_time, s.end_time || null);
-      const dur = fmtHhMmFromMs(durMs);
+        const durMs = msBetween(s.start_time, s.end_time || null);
+        const dur = fmtHhMmFromMs(durMs);
 
-      const miles = shiftMiles(s);
+        const miles = shiftMiles(s);
 
-      return `
-        <div class="shift-strip flex items-center justify-between gap-3" onclick="openShiftDetails('${s.id}')">
-          <div class="flex items-center gap-3 min-w-0">
-            <input
-              type="checkbox"
-              class="log-checkbox"
-              onclick="event.stopPropagation(); updateDeleteButtonLocal()"
-              value="shift:${s.id}"
-            />
-            <div class="min-w-0">
-              <div class="text-[10px] uppercase tracking-widest opacity-70">
-                ${safeText(dateStr)}
-              </div>
-              <div class="text-sm font-bold tracking-tight">
-                ${safeText(startT)} – ${safeText(endT)}
-                <span class="opacity-60 font-normal">(${safeText(dur)})</span>
-              </div>
-              <div class="text-[10px] uppercase tracking-widest opacity-50">
-                ${safeText(String(miles))} mi
+        return `
+          <div class="shift-strip flex items-center justify-between gap-3" onclick="openShiftDetails('${s.id}')">
+            <div class="flex items-center gap-3 min-w-0">
+              <input
+                type="checkbox"
+                class="log-checkbox"
+                onclick="event.stopPropagation(); updateDeleteButtonLocal()"
+                value="shift:${s.id}"
+              />
+
+              <div class="min-w-0">
+                <div class="text-[10px] uppercase tracking-widest opacity-70">
+                  ${safeText(dateStr)}
+                </div>
+
+                <div class="text-sm font-bold tracking-tight">
+                  ${safeText(startT)} – ${safeText(endT)}
+                  <span class="opacity-60 font-normal">(${safeText(dur)})</span>
+                </div>
+
+                <div class="text-[10px] uppercase tracking-widest opacity-50">
+                  ${safeText(String(miles))} mi
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="opacity-40">
-            <i class="fa-solid fa-chevron-right"></i>
+            <div class="opacity-40">
+              <i class="fa-solid fa-chevron-right"></i>
+            </div>
           </div>
-        </div>
-      `;
-    }).join('');
+        `;
+      })
+      .join('');
 
     updateDeleteButtonLocal();
   } catch (e) {
@@ -383,6 +430,7 @@ export function openShiftDetails(id) {
     const ic = isIn ? 'fa-circle-plus' : 'fa-circle-minus';
     const col = isIn ? '#22c55e' : '#ef4444';
     const sign = isIn ? '+' : '−';
+
     const cat = safeText(String(e.category || ''));
     const amt = formatCurrency(Number(e.amount || 0));
 
@@ -419,6 +467,7 @@ export function openShiftDetails(id) {
     const b = p.end_time ? new Date(p.end_time) : null;
     const aStr = a ? toLTTime(a) : '??';
     const bStr = b ? toLTTime(b) : '…';
+
     return `
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,.06);">
         <div style="display:flex; align-items:center; gap:10px;">
@@ -579,3 +628,19 @@ export function updateDeleteButtonLocal() {
 
 export function toggleAccordion() {}
 export function exportAI() {}
+
+// ────────────────────────────────────────────────────────────────
+// Expose for inline onclick handlers (important for your HTML strings)
+// ────────────────────────────────────────────────────────────────
+try {
+  window.openTxModal = openTxModal;
+  window.confirmTx = confirmTx;
+  window.setExpType = setExpType;
+  window.openShiftDetails = openShiftDetails;
+
+  window.requestLogDelete = requestLogDelete;
+  window.confirmLogDelete = confirmLogDelete;
+  window.updateDeleteButtonLocal = updateDeleteButtonLocal;
+  window.toggleSelectAll = toggleSelectAll;
+  window.exportAI = exportAI;
+} catch (_) {}

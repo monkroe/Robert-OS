@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - MODULES/SHIFTS.JS v2.0.0
-// Purpose: Shift lifecycle (start/pause/end) + odometer autofill + last_odo sync
+// Purpose: Shift lifecycle (start/pause/end) + odometer autofill + last_odo sync (schema-safe)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -18,12 +18,9 @@ function getVehicleById(id) {
     return (state.fleet || []).find(v => String(v.id) === String(id)) || null;
 }
 
-/**
- * Returns best-known odometer for a vehicle.
- * Priority: last_odo -> initial_odo -> 0
- */
 function getVehicleOdoSeed(vehicle) {
     if (!vehicle) return 0;
+
     const last = parseInt(vehicle.last_odo ?? '', 10);
     if (Number.isFinite(last) && last > 0) return last;
 
@@ -37,6 +34,26 @@ function setInputValue(id, value) {
     const el = document.getElementById(id);
     if (!el) return;
     el.value = value === 0 ? '' : String(value);
+}
+
+async function ensureActiveShift() {
+    // If state lost (refresh / re-init), try to rehydrate from DB.
+    if (state.activeShift?.id) return state.activeShift;
+    if (!state.user?.id) return null;
+
+    const { data, error } = await db
+        .from('finance_shifts')
+        .select('*')
+        .in('status', ['active', 'paused'])
+        .eq('user_id', state.user.id)
+        .order('start_time', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) throw error;
+
+    state.activeShift = data || null;
+    return state.activeShift;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -54,12 +71,10 @@ export function openStartModal() {
         return;
     }
 
-    // Populate fleet
     select.innerHTML = (state.fleet || [])
         .map(v => `<option value="${v.id}">${v.name}</option>`)
         .join('');
 
-    // Auto-fill start odo based on selected vehicle
     const applyOdo = () => {
         const v = getVehicleById(select.value);
         const seed = getVehicleOdoSeed(v);
@@ -68,10 +83,8 @@ export function openStartModal() {
         }
     };
 
-    // Bind once (no duplicates)
     if (!select.dataset.odoBound) {
         select.addEventListener('change', () => {
-            // When vehicle changes, always update start odo (this is what you wanted)
             const v = getVehicleById(select.value);
             const seed = getVehicleOdoSeed(v);
             setInputValue('start-odo', seed);
@@ -79,9 +92,7 @@ export function openStartModal() {
         select.dataset.odoBound = '1';
     }
 
-    // Initial fill
     applyOdo();
-
     openModal('start-modal');
 }
 
@@ -131,9 +142,11 @@ export async function confirmStart() {
 
 export function openEndModal() {
     vibrate();
-    if (!state.activeShift) return;
+    if (!state.activeShift) {
+        showToast('NĖRA AKTYVIOS PAMAINOS', 'warning');
+        return;
+    }
 
-    // Auto-fill end odo with shift start odo if empty
     const endOdoEl = document.getElementById('end-odo');
     if (endOdoEl && (endOdoEl.value === '' || endOdoEl.value == null)) {
         const seed = parseInt(state.activeShift.start_odo || '0', 10) || 0;
@@ -146,31 +159,31 @@ export function openEndModal() {
 export async function confirmEnd() {
     vibrate([20]);
 
-    if (!state.activeShift?.id) {
-        showToast('Nėra aktyvios pamainos', 'warning');
+    let s = null;
+    try {
+        s = await ensureActiveShift();
+    } catch (e) {
+        showToast(e?.message || 'Shift sync error', 'error');
         return;
     }
 
-    const endOdoEl = document.getElementById('end-odo');
-    const earnEl = document.getElementById('end-earn');
+    if (!s?.id) {
+        showToast('NĖRA AKTYVIOS PAMAINOS', 'warning');
+        return;
+    }
 
-    const endOdoRaw = endOdoEl?.value;
-    const earnRaw = earnEl?.value;
+    const endOdoRaw = document.getElementById('end-odo')?.value;
+    const earnRaw = document.getElementById('end-earn')?.value;
 
-    // Required fields
     if (endOdoRaw === '' || endOdoRaw == null) return showToast('Įveskite ridą', 'warning');
     if (earnRaw === '' || earnRaw == null) return showToast('Įveskite uždarbį', 'warning');
 
     const endOdo = parseInt(endOdoRaw || '0', 10) || 0;
     const earn = parseFloat(earnRaw || '0') || 0;
 
-    // Odometer sanity
-    const startOdo = parseInt(state.activeShift.start_odo || '0', 10) || 0;
-    if (endOdo < startOdo) {
-        return showToast('Rida negali būti mažesnė už START', 'warning');
-    }
+    const startOdo = parseInt(s.start_odo || '0', 10) || 0;
+    if (endOdo < startOdo) return showToast('Rida negali būti mažesnė už START', 'warning');
 
-    // Optional fields (safe if missing in HTML)
     const washOtherEl = document.getElementById('end-carwash-other');
     const washCostEl = document.getElementById('manual-wash-cost');
     const washOther = washOtherEl ? washOtherEl.checked : false;
@@ -180,10 +193,8 @@ export async function confirmEnd() {
 
     state.loading = true;
     try {
-        // Stop timer immediately for UX
         stopTimer();
 
-        // 1) Complete shift
         const { error: updErr } = await db
             .from('finance_shifts')
             .update({
@@ -193,15 +204,14 @@ export async function confirmEnd() {
                 status: 'completed',
                 weather
             })
-            .eq('id', state.activeShift.id);
+            .eq('id', s.id);
 
         if (updErr) throw updErr;
 
-        // 2) Optional: paid wash expense
         if (washOther && washCost > 0) {
             const { error: washErr } = await db.from('expenses').insert({
                 user_id: state.user.id,
-                shift_id: state.activeShift.id,
+                shift_id: s.id,
                 type: 'expense',
                 category: 'carwash',
                 amount: washCost,
@@ -210,21 +220,17 @@ export async function confirmEnd() {
             if (washErr) throw washErr;
         }
 
-        // 3) ✅ CRITICAL: Update vehicle.last_odo
-        const vehicleId = state.activeShift.vehicle_id;
+        // ✅ CRITICAL: Update vehicle.last_odo (NO updated_at column!)
+        const vehicleId = s.vehicle_id;
         if (vehicleId) {
             const { error: vehErr } = await db
                 .from('vehicles')
-                .update({
-                    last_odo: endOdo,
-                    updated_at: new Date().toISOString()
-                })
+                .update({ last_odo: endOdo })
                 .eq('id', vehicleId)
                 .eq('user_id', state.user.id);
 
             if (vehErr) throw vehErr;
 
-            // Keep local fleet in sync (no full refetch needed)
             const v = getVehicleById(vehicleId);
             if (v) v.last_odo = endOdo;
         }
@@ -235,7 +241,6 @@ export async function confirmEnd() {
         window.dispatchEvent(new Event('refresh-data'));
     } catch (e) {
         showToast(e?.message || 'End error', 'error');
-        // If failure happened, allow timer restart via refreshAll (source of truth)
         window.dispatchEvent(new Event('refresh-data'));
     } finally {
         state.loading = false;
@@ -248,14 +253,24 @@ export async function confirmEnd() {
 
 export async function togglePause() {
     vibrate();
-    const s = state.activeShift;
-    if (!s?.id) return;
+
+    let s = null;
+    try {
+        s = await ensureActiveShift();
+    } catch (e) {
+        showToast(e?.message || 'Shift sync error', 'error');
+        return;
+    }
+
+    if (!s?.id) {
+        showToast('NĖRA AKTYVIOS PAMAINOS', 'warning');
+        return;
+    }
 
     const wasActive = s.status === 'active';
     const newStatus = wasActive ? 'paused' : 'active';
     s.status = newStatus;
 
-    // Immediate UI
     const btn = document.getElementById('btn-pause');
     if (btn) {
         if (newStatus === 'active') {
@@ -332,7 +347,6 @@ export function selectWeather(type) {
     document.querySelectorAll('.weather-btn').forEach(b => {
         b.classList.remove('border-teal-500', 'bg-teal-500/20');
     });
-
     const hidden = document.getElementById('end-weather');
     if (hidden) hidden.value = type;
 }

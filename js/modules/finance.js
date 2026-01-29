@@ -1,25 +1,23 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - MODULES/FINANCE.JS v2.2.3
-// Goals:
-// - History: minimalist one-bar strip per shift:
-//   date + start-end + duration + miles (ONLY)
-// - Tap strip => full details modal (icons + FA) + status badge
-// - Full details include: pause total + tx list + pause list + sums
+// Goals (kept):
+// - History strips (date + start-end + duration + miles)
+// - Shift Details modal (icons + status badge) + tx list + pause list + sums
 // - Keep delete checkbox behavior
 // - Keep tx modal behavior
 //
-// v2.2.1:
-// - TX from Shift Details binds to THAT shift (txShiftId)
-//
-// v2.2.2:
-// - Fuel TX supports "FULL TANK" (tx-full -> is_full)
-// - Fuel TX binds vehicle_id (from shift if possible; else active shift)
+// ADD v2.2.2 (kept):
+// - Fuel TX supports "FULL TANK" flag (tx-full -> is_full)
+// - Fuel TX binds vehicle_id
 // - Fuel lines in Shift Details show FULL marker
 //
-// ADD v2.2.3:
-// - UI guard: blocks fuel odometer < shift.start_odo
-// - UI guard: blocks fuel odometer < previous max fuel odometer (per user+vehicle)
-// - Expose inline-handler functions to window (safer for onclick)
+// FIX v2.2.3 (Variant A):
+// - If NO active shift: allow ONLY Fuel OUT (standalone) with required vehicle_id + odometer + gallons
+// - Block other IN/OUT when no shift (prevents cockpit tx without activeShift)
+// - Fuel odometer validation:
+//    * if bound to shift -> odo must be >= shift.start_odo
+//    * if standalone -> odo must be >= last fuel odo for that vehicle (if exists)
+// - Adds dynamic Vehicle picker into Fuel fields (NO index.html change required)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -108,58 +106,135 @@ function asNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-// Get vehicle_id for a tx
+function asInt(v) {
+  const n = parseInt(String(v ?? ''), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getShiftById(id) {
+  if (!id) return null;
+  const shifts = window._auditData?.shifts || [];
+  return shifts.find(x => String(x.id) === String(id)) || null;
+}
+
+function getTxVehiclePickerValue() {
+  const sel = document.getElementById('tx-veh');
+  const v = sel?.value || '';
+  return v ? v : null;
+}
+
+// Resolve vehicle_id for tx
 function resolveVehicleIdForTx() {
-  // If tx is being created for a specific shift (details modal), try that shift's vehicle_id
-  if (txShiftId && window._auditData?.shifts?.length) {
-    const s = window._auditData.shifts.find(x => String(x.id) === String(txShiftId));
+  // 1) If tx is being created for a specific shift (details modal), use that shift's vehicle_id
+  if (txShiftId) {
+    const s = getShiftById(txShiftId);
     if (s?.vehicle_id) return s.vehicle_id;
   }
-  // Otherwise fallback to active shift vehicle_id
+
+  // 2) Otherwise fallback to active shift vehicle_id
   if (state.activeShift?.vehicle_id) return state.activeShift.vehicle_id;
 
-  // Last resort: none
+  // 3) Otherwise try the Fuel Vehicle picker (dynamic)
+  const picked = getTxVehiclePickerValue();
+  if (picked) return picked;
+
   return null;
 }
 
-// UI guard helpers
-function getShiftStartOdo(shift_id) {
-  if (!shift_id) return 0;
+async function getLastFuelOdo(userId, vehicleId) {
+  if (!userId || !vehicleId) return null;
 
-  // Try from cached audit shifts
-  if (window._auditData?.shifts?.length) {
-    const s = window._auditData.shifts.find(x => String(x.id) === String(shift_id));
-    return Number(s?.start_odo || 0);
-  }
+  const { data, error } = await db
+    .from('expenses')
+    .select('odometer')
+    .eq('user_id', userId)
+    .eq('vehicle_id', vehicleId)
+    .eq('category', 'fuel')
+    .not('odometer', 'is', null)
+    .order('odometer', { ascending: false })
+    .limit(1);
 
-  // Fallback active shift
-  if (state.activeShift?.id && String(state.activeShift.id) === String(shift_id)) {
-    return Number(state.activeShift.start_odo || 0);
-  }
-
-  return 0;
+  if (error) return null;
+  const last = data?.[0]?.odometer;
+  const n = asInt(last);
+  return n > 0 ? n : null;
 }
 
-function getPrevMaxFuelOdo(vehicle_id) {
-  if (!vehicle_id) return 0;
-  const ex = window._auditData?.expenses || [];
-  let maxOdo = 0;
+// ────────────────────────────────────────────────────────────────
+// Dynamic Vehicle Picker for Fuel (no HTML change required)
+// ────────────────────────────────────────────────────────────────
 
-  for (const e of ex) {
-    if (String(e.category || '') !== 'fuel') continue;
-    if (String(e.vehicle_id || '') !== String(vehicle_id)) continue;
-    const o = Number(e.odometer || 0);
-    if (Number.isFinite(o) && o > maxOdo) maxOdo = o;
+async function ensureFuelVehiclePicker() {
+  const fuelBox = document.getElementById('fuel-fields');
+  if (!fuelBox) return;
+
+  // already exists
+  if (document.getElementById('tx-veh')) return;
+
+  // create wrapper
+  const wrap = document.createElement('div');
+  wrap.className = 'col-span-2 mt-2';
+  wrap.innerHTML = `
+    <label class="label-xs ml-1">Vehicle</label>
+    <select id="tx-veh" class="input-field text-sm h-12"></select>
+    <div id="tx-veh-hint" class="text-[11px] opacity-60 mt-1" style="display:none;">
+      Fuel be shift reikalauja Vehicle + Odometer.
+    </div>
+  `;
+  fuelBox.appendChild(wrap);
+
+  const sel = document.getElementById('tx-veh');
+  if (!sel) return;
+
+  // load vehicles
+  sel.innerHTML = `<option value="">Loading vehicles...</option>`;
+
+  try {
+    const { data, error } = await db
+      .from('vehicles')
+      .select('id, name, year, type')
+      .eq('user_id', state.user?.id || '')
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    const vehicles = data || [];
+    if (!vehicles.length) {
+      sel.innerHTML = `<option value="">No vehicles</option>`;
+      return;
+    }
+
+    const last = localStorage.getItem('tx_last_vehicle_id') || '';
+
+    sel.innerHTML =
+      `<option value="">Select vehicle...</option>` +
+      vehicles
+        .map(v => {
+          const label = `${v.name || 'Vehicle'}${v.year ? ` (${v.year})` : ''}`;
+          const selected = String(v.id) === String(last) ? 'selected' : '';
+          return `<option value="${safeText(v.id)}" ${selected}>${safeText(label)}</option>`;
+        })
+        .join('');
+
+    sel.addEventListener('change', () => {
+      const val = sel.value || '';
+      if (val) localStorage.setItem('tx_last_vehicle_id', val);
+    });
+  } catch (e) {
+    sel.innerHTML = `<option value="">Vehicle load error</option>`;
   }
+}
 
-  return maxOdo;
+function setFuelVehicleHintVisible(visible) {
+  const hint = document.getElementById('tx-veh-hint');
+  if (hint) hint.style.display = visible ? 'block' : 'none';
 }
 
 // ────────────────────────────────────────────────────────────────
 // TRANSACTIONS
 // ────────────────────────────────────────────────────────────────
 
-export function openTxModal(dir, shiftId = null) {
+export async function openTxModal(dir, shiftId = null) {
   vibrate();
 
   txDraft.direction = dir;
@@ -167,6 +242,13 @@ export function openTxModal(dir, shiftId = null) {
   txShiftId = shiftId || null;
 
   updateTxModalUI(dir);
+
+  // reset amount each open
+  const inp = document.getElementById('tx-amount');
+  if (inp) {
+    inp.value = '';
+    setTimeout(() => inp.focus(), 100);
+  }
 
   // reset fuel fields each open (prevents stale values)
   const gal = document.getElementById('tx-gal');
@@ -176,10 +258,14 @@ export function openTxModal(dir, shiftId = null) {
   if (odo) odo.value = '';
   if (full) full.checked = false;
 
-  const inp = document.getElementById('tx-amount');
-  if (inp) {
-    inp.value = '';
-    setTimeout(() => inp.focus(), 100);
+  // If OUT (fuel default), ensure vehicle picker exists
+  // (needed for standalone fuel when no activeShift)
+  if (dir === 'out') {
+    await ensureFuelVehiclePicker();
+
+    // show hint if there is no active shift and no shiftId
+    const noShiftContext = !txShiftId && !state.activeShift?.id;
+    setFuelVehicleHintVisible(noShiftContext);
   }
 
   // keep modal stacking safe
@@ -195,39 +281,55 @@ export async function confirmTx() {
 
   state.loading = true;
   try {
-    const meta = {};
-
     // Decide which shift to bind:
     const shift_id = txShiftId || state.activeShift?.id || null;
 
+    // Variant A: if NO shift -> allow ONLY fuel
+    if (!shift_id && txDraft.category !== 'fuel') {
+      return showToast('Nėra aktyvios pamainos. IN/OUT pridėk per Shift Details.', 'warning');
+    }
+
     // Vehicle bind (needed for MPG/$mile per car)
+    // Required for fuel (standalone or not)
     const vehicle_id = resolveVehicleIdForTx();
+    if (txDraft.category === 'fuel' && !vehicle_id) {
+      return showToast('Fuel įrašui reikia Vehicle (pasirink Vehicle).', 'warning');
+    }
+
+    const meta = {};
 
     if (txDraft.category === 'fuel') {
       meta.gallons = asNum(document.getElementById('tx-gal')?.value);
-      meta.odometer = parseInt(document.getElementById('tx-odo')?.value || 0, 10) || 0;
+      meta.odometer = asInt(document.getElementById('tx-odo')?.value);
 
       // FULL TANK flag
       meta.is_full = !!document.getElementById('tx-full')?.checked;
 
-      // light validation for fuel
+      // validation (fuel)
       if (meta.gallons <= 0) return showToast('Įveskite gallons', 'warning');
       if (meta.odometer <= 0) return showToast('Įveskite odometer', 'warning');
 
-      // ── UI HARD GUARDS (prevents bad inserts + avoids DB error surprises)
-      const shiftStart = getShiftStartOdo(shift_id);
-      const prevFuelMax = getPrevMaxFuelOdo(vehicle_id);
-      const minAllowed = Math.max(shiftStart || 0, prevFuelMax || 0);
-
-      if (minAllowed > 0 && meta.odometer < minAllowed) {
-        return showToast(`ODO per mažas. Min: ${minAllowed}`, 'error');
+      // odometer guards:
+      // 1) If bound to shift: odo must be >= shift.start_odo
+      if (shift_id) {
+        const s = getShiftById(shift_id) || state.activeShift || null;
+        const startOdo = asInt(s?.start_odo);
+        if (startOdo > 0 && meta.odometer < startOdo) {
+          return showToast(`Fuel odo negali būti mažesnis už start_odo (${startOdo})`, 'warning');
+        }
+      } else {
+        // 2) standalone: odo must be >= last fuel odo for this vehicle (if exists)
+        const last = await getLastFuelOdo(state.user?.id, vehicle_id);
+        if (last && meta.odometer < last) {
+          return showToast(`Fuel odo negali būti mažesnis už paskutinį (${last})`, 'warning');
+        }
       }
     }
 
     const payload = {
       user_id: state.user.id,
-      shift_id,
-      vehicle_id, // NEW (for fuel analytics per car)
+      shift_id,      // can be null ONLY for fuel (standalone)
+      vehicle_id,    // required for fuel; may be null for others (but we block others w/o shift)
       type: txDraft.direction === 'in' ? 'income' : 'expense',
       category: txDraft.category,
       amount,
@@ -257,6 +359,15 @@ export function setExpType(cat, el) {
 
   const f = document.getElementById('fuel-fields');
   if (f) cat === 'fuel' ? f.classList.remove('hidden') : f.classList.add('hidden');
+
+  // If switched to fuel, ensure picker exists (no HTML change needed)
+  if (cat === 'fuel') {
+    ensureFuelVehiclePicker();
+    const noShiftContext = !txShiftId && !state.activeShift?.id;
+    setFuelVehicleHintVisible(noShiftContext);
+  } else {
+    setFuelVehicleHintVisible(false);
+  }
 }
 
 function updateTxModalUI(dir) {
@@ -308,7 +419,6 @@ export async function refreshAudit() {
       return;
     }
 
-    // cache for details modal + guards
     window._auditData = { shifts, expenses, pauses };
 
     listEl.innerHTML = shifts
@@ -334,17 +444,14 @@ export async function refreshAudit() {
                 onclick="event.stopPropagation(); updateDeleteButtonLocal()"
                 value="shift:${s.id}"
               />
-
               <div class="min-w-0">
                 <div class="text-[10px] uppercase tracking-widest opacity-70">
                   ${safeText(dateStr)}
                 </div>
-
                 <div class="text-sm font-bold tracking-tight">
                   ${safeText(startT)} – ${safeText(endT)}
                   <span class="opacity-60 font-normal">(${safeText(dur)})</span>
                 </div>
-
                 <div class="text-[10px] uppercase tracking-widest opacity-50">
                   ${safeText(String(miles))} mi
                 </div>
@@ -430,7 +537,6 @@ export function openShiftDetails(id) {
     const ic = isIn ? 'fa-circle-plus' : 'fa-circle-minus';
     const col = isIn ? '#22c55e' : '#ef4444';
     const sign = isIn ? '+' : '−';
-
     const cat = safeText(String(e.category || ''));
     const amt = formatCurrency(Number(e.amount || 0));
 
@@ -467,7 +573,6 @@ export function openShiftDetails(id) {
     const b = p.end_time ? new Date(p.end_time) : null;
     const aStr = a ? toLTTime(a) : '??';
     const bStr = b ? toLTTime(b) : '…';
-
     return `
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,.06);">
         <div style="display:flex; align-items:center; gap:10px;">
@@ -626,21 +731,6 @@ export function updateDeleteButtonLocal() {
   if (el) el.textContent = String(c);
 }
 
+// optional if you later reintroduce accordion hierarchy
 export function toggleAccordion() {}
 export function exportAI() {}
-
-// ────────────────────────────────────────────────────────────────
-// Expose for inline onclick handlers (important for your HTML strings)
-// ────────────────────────────────────────────────────────────────
-try {
-  window.openTxModal = openTxModal;
-  window.confirmTx = confirmTx;
-  window.setExpType = setExpType;
-  window.openShiftDetails = openShiftDetails;
-
-  window.requestLogDelete = requestLogDelete;
-  window.confirmLogDelete = confirmLogDelete;
-  window.updateDeleteButtonLocal = updateDeleteButtonLocal;
-  window.toggleSelectAll = toggleSelectAll;
-  window.exportAI = exportAI;
-} catch (_) {}

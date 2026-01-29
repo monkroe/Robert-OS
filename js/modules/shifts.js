@@ -1,11 +1,12 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/SHIFTS.JS v2.2.0
+// ROBERT OS - MODULES/SHIFTS.JS v2.2.1
 // Purpose: Shift lifecycle (start/pause/end) + safe timer + pause DB log
 // FIXES:
 // 1) Start ODO auto-fills to MIN allowed for selected vehicle
 //    MIN = max(end_odo) of completed shifts for that vehicle OR vehicle.last_odo OR 0
 // 2) Guards: start_odo >= min, end_odo >= start_odo
-// 3) Keeps your pause safe logic (unique one_open_per_shift) + timer behavior
+// 3) Default target hours auto-fill from settings (state.userSettings.default_shift_target_hours)
+// 4) Keeps pause safe logic (unique one_open_per_shift) + timer behavior
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -37,21 +38,25 @@ function getVehicleById(id) {
   return (state.fleet || []).find(v => String(v.id) === String(id)) || null;
 }
 
+function getDefaultTargetHours() {
+  const def = Number(state.userSettings?.default_shift_target_hours ?? 12);
+  return Number.isFinite(def) && def > 0 ? def : 12;
+}
+
 // Compute MIN allowed start ODO for selected vehicle
 async function fetchVehicleStartMinOdo(vehicleId) {
   if (!state.user?.id || !vehicleId) return 0;
 
-  // In-memory cache for this modal session
   const key = String(vehicleId);
   if (startMinCache[key] != null) return startMinCache[key];
 
-  // 1) try DB: max end_odo from completed shifts for this vehicle
   let min = 0;
 
+  // 1) DB: last completed shift end_odo
   try {
     const { data, error } = await db
       .from('finance_shifts')
-      .select('end_odo')
+      .select('end_odo, end_time')
       .eq('user_id', state.user.id)
       .eq('vehicle_id', vehicleId)
       .eq('status', 'completed')
@@ -64,10 +69,10 @@ async function fetchVehicleStartMinOdo(vehicleId) {
       if (lastEnd > min) min = lastEnd;
     }
   } catch (_) {
-    // ignore; we'll fallback to fleet vehicle.last_odo
+    // ignore
   }
 
-  // 2) fallback: vehicle.last_odo (if you keep it up to date)
+  // 2) fallback: vehicle.last_odo
   const veh = getVehicleById(vehicleId);
   const vLast = toInt(veh?.last_odo);
   if (vLast > min) min = vLast;
@@ -82,14 +87,22 @@ async function applyStartMinToUI(vehicleId) {
 
   const min = await fetchVehicleStartMinOdo(vehicleId);
 
-  // Put min as input min + placeholder and default value
   startOdoEl.min = String(min);
   startOdoEl.placeholder = `min ${min}`;
 
-  // Only auto-fill if empty OR current value < min
   const cur = toInt(startOdoEl.value);
   if (!startOdoEl.value || cur < min) {
     startOdoEl.value = String(min);
+  }
+}
+
+function applyDefaultTargetToUI() {
+  const goalEl = document.getElementById('start-goal');
+  if (!goalEl) return;
+
+  // Only fill if empty
+  if (goalEl.value === '' || goalEl.value == null) {
+    goalEl.value = String(getDefaultTargetHours());
   }
 }
 
@@ -97,7 +110,7 @@ function setStartVehicleChangeHandler() {
   const select = document.getElementById('start-vehicle');
   if (!select) return;
 
-  // Avoid stacking handlers if openStartModal called multiple times
+  // Avoid stacking handlers
   select.onchange = async () => {
     vibrate([10]);
     await applyStartMinToUI(select.value);
@@ -110,7 +123,7 @@ function setStartVehicleChangeHandler() {
 
 export async function openStartModal() {
   vibrate();
-  startMinCache = {}; // reset cache for this open
+  startMinCache = {}; // reset cache each open
 
   const select = document.getElementById('start-vehicle');
   if (!select) return showToast('UI error: missing vehicle selector', 'error');
@@ -120,7 +133,10 @@ export async function openStartModal() {
 
   setStartVehicleChangeHandler();
 
-  // Pre-apply min to the default selected vehicle
+  // Default target hours (from settings)
+  applyDefaultTargetToUI();
+
+  // Apply min ODO for default selected vehicle
   const initialVehicleId = select.value || fleet[0]?.id;
   if (initialVehicleId) {
     select.value = String(initialVehicleId);
@@ -140,7 +156,10 @@ export async function confirmStart() {
   if (!vehicleId) return showToast('Pasirinkite automobilį', 'warning');
 
   const startOdo = toInt(startOdoRaw);
-  const target = toFloat(targetRaw || '12') || 12;
+
+  // target fallback -> settings default
+  const fallbackTarget = getDefaultTargetHours();
+  const target = toFloat(targetRaw || String(fallbackTarget)) || fallbackTarget;
 
   // HARD GUARD: start_odo must be >= min for that vehicle
   const min = await fetchVehicleStartMinOdo(vehicleId);
@@ -186,7 +205,6 @@ export function openEndModal() {
 
   const endOdoEl = document.getElementById('end-odo');
   if (endOdoEl && !endOdoEl.value) {
-    // sensible default: start_odo
     endOdoEl.value = String(state.activeShift.start_odo || '');
   }
 
@@ -207,7 +225,6 @@ export async function confirmEnd() {
   const endOdo = toInt(endOdoRaw);
   const earn = toFloat(earnRaw);
 
-  // HARD GUARD: end_odo >= start_odo
   const startOdo = toInt(state.activeShift.start_odo);
   if (endOdo < startOdo) {
     return showToast(`Pabaigos rida negali būti mažesnė už start (${startOdo})`, 'warning');
@@ -267,7 +284,6 @@ export async function togglePause() {
   const newStatus = wasActive ? 'paused' : 'active';
   s.status = newStatus;
 
-  // Immediate UI
   if (btn) {
     if (newStatus === 'active') {
       btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
@@ -347,7 +363,11 @@ async function endPauseSafe(shiftId) {
 
 async function closeOpenPauseSilently(shiftId) {
   try {
-    await db.from('finance_shift_pauses').update({ end_time: new Date().toISOString() }).eq('shift_id', shiftId).is('end_time', null);
+    await db
+      .from('finance_shift_pauses')
+      .update({ end_time: new Date().toISOString() })
+      .eq('shift_id', shiftId)
+      .is('end_time', null);
   } catch (_) {}
 }
 

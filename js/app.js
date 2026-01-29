@@ -15,9 +15,10 @@ import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 
 let refreshBound = false;
+let lifecycleBound = false;
 
 async function init() {
-    // UI Text Fix (optional – keeps your v1 label)
+    // Keep your v1 label (optional)
     const startBtn = document.querySelector('#start-modal .btn-primary-os');
     if (startBtn) startBtn.textContent = 'START SHIFT';
 
@@ -32,24 +33,24 @@ async function init() {
         appContent?.classList.remove('hidden');
 
         try {
-            // 1) Load settings first (timezone_primary/secondary)
+            // 1) Settings first (clocks depend on it)
             await Settings.loadSettings();
 
-            // 2) Apply theme + start clocks (depends on settings + DOM)
+            // 2) Theme + clocks
             UI.applyTheme();
-            UI.startClocks(); // seconds: yes, 1Hz interval
+            UI.startClocks();
 
-            // 3) Load fleet + initial refresh
+            // 3) Fleet + refresh
             await Garage.fetchFleet();
             await refreshAll();
 
             bindRefreshOnce();
-            bindLifecycleCleanup();
+            bindLifecycleCleanupOnce();
         } catch (e) {
             console.error(e);
         }
     } else {
-        // Not logged in: stop clocks/timers to avoid leaks
+        // Not logged in: stop intervals to avoid leaks
         UI.stopClocks?.();
         Shifts.stopTimer?.();
 
@@ -57,7 +58,7 @@ async function init() {
         appContent?.classList.add('hidden');
 
         bindRefreshOnce();
-        bindLifecycleCleanup();
+        bindLifecycleCleanupOnce();
         UI.applyTheme();
     }
 }
@@ -67,23 +68,20 @@ function bindRefreshOnce() {
     refreshBound = true;
 
     window.addEventListener('refresh-data', refreshAll, { passive: true });
-
-    // If Auth.logout doesn’t already dispatch refresh-data, you can keep it as-is.
-    // We do NOT override logout here; just ensure refresh handler exists.
 }
 
-function bindLifecycleCleanup() {
-    // Prevent duplicated intervals when page is backgrounded / restored
+function bindLifecycleCleanupOnce() {
+    if (lifecycleBound) return;
+    lifecycleBound = true;
+
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             UI.stopClocks?.();
         } else {
-            // Restart clocks when returning (theme auto sync remains in ui.js)
             if (state.user) UI.startClocks?.();
         }
     });
 
-    // Clean up intervals on unload (memory leak guard)
     window.addEventListener('beforeunload', () => {
         UI.stopClocks?.();
         Shifts.stopTimer?.();
@@ -125,6 +123,8 @@ export async function refreshAll() {
                 if (pauseBtn) {
                     pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
                     pauseBtn.classList.remove('bg-yellow-500/20', 'text-yellow-500');
+                    // restore v1.8 “running” look (neutral)
+                    pauseBtn.classList.add('bg-yellow-500/10');
                 }
             } else {
                 Shifts.stopTimer();
@@ -133,6 +133,7 @@ export async function refreshAll() {
 
                 if (pauseBtn) {
                     pauseBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                    // keep paused = yellow hint
                     pauseBtn.classList.add('bg-yellow-500/20', 'text-yellow-500');
                 }
             }
@@ -217,6 +218,7 @@ window.exportAI = Finance.exportAI;
 window.updateDeleteButtonLocal = Finance.updateDeleteButtonLocal;
 window.openShiftDetails = Finance.openShiftDetails;
 
+// optional if you actually implemented it in finance.js
 window.toggleAccordion = Finance.toggleAccordion;
 
 document.addEventListener('DOMContentLoaded', init);

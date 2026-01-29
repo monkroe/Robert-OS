@@ -1,6 +1,9 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.1.0
-// History (Month headers + compact strips) + Report Modal (clean)
+// ROBERT OS - MODULES/FINANCE.JS v2.6.2 (RESTORE 1.8 LOOK + REPORT)
+// - No Tailwind dependency for audit UI
+// - Compact shift strips + Month header with line + Month total
+// - Report modal (big date + big NET + small details)
+// - Monochrome FontAwesome icons (no emoji)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -12,20 +15,7 @@ let txDraft = { direction: 'in', category: 'tips' };
 let itemsToDelete = [];
 
 // ────────────────────────────────────────────────────────────────
-// XSS SAFETY
-// ────────────────────────────────────────────────────────────────
-function escapeHtml(input) {
-  const s = String(input ?? '');
-  return s
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-// ────────────────────────────────────────────────────────────────
-// TRANSACTIONS
+// TX MODAL (paliekam kaip buvo, minimaliai tvarkingai)
 // ────────────────────────────────────────────────────────────────
 export function openTxModal(dir, shiftId = null) {
   vibrate();
@@ -45,16 +35,15 @@ export function openTxModal(dir, shiftId = null) {
 
 export async function confirmTx() {
   vibrate([20]);
-
   const amount = parseFloat(document.getElementById('tx-amount')?.value || 0);
   if (!amount || amount <= 0) return showToast('Įveskite sumą', 'warning');
 
   state.loading = true;
   try {
-    const meta = {};
+    let meta = {};
     if (txDraft.category === 'fuel') {
-      meta.gallons = parseFloat(document.getElementById('tx-gal')?.value || 0) || 0;
-      meta.odometer = parseInt(document.getElementById('tx-odo')?.value || 0, 10) || 0;
+      meta.gallons = parseFloat(document.getElementById('tx-gal')?.value) || 0;
+      meta.odometer = parseInt(document.getElementById('tx-odo')?.value) || 0;
     }
 
     await db.from('expenses').insert({
@@ -70,7 +59,7 @@ export async function confirmTx() {
     closeModals();
     window.dispatchEvent(new Event('refresh-data'));
   } catch (e) {
-    showToast(e?.message || 'Klaida', 'error');
+    showToast(e.message || 'Klaida', 'error');
   } finally {
     state.loading = false;
   }
@@ -78,10 +67,8 @@ export async function confirmTx() {
 
 export function setExpType(cat, el) {
   txDraft.category = cat;
-
   document.querySelectorAll('.exp-btn, .inc-btn').forEach(b => b.classList.remove('active'));
   if (el) el.classList.add('active');
-
   const f = document.getElementById('fuel-fields');
   if (f) cat === 'fuel' ? f.classList.remove('hidden') : f.classList.add('hidden');
 }
@@ -89,28 +76,26 @@ export function setExpType(cat, el) {
 function updateTxModalUI(dir) {
   const t = document.getElementById('tx-title');
   if (t) t.textContent = dir === 'in' ? 'PAJAMOS' : 'IŠLAIDOS';
-
   document.getElementById('income-types')?.classList.toggle('hidden', dir !== 'in');
   document.getElementById('expense-types')?.classList.toggle('hidden', dir === 'in');
   document.getElementById('fuel-fields')?.classList.add('hidden');
 }
 
 // ────────────────────────────────────────────────────────────────
-// AUDIT / HISTORY
+// AUDIT ENGINE (HISTORY)
 // ────────────────────────────────────────────────────────────────
+
 export async function refreshAudit() {
   const listEl = document.getElementById('audit-list');
   if (!state.user?.id || !listEl) return;
 
   try {
     const [shiftsRes, expensesRes] = await Promise.all([
-      db
-        .from('finance_shifts')
+      db.from('finance_shifts')
         .select('*, vehicles(name)')
         .eq('user_id', state.user.id)
         .order('start_time', { ascending: false }),
-      db
-        .from('expenses')
+      db.from('expenses')
         .select('*')
         .eq('user_id', state.user.id)
     ]);
@@ -119,26 +104,22 @@ export async function refreshAudit() {
     const expenses = expensesRes.data || [];
 
     if (!shifts.length) {
-      listEl.innerHTML = '<div class="text-center py-10 opacity-30">Nėra duomenų</div>';
+      listEl.innerHTML = `<div class="os-empty">Nėra duomenų</div>`;
       return;
     }
 
-    // cache for modal/details
-    window._auditData = { shifts, expenses };
-
-    const grouped = groupByYearMonth(shifts, expenses);
-    listEl.innerHTML = renderHistory(grouped);
+    window._auditData = { shifts, expenses }; // cache for modal
+    const grouped = groupData(shifts, expenses);
+    listEl.innerHTML = renderHierarchy(grouped);
     updateDeleteButtonLocal();
   } catch (e) {
-    console.error(e);
-    listEl.innerHTML = 'Klaida';
+    listEl.innerHTML = `<div class="os-empty">Klaida</div>`;
   }
 }
 
-function groupByYearMonth(shifts, expenses) {
+function groupData(shifts, expenses) {
   const years = {};
   const expensesByShift = {};
-
   expenses.forEach(e => {
     if (e.shift_id) (expensesByShift[e.shift_id] = expensesByShift[e.shift_id] || []).push(e);
   });
@@ -152,131 +133,122 @@ function groupByYearMonth(shifts, expenses) {
     if (!years[y].months[m]) years[y].months[m] = { net: 0, items: [] };
 
     const sExp = expensesByShift[shift.id] || [];
-
     const inc = sExp.filter(e => e.type === 'income').reduce((a, b) => a + (b.amount || 0), 0);
     const exp = sExp.filter(e => e.type === 'expense').reduce((a, b) => a + (b.amount || 0), 0);
 
-    // gross: prefer incomes total if present, else shift.gross_earnings
+    // gross: jei yra income įrašų - imam juos, kitaip shift.gross_earnings
     const gross = Math.max(inc, shift.gross_earnings || 0);
     const net = gross - exp;
 
     years[y].net += net;
     years[y].months[m].net += net;
-
     years[y].months[m].items.push({
       ...shift,
       _date: date,
+      sExp,
+      net,
       gross,
-      exp,
-      net
+      exp
     });
   });
 
   return years;
 }
 
-function monthNameLT(idx) {
-  const months = ['SAUSIS','VASARIS','KOVAS','BALANDIS','GEGUŽĖ','BIRŽELIS','LIEPA','RUGPJŪTIS','RUGSĖJIS','SPALIS','LAPKRITIS','GRUODIS'];
-  return months[idx] || 'MĖNUO';
-}
+// ────────────────────────────────────────────────────────────────
+// RENDERERS (no tailwind classes)
+// ────────────────────────────────────────────────────────────────
 
-function renderHistory(data) {
+function renderHierarchy(data) {
+  const monthsLT = ['SAUSIS','VASARIS','KOVAS','BALANDIS','GEGUŽĖ','BIRŽELIS','LIEPA','RUGPJŪTIS','RUGSĖJIS','SPALIS','LAPKRITIS','GRUODIS'];
+
   return Object.entries(data)
-    .sort((a, b) => b[0] - a[0])
+    .sort((a, b) => Number(b[0]) - Number(a[0]))
     .map(([y, yD]) => {
       const monthsHtml = Object.entries(yD.months)
-        .sort((a, b) => b[0] - a[0])
-        .map(([m, mD]) => renderMonthSection(Number(y), Number(m), mD))
+        .sort((a, b) => Number(b[0]) - Number(a[0]))
+        .map(([m, mD]) => {
+          const items = (mD.items || [])
+            .sort((a, b) => b._date - a._date)
+            .map(s => renderShiftStrip(s))
+            .join('');
+
+          return `
+            <section class="history-month">
+              <div class="month-head">
+                <div class="month-left">${monthsLT[Number(m)]}</div>
+                <div class="month-line"></div>
+                <div class="month-right">${formatCurrency(mD.net)}</div>
+              </div>
+              <div class="month-items">${items}</div>
+            </section>
+          `;
+        })
         .join('');
 
       return `
-        <div class="history-year">
+        <section class="history-year">
           <div class="history-year-row">
-            <div class="history-year-left">${y}</div>
-            <div class="history-year-right">${formatCurrency(yD.net)}</div>
+            <span>${y}</span>
+            <span>${formatCurrency(yD.net)}</span>
           </div>
           ${monthsHtml}
-        </div>
+        </section>
       `;
     })
     .join('');
 }
 
-function renderMonthSection(y, m, mD) {
-  const title = monthNameLT(m);
-  const items = (mD.items || []).sort((a, b) => b._date - a._date);
-
-  return `
-    <div class="history-month">
-      <div class="month-head">
-        <div class="month-left">${title}</div>
-        <div class="month-line"></div>
-        <div class="month-right">${formatCurrency(mD.net)}</div>
-      </div>
-      <div class="month-items">
-        ${items.map(s => renderShiftStrip(s)).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function fmtTime(t) {
-  return new Date(t).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtDurationFromMs(ms) {
-  const hrs = Math.floor(ms / (1000 * 60 * 60));
-  const mins = Math.round((ms % (1000 * 60 * 60)) / (1000 * 60));
-  return `${hrs}h ${mins}m`;
-}
-
 function renderShiftStrip(s) {
-  const dateStr = new Date(s.start_time).toLocaleDateString('lt-LT');
-  const t1 = fmtTime(s.start_time);
-  const t2 = s.end_time ? fmtTime(s.end_time) : '...';
+  const d = s._date;
+  const dateStr = d.toLocaleDateString('lt-LT');
+  const t1 = new Date(s.start_time).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+  const t2 = s.end_time
+    ? new Date(s.end_time).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' })
+    : '...';
 
-  const durMs = (s.end_time ? new Date(s.end_time) : new Date()) - new Date(s.start_time);
-  const dur = fmtDurationFromMs(Math.max(0, durMs));
+  const durMin = calcDurationMinutes(s.start_time, s.end_time);
+  const durStr = durMinToLabel(durMin);
 
-  const vehicle = escapeHtml(s.vehicles?.name || '—');
+  const vehicleName = s.vehicles?.name || '—';
+  const miles = calcMiles(s);
 
-  const dist = Math.max(0, (s.end_odo || 0) - (s.start_odo || 0));
-  const net = Number(s.net || 0);
-  const netCls = net >= 0 ? 'net-pos' : 'net-neg';
+  const netCls = s.net >= 0 ? 'net-pos' : 'net-neg';
 
+  // NOTE: checkbox click must not open modal
   return `
-    <div onclick="openShiftDetails('${s.id}')" class="os-strip">
+    <div class="os-strip" onclick="openShiftDetails('${escapeAttr(s.id)}')">
       <div class="os-strip-left">
-        <input type="checkbox"
+        <input
+          type="checkbox"
+          class="log-checkbox"
+          value="shift:${escapeAttr(s.id)}"
           onclick="event.stopPropagation(); updateDeleteButtonLocal()"
-          value="shift:${s.id}"
-          class="log-checkbox" />
-
+          aria-label="Select shift"
+        />
         <div class="os-strip-main">
           <div class="os-strip-top">
-            <span class="os-strip-date">${dateStr}</span>
-            <span class="os-strip-time">${t1}–${t2}</span>
-            <span class="os-strip-dur">(${dur})</span>
+            <div class="os-strip-date">${escapeHtml(dateStr)}</div>
+            <div class="os-strip-time">${escapeHtml(t1)} - ${escapeHtml(t2)}</div>
+            <div class="os-strip-dur">(${escapeHtml(durStr)})</div>
           </div>
 
           <div class="os-strip-sub">
-            <span class="os-sub-item">
+            <span class="os-sub">
               <i class="fa-solid fa-car"></i>
-              ${vehicle}
+              ${escapeHtml(vehicleName)}
             </span>
             <span class="os-sub-dot">•</span>
-            <span class="os-sub-item">
+            <span class="os-sub">
               <i class="fa-solid fa-road"></i>
-              ${dist} mi
+              ${escapeHtml(String(miles))} mi
             </span>
           </div>
         </div>
       </div>
 
       <div class="os-strip-right">
-        <div class="os-strip-net ${netCls}">
-          ${formatCurrency(net)}
-        </div>
+        <div class="os-strip-net ${netCls}">${formatCurrency(s.net)}</div>
         <div class="os-strip-netcap">NET PROFIT</div>
       </div>
     </div>
@@ -284,118 +256,54 @@ function renderShiftStrip(s) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// REPORT MODAL (clean)
+// REPORT MODAL (restore “white card / report” vibe, theme-safe)
 // ────────────────────────────────────────────────────────────────
-
-function calcShiftEconomics(s, expensesAll) {
-  const sExp = expensesAll.filter(e => String(e.shift_id) === String(s.id));
-  const income = sExp.filter(e => e.type === 'income');
-  const expense = sExp.filter(e => e.type === 'expense');
-
-  const incomeSum = income.reduce((a, b) => a + (b.amount || 0), 0);
-  const gross = Math.max(incomeSum, s.gross_earnings || 0);
-  const totalExp = expense.reduce((a, b) => a + (b.amount || 0), 0);
-  const net = gross - totalExp;
-
-  const dist = Math.max(0, (s.end_odo || 0) - (s.start_odo || 0));
-  const durMs = (s.end_time ? new Date(s.end_time) : new Date()) - new Date(s.start_time);
-  const hrs = Math.max(0.1, durMs / (1000 * 60 * 60));
-
-  const fuel = expense.find(e => e.category === 'fuel');
-  const gal = fuel ? (parseFloat(fuel.gallons) || 0) : 0;
-  const mpg = (gal > 0 && dist > 0) ? (dist / gal) : null;
-
-  const perHour = net / hrs;
-  const perMile = dist > 0 ? (net / dist) : null;
-
-  return { sExp, income, expense, gross, totalExp, net, dist, hrs, gal, mpg, perHour, perMile };
-}
-
-function fmtMoney(n) {
-  return formatCurrency(Number(n || 0));
-}
-
-function fmtBigDate(d) {
-  // didelė data kaip report (TUE, JAN 27)
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: '2-digit' }).toUpperCase();
-}
-
-function fmtHours(hrs) {
-  const h = Math.floor(hrs);
-  const m = Math.round((hrs % 1) * 60);
-  return `${h}h ${m}m`;
-}
 
 export function openShiftDetails(id) {
   vibrate([10]);
+  const data = window._auditData;
+  if (!data?.shifts?.length) return;
 
-  const shifts = window._auditData?.shifts || [];
-  const expenses = window._auditData?.expenses || [];
-  const s = shifts.find(x => String(x.id) === String(id));
+  const s = data.shifts.find(x => String(x.id) === String(id));
   if (!s) return;
 
-  const eco = calcShiftEconomics(s, expenses);
+  const sExp = (data.expenses || []).filter(e => String(e.shift_id) === String(id));
+  const income = sExp.filter(e => e.type === 'income');
+  const expense = sExp.filter(e => e.type === 'expense');
 
-  const start = new Date(s.start_time);
-  const end = s.end_time ? new Date(s.end_time) : null;
+  const gross = Math.max(income.reduce((a, b) => a + (b.amount || 0), 0), s.gross_earnings || 0);
+  const totalExp = expense.reduce((a, b) => a + (b.amount || 0), 0);
+  const net = gross - totalExp;
 
-  const bigDate = fmtBigDate(start);
-  const dateSmall = start.toLocaleDateString('lt-LT');
-  const timeRange = `${fmtTime(s.start_time)} - ${end ? fmtTime(s.end_time) : '...'}`;
-  const duration = fmtHours(eco.hrs);
+  const miles = calcMiles(s);
+  const durMin = calcDurationMinutes(s.start_time, s.end_time);
+  const hrs = Math.max(0.1, durMin / 60);
 
-  const vehicleName = escapeHtml(s.vehicles?.name || '—');
-  const weather = escapeHtml(s.weather || '—');
+  // fuel stats (optional)
+  const fuel = expense.find(e => e.category === 'fuel');
+  const gal = fuel ? (parseFloat(fuel.gallons) || 0) : 0;
+  const mpg = (gal > 0 && miles > 0) ? (miles / gal).toFixed(1) : '—';
 
-  const netCls = eco.net >= 0 ? 'net-pos' : 'net-neg';
+  const netPerHr = (net / hrs);
+  const netPerMi = (net / Math.max(1, miles));
 
-  // income lines
-  const incomeLines = eco.income.length
-    ? eco.income.map(i => `
-        <div class="rep-row">
-          <div class="rep-key">${escapeHtml(i.category || 'income')}</div>
-          <div class="rep-val">${fmtMoney(i.amount || 0)}</div>
-        </div>
-      `).join('')
-    : `
-        <div class="rep-row">
-          <div class="rep-key">App (Uber)</div>
-          <div class="rep-val">${fmtMoney(eco.gross)}</div>
-        </div>
-      `;
+  const bigDate = new Date(s.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+  const timeRange = `${new Date(s.start_time).toLocaleTimeString('lt-LT',{hour:'2-digit',minute:'2-digit'})} - ${s.end_time ? new Date(s.end_time).toLocaleTimeString('lt-LT',{hour:'2-digit',minute:'2-digit'}) : '...'}`;
 
-  // expense lines
-  const expLines = eco.expense.length
-    ? eco.expense.map(e => {
-        const extra = e.category === 'fuel' && e.gallons ? ` <span class="rep-sub">(${Number(e.gallons)} gal)</span>` : '';
-        return `
-          <div class="rep-row">
-            <div class="rep-key">${escapeHtml(e.category || 'expense')}${extra}</div>
-            <div class="rep-val">${fmtMoney(e.amount || 0)}</div>
-          </div>
-        `;
-      }).join('')
-    : `
-      <div class="rep-row">
-        <div class="rep-key rep-muted">No expenses recorded</div>
-        <div class="rep-val rep-muted">${fmtMoney(0)}</div>
-      </div>
-    `;
-
-  const mpgText = eco.mpg ? eco.mpg.toFixed(1) : 'N/A';
-  const perMileText = eco.perMile != null ? fmtMoney(eco.perMile) : 'N/A';
-  const perHourText = fmtMoney(eco.perHour);
+  const vehicleName = s.vehicles?.name || '—';
+  const weather = s.weather || '—';
 
   const html = `
     <div class="rep-card">
       <div class="rep-head">
         <div>
-          <div class="rep-bigdate">${bigDate}</div>
-          <div class="rep-small">${dateSmall} • ${timeRange}</div>
+          <div class="rep-bigdate">${escapeHtml(bigDate)}</div>
+          <div class="rep-small">${escapeHtml(timeRange)}</div>
         </div>
+
         <div class="rep-duration">
           <div class="rep-durcap">DURATION</div>
-          <div class="rep-durval">${duration}</div>
+          <div class="rep-durval">${escapeHtml(durMinToLong(durMin))}</div>
         </div>
       </div>
 
@@ -404,82 +312,85 @@ export function openShiftDetails(id) {
       <div class="rep-info">
         <div class="rep-row">
           <div class="rep-key"><i class="fa-solid fa-road"></i> Distance</div>
-          <div class="rep-val">${eco.dist} mi</div>
+          <div class="rep-val">${escapeHtml(String(miles))} mi</div>
         </div>
         <div class="rep-row">
           <div class="rep-key"><i class="fa-solid fa-car"></i> Vehicle</div>
-          <div class="rep-val">${vehicleName}</div>
+          <div class="rep-val">${escapeHtml(vehicleName)}</div>
         </div>
         <div class="rep-row">
-          <div class="rep-key"><i class="fa-solid fa-cloud-sun"></i> Weather</div>
-          <div class="rep-val">${weather}</div>
+          <div class="rep-key"><i class="fa-solid fa-cloud"></i> Weather</div>
+          <div class="rep-val">${escapeHtml(weather)}</div>
         </div>
       </div>
 
       <div class="rep-section">
         <div class="rep-title">EARNINGS</div>
-        ${incomeLines}
-        <div class="rep-divider soft"></div>
         <div class="rep-row rep-strong">
-          <div class="rep-key">TOTAL</div>
-          <div class="rep-val">${fmtMoney(eco.gross)}</div>
+          <div class="rep-key">GROSS</div>
+          <div class="rep-val">${formatCurrency(gross)}</div>
         </div>
       </div>
 
       <div class="rep-section">
         <div class="rep-title">EXPENSES</div>
-        ${expLines}
-        <div class="rep-divider soft"></div>
         <div class="rep-row rep-strong">
           <div class="rep-key">TOTAL</div>
-          <div class="rep-val">${fmtMoney(eco.totalExp)}</div>
+          <div class="rep-val">${formatCurrency(totalExp)}</div>
         </div>
       </div>
 
       <div class="rep-netbox">
-        <div class="rep-net-left">
-          <div class="rep-title">NET PROFIT</div>
+        <div>
+          <div class="rep-title" style="margin-bottom:8px;">NET PROFIT</div>
           <div class="rep-metrics">
             <div class="rep-metric">
               <div class="rep-mcap">$/hr</div>
-              <div class="rep-mval">${perHourText}</div>
+              <div class="rep-mval">${formatCurrency(netPerHr)}</div>
             </div>
             <div class="rep-metric">
               <div class="rep-mcap">$/mi</div>
-              <div class="rep-mval">${perMileText}</div>
+              <div class="rep-mval">${formatCurrency(netPerMi)}</div>
             </div>
             <div class="rep-metric">
               <div class="rep-mcap">MPG</div>
-              <div class="rep-mval">${mpgText}</div>
+              <div class="rep-mval">${escapeHtml(String(mpg))}</div>
             </div>
           </div>
         </div>
-        <div class="rep-net-right ${netCls}">
-          ${fmtMoney(eco.net)}
+
+        <div class="rep-net-right ${net >= 0 ? 'net-pos' : 'net-neg'}">
+          ${formatCurrency(net)}
         </div>
       </div>
 
-      <button class="rep-close btn-bento" onclick="closeModals()">CLOSE REPORT</button>
+      <button class="btn-primary-os rep-close" onclick="closeModals()">CLOSE REPORT</button>
     </div>
   `;
 
-  const target = document.getElementById('shift-details-content');
-  if (target) target.innerHTML = html;
+  const holder = document.getElementById('shift-details-content');
+  if (holder) holder.innerHTML = html;
 
   openModal('shift-details-modal');
 }
 
 // ────────────────────────────────────────────────────────────────
-// DELETE (palikta kaip tavo bazė)
+// DELETE LOGIC (list only)
 // ────────────────────────────────────────────────────────────────
-export function toggleSelectAll() { /* optional */ }
+export function toggleSelectAll() {
+  const all = document.querySelectorAll('.log-checkbox');
+  const checked = document.querySelectorAll('.log-checkbox:checked');
+  const willCheck = checked.length !== all.length;
+  all.forEach(cb => cb.checked = willCheck);
+  updateDeleteButtonLocal();
+}
 
 export function requestLogDelete() {
   const checked = document.querySelectorAll('.log-checkbox:checked');
   if (checked.length) {
     itemsToDelete = Array.from(checked).map(el => ({ type: el.value.split(':')[0], id: el.value.split(':')[1] }));
-    const c = document.getElementById('del-modal-count');
-    if (c) c.textContent = itemsToDelete.length;
+    const cnt = document.getElementById('del-modal-count');
+    if (cnt) cnt.textContent = String(itemsToDelete.length);
     openModal('delete-modal');
   }
 }
@@ -494,9 +405,7 @@ export async function confirmLogDelete() {
       await db.from('expenses').delete().in('shift_id', sIds);
       await db.from('finance_shifts').delete().in('id', sIds);
     }
-    if (tIds.length) {
-      await db.from('expenses').delete().in('id', tIds);
-    }
+    if (tIds.length) await db.from('expenses').delete().in('id', tIds);
 
     closeModals();
     refreshAudit();
@@ -510,14 +419,58 @@ export async function confirmLogDelete() {
 export function updateDeleteButtonLocal() {
   const c = document.querySelectorAll('.log-checkbox:checked').length;
   document.getElementById('btn-delete-logs')?.classList.toggle('hidden', c === 0);
-  const el = document.getElementById('delete-count');
-  if (el) el.textContent = c;
+  const dc = document.getElementById('delete-count');
+  if (dc) dc.textContent = String(c);
 }
 
-export function exportAI() { /* optional */ }
+export function exportAI() {
+  // paliekam tuščią (kaip pas tave)
+}
 
-// expose for inline onclick
-if (typeof window !== 'undefined') {
-  window.openShiftDetails = openShiftDetails;
-  window.toggleAccordion = window.toggleAccordion || (() => {});
+// ────────────────────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────────────────────
+
+function calcMiles(s) {
+  const a = Number(s.start_odo || 0);
+  const b = Number(s.end_odo || 0);
+  const dist = Math.max(0, b - a);
+  return dist;
+}
+
+function calcDurationMinutes(start, end) {
+  try {
+    const t1 = new Date(start).getTime();
+    const t2 = end ? new Date(end).getTime() : Date.now();
+    const ms = Math.max(0, t2 - t1);
+    return Math.round(ms / (1000 * 60));
+  } catch {
+    return 0;
+  }
+}
+
+function durMinToLabel(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}h ${m}m`;
+}
+
+function durMinToLong(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}h ${m}m`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function escapeAttr(str) {
+  // minimal for attributes
+  return escapeHtml(str).replaceAll('`', '&#96;');
 }

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.2.1
+// ROBERT OS - MODULES/FINANCE.JS v2.2.2
 // Goals:
 // - History: minimalist one-bar strip per shift:
 //   date + start-end + duration + miles (ONLY)
@@ -8,9 +8,10 @@
 // - Keep delete checkbox behavior
 // - Keep tx modal behavior
 //
-// FIX v2.2.1:
-// - Transactions from Shift Details now bind to THAT shift (not only activeShift)
-//   via txShiftId captured in openTxModal() and used in confirmTx().
+// ADD v2.2.2:
+// - Fuel TX supports "FULL TANK" flag (tx-full -> is_full)
+// - Fuel TX binds vehicle_id (from shift if possible; else active shift)
+// - Fuel lines in Shift Details show FULL marker
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -19,7 +20,7 @@ import { showToast, vibrate, formatCurrency } from '../utils.js';
 import { openModal, closeModals } from './ui.js';
 
 let txDraft = { direction: 'in', category: 'tips' };
-let txShiftId = null; // IMPORTANT: which shift the tx belongs to (details modal can override)
+let txShiftId = null; // which shift the tx belongs to (details modal can override)
 let itemsToDelete = [];
 
 // ────────────────────────────────────────────────────────────────
@@ -78,7 +79,6 @@ function groupBy(arr, keyFn) {
   return out;
 }
 
-// Pause totals per shift
 function calcPauseMs(pauses) {
   return (pauses || []).reduce((acc, p) => {
     const a = p.start_time ? new Date(p.start_time).getTime() : 0;
@@ -90,13 +90,8 @@ function calcPauseMs(pauses) {
 
 function statusBadge(statusRaw) {
   const s = String(statusRaw || '').toLowerCase();
-
-  if (s === 'active') {
-    return `<span class="status-badge status-active">ACTIVE</span>`;
-  }
-  if (s === 'paused') {
-    return `<span class="status-badge status-paused">PAUSED</span>`;
-  }
+  if (s === 'active') return `<span class="status-badge status-active">ACTIVE</span>`;
+  if (s === 'paused') return `<span class="status-badge status-paused">PAUSED</span>`;
   return `
     <span class="status-badge" style="
       color:#9ca3af;
@@ -110,6 +105,25 @@ function moneyColor(v) {
   return v >= 0 ? '#22c55e' : '#ef4444';
 }
 
+function asNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// Get vehicle_id for a tx
+function resolveVehicleIdForTx() {
+  // If tx is being created for a specific shift (details modal), try that shift's vehicle_id
+  if (txShiftId && window._auditData?.shifts?.length) {
+    const s = window._auditData.shifts.find(x => String(x.id) === String(txShiftId));
+    if (s?.vehicle_id) return s.vehicle_id;
+  }
+  // Otherwise fallback to active shift vehicle_id
+  if (state.activeShift?.vehicle_id) return state.activeShift.vehicle_id;
+
+  // Last resort: none
+  return null;
+}
+
 // ────────────────────────────────────────────────────────────────
 // TRANSACTIONS
 // ────────────────────────────────────────────────────────────────
@@ -118,11 +132,17 @@ export function openTxModal(dir, shiftId = null) {
   vibrate();
   txDraft.direction = dir;
   txDraft.category = dir === 'in' ? 'tips' : 'fuel';
-
-  // IMPORTANT: if opened from details modal, bind tx to that shift
   txShiftId = shiftId || null;
 
   updateTxModalUI(dir);
+
+  // reset fuel fields each open (prevents stale values)
+  const gal = document.getElementById('tx-gal');
+  const odo = document.getElementById('tx-odo');
+  const full = document.getElementById('tx-full');
+  if (gal) gal.value = '';
+  if (odo) odo.value = '';
+  if (full) full.checked = false;
 
   const inp = document.getElementById('tx-amount');
   if (inp) {
@@ -130,7 +150,6 @@ export function openTxModal(dir, shiftId = null) {
     setTimeout(() => inp.focus(), 100);
   }
 
-  // keep modal stacking safe
   if (shiftId) document.getElementById('shift-details-modal')?.classList.add('hidden');
   openModal('tx-modal');
 }
@@ -144,27 +163,40 @@ export async function confirmTx() {
   state.loading = true;
   try {
     const meta = {};
-    if (txDraft.category === 'fuel') {
-      meta.gallons = parseFloat(document.getElementById('tx-gal')?.value || 0) || 0;
-      meta.odometer = parseInt(document.getElementById('tx-odo')?.value || 0, 10) || 0;
-    }
 
     // Decide which shift to bind:
-    // 1) explicit txShiftId (from shift details modal)
-    // 2) fallback active shift (normal flow)
     const shift_id = txShiftId || state.activeShift?.id || null;
 
-    await db.from('expenses').insert({
+    // Vehicle bind (needed for MPG/$mile per car)
+    const vehicle_id = resolveVehicleIdForTx();
+
+    if (txDraft.category === 'fuel') {
+      meta.gallons = asNum(document.getElementById('tx-gal')?.value);
+      meta.odometer = parseInt(document.getElementById('tx-odo')?.value || 0, 10) || 0;
+
+      // FULL TANK flag (new)
+      const isFull = !!document.getElementById('tx-full')?.checked;
+      meta.is_full = isFull;
+
+      // light validation for fuel
+      if (meta.gallons <= 0) return showToast('Įveskite gallons', 'warning');
+      if (meta.odometer <= 0) return showToast('Įveskite odometer', 'warning');
+    }
+
+    const payload = {
       user_id: state.user.id,
       shift_id,
+      vehicle_id, // NEW
       type: txDraft.direction === 'in' ? 'income' : 'expense',
       category: txDraft.category,
       amount,
       ...meta,
       created_at: new Date().toISOString()
-    });
+    };
 
-    // reset context so future tx from main flow doesn't accidentally bind old shift
+    await db.from('expenses').insert(payload);
+
+    // reset context to avoid accidental binding
     txShiftId = null;
 
     closeModals();
@@ -191,7 +223,14 @@ function updateTxModalUI(dir) {
 
   document.getElementById('income-types')?.classList.toggle('hidden', dir !== 'in');
   document.getElementById('expense-types')?.classList.toggle('hidden', dir === 'in');
-  document.getElementById('fuel-fields')?.classList.add('hidden');
+
+  // show fuel-fields by default for OUT (fuel default)
+  // (user can still switch category; setExpType handles visibility)
+  const fuelFields = document.getElementById('fuel-fields');
+  if (fuelFields) {
+    if (dir === 'out' && txDraft.category === 'fuel') fuelFields.classList.remove('hidden');
+    else fuelFields.classList.add('hidden');
+  }
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -228,13 +267,7 @@ export async function refreshAudit() {
       return;
     }
 
-    // cache for details modal
     window._auditData = { shifts, expenses, pauses };
-
-    // indexes (kept if you need later)
-    const expByShift = groupBy(expenses.filter(e => e.shift_id), e => e.shift_id);
-    const pauseByShift = groupBy(pauses.filter(p => p.shift_id), p => p.shift_id);
-    void expByShift; void pauseByShift;
 
     listEl.innerHTML = shifts.map(s => {
       const start = new Date(s.start_time);
@@ -258,17 +291,14 @@ export async function refreshAudit() {
               onclick="event.stopPropagation(); updateDeleteButtonLocal()"
               value="shift:${s.id}"
             />
-
             <div class="min-w-0">
               <div class="text-[10px] uppercase tracking-widest opacity-70">
                 ${safeText(dateStr)}
               </div>
-
               <div class="text-sm font-bold tracking-tight">
                 ${safeText(startT)} – ${safeText(endT)}
                 <span class="opacity-60 font-normal">(${safeText(dur)})</span>
               </div>
-
               <div class="text-[10px] uppercase tracking-widest opacity-50">
                 ${safeText(String(miles))} mi
               </div>
@@ -290,7 +320,7 @@ export async function refreshAudit() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT DETAILS MODAL (full, icons + status badge)
+// SHIFT DETAILS MODAL
 // ────────────────────────────────────────────────────────────────
 
 export function openShiftDetails(id) {
@@ -356,13 +386,16 @@ export function openShiftDetails(id) {
     const cat = safeText(String(e.category || ''));
     const amt = formatCurrency(Number(e.amount || 0));
 
-    const extra =
-      e.category === 'fuel'
-        ? ` <span style="opacity:.6; font-weight:700;">${
-            e.gallons ? `• ${Number(e.gallons)}g` : ''
-          }${
-            e.odometer ? ` ${e.gallons ? '' : '•'} odo ${Number(e.odometer)}` : ''
-          }</span>`
+    const isFuel = String(e.category || '') === 'fuel';
+    const isFull = !!e.is_full;
+
+    const extraFuel =
+      isFuel
+        ? ` <span style="opacity:.6; font-weight:800;">
+            ${e.gallons ? `• ${Number(e.gallons)}g` : ''}
+            ${e.odometer ? ` ${e.gallons ? '' : '•'} odo ${Number(e.odometer)}` : ''}
+            ${isFull ? ` <span style="margin-left:.35rem; padding:.12rem .4rem; border-radius:999px; border:1px solid rgba(20,184,166,.35); background: rgba(20,184,166,.10); color:#14b8a6; font-size:10px; letter-spacing:.12em;">FULL</span>` : ''}
+          </span>`
         : '';
 
     return `
@@ -370,7 +403,7 @@ export function openShiftDetails(id) {
         <div style="display:flex; align-items:center; gap:10px; min-width:0;">
           <i class="fa-solid ${ic}" style="width:18px; text-align:center; color:${col};"></i>
           <div style="min-width:0;">
-            <div style="font-size:13px; font-weight:800; opacity:.92; line-height:1.2;">${cat}${extra}</div>
+            <div style="font-size:13px; font-weight:800; opacity:.92; line-height:1.2;">${cat}${extraFuel}</div>
             <div style="font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.55;">${safeText(isIn ? 'income' : 'expense')}</div>
           </div>
         </div>
@@ -494,9 +527,7 @@ export function openShiftDetails(id) {
 // DELETE (kept)
 // ────────────────────────────────────────────────────────────────
 
-export function toggleSelectAll() {
-  // optional – if you later add "select all" UI
-}
+export function toggleSelectAll() {}
 
 export function requestLogDelete() {
   const checked = document.querySelectorAll('.log-checkbox:checked');
@@ -546,7 +577,5 @@ export function updateDeleteButtonLocal() {
   if (el) el.textContent = String(c);
 }
 
-// optional if you later reintroduce accordion hierarchy
 export function toggleAccordion() {}
-
 export function exportAI() {}

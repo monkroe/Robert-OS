@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - MODULES/SHIFTS.JS v2.0.0
-// Purpose: Shift lifecycle (start/pause/end) + odometer autofill + last_odo sync (schema-safe)
+// Purpose: Shift lifecycle (start/pause/end) + odometer rules + last_odo sync (schema-safe)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -36,8 +36,27 @@ function setInputValue(id, value) {
     el.value = value === 0 ? '' : String(value);
 }
 
+async function getVehicleLastOdo(vehicleId) {
+    // Prefer state cache
+    const v = getVehicleById(vehicleId);
+    const cached = parseInt(v?.last_odo ?? '', 10);
+    if (Number.isFinite(cached) && cached >= 0) return cached;
+
+    // Fallback to DB (schema-safe: only select last_odo)
+    const { data, error } = await db
+        .from('vehicles')
+        .select('last_odo')
+        .eq('id', vehicleId)
+        .eq('user_id', state.user.id)
+        .maybeSingle();
+
+    if (error) throw error;
+
+    const dbVal = parseInt(data?.last_odo ?? '', 10);
+    return Number.isFinite(dbVal) && dbVal >= 0 ? dbVal : 0;
+}
+
 async function ensureActiveShift() {
-    // If state lost (refresh / re-init), try to rehydrate from DB.
     if (state.activeShift?.id) return state.activeShift;
     if (!state.user?.id) return null;
 
@@ -110,6 +129,13 @@ export async function confirmStart() {
 
     state.loading = true;
     try {
+        // ✅ Hard rule: start_odo cannot be less than vehicle.last_odo
+        const lastOdo = await getVehicleLastOdo(vehicleId);
+        if (startOdo < lastOdo) {
+            showToast(`Rida per maža. Paskutinė: ${lastOdo}`, 'warning');
+            return;
+        }
+
         const { data, error } = await db
             .from('finance_shifts')
             .insert({
@@ -220,7 +246,7 @@ export async function confirmEnd() {
             if (washErr) throw washErr;
         }
 
-        // ✅ CRITICAL: Update vehicle.last_odo (NO updated_at column!)
+        // ✅ Update vehicle.last_odo (NO updated_at column!)
         const vehicleId = s.vehicle_id;
         if (vehicleId) {
             const { error: vehErr } = await db

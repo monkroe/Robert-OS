@@ -1,3 +1,8 @@
+<!-- ════════════════════════════════════════════════════════════════
+     ROBERT OS - INDEX.HTML v2.0.0
+     Purpose: v1.8 UI layout + Header clocks hooks (primary/secondary)
+     ════════════════════════════════════════════════════════════════ -->
+
 <!DOCTYPE html>
 <html lang="lt">
 <head>
@@ -13,11 +18,11 @@
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png">
 
-    <title>ROBERT OS 2.9</title>
+    <title>ROBERT OS 2.0.0</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=1.8.0">
+    <link rel="stylesheet" href="style.css?v=2.0.0">
 </head>
 
 <body class="antialiased selection:bg-teal-500 selection:text-black">
@@ -29,9 +34,7 @@
             <div class="w-20 h-20 mx-auto bg-teal-500 rounded-2xl flex items-center justify-center shadow-2xl rotate-3">
                 <i class="fa-solid fa-bolt text-black text-4xl"></i>
             </div>
-            <h1 class="text-3xl font-black uppercase tracking-tighter" style="color: var(--text-main);">
-                Robert <span class="text-teal-500">OS</span>
-            </h1>
+            <h1 class="text-3xl font-black uppercase tracking-tighter" style="color: var(--text-main);">Robert <span class="text-teal-500">OS</span></h1>
             <div class="space-y-4">
                 <input type="email" id="auth-email" placeholder="Email" class="input-field" inputmode="email">
                 <input type="password" id="auth-pass" placeholder="Password" class="input-field">
@@ -46,24 +49,33 @@
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
 
+                <!-- v1.8 look + v2 clocks hooks -->
                 <div class="flex flex-col leading-tight">
-                    <span class="font-bold uppercase tracking-widest text-xs">OS 1.8</span>
-                    <!-- Primary clock (with seconds) -->
-                    <span id="clock-primary" class="font-mono text-[10px] opacity-60 tracking-tight">00:00:00</span>
+                    <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.0.0</span>
+
+                    <!-- Primary clock (target timezone) -->
+                    <span id="clock-primary" class="font-mono text-[10px] opacity-60 tracking-tight">
+                        00:00:00
+                    </span>
+
+                    <!-- Secondary clock (LOCAL / secondary timezone) -->
+                    <span id="clock-secondary" class="font-mono text-[9px] opacity-40 uppercase tracking-widest">
+                        LOCAL: 00:00:00
+                    </span>
                 </div>
             </div>
 
             <div class="flex gap-2">
-                <button onclick="openGarage()" class="header-btn text-teal-500 border border-teal-500/30 bg-teal-500/10">
+                <button onclick="openGarage()" class="header-btn text-teal-500 border border-teal-500/30 bg-teal-500/10" aria-label="Garage">
                     <i class="fa-solid fa-car"></i>
                 </button>
-                <button onclick="openSettings()" class="header-btn text-purple-500 border border-purple-500/30 bg-purple-500/10">
+                <button onclick="openSettings()" class="header-btn text-purple-500 border border-purple-500/30 bg-purple-500/10" aria-label="Settings">
                     <i class="fa-solid fa-gear"></i>
                 </button>
-                <button onclick="cycleTheme()" class="header-btn" id="btn-theme">
+                <button onclick="cycleTheme()" class="header-btn" id="btn-theme" aria-label="Theme">
                     <i class="fa-solid fa-circle-half-stroke"></i>
                 </button>
-                <button onclick="logout()" class="header-btn text-red-500">
+                <button onclick="logout()" class="header-btn text-red-500" aria-label="Logout">
                     <i class="fa-solid fa-power-off"></i>
                 </button>
             </div>
@@ -98,13 +110,7 @@
                 <div class="bento-grid">
                     <div class="bento-card col-span-2 text-center py-6 relative overflow-hidden group">
                         <div class="absolute inset-0 bg-gradient-to-b from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                        <!-- Secondary clock (with seconds) -->
-                        <div class="flex flex-col items-center mb-1 relative z-10">
-                            <span id="clock-secondary" class="font-mono text-[10px] opacity-40 uppercase tracking-widest">LOCAL: 00:00:00</span>
-                            <span class="label-xs">Active Session</span>
-                        </div>
-
+                        <span class="label-xs relative z-10">Active Session</span>
                         <h2 id="shift-timer" class="val-timer my-2 relative z-10">00:00:00</h2>
 
                         <div id="shift-controls" class="mt-4 relative z-10">
@@ -113,10 +119,10 @@
                             </button>
 
                             <div id="active-controls" class="hidden grid grid-cols-4 gap-2">
-                                <button onclick="togglePause()" id="btn-pause" class="col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50">
+                                <button onclick="togglePause()" id="btn-pause" class="col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50" aria-label="Pause">
                                     <i class="fa-solid fa-pause"></i>
                                 </button>
-                                <button onclick="openEndModal()" class="col-span-3 btn-primary-os bg-red-500 text-white shadow-red-500/20 py-3">
+                                <button onclick="openEndModal()" class="col-span-3 btn-primary-os bg-red-500 text-white shadow-red-500/20 py-3" aria-label="End">
                                     <i class="fa-solid fa-stop mr-2"></i> END
                                 </button>
                             </div>
@@ -179,39 +185,39 @@
 
             <section id="tab-runway" class="tab-content space-y-4 animate-slideUp">
                 <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
-                    <div class="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-4 text-teal-500 text-2xl shadow-[0_0_15px_rgba(20,184,166,0.2)]">
+                    <div class="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-4 text-teal-500 text-2xl">
                         <i class="fa-solid fa-chart-line"></i>
                     </div>
                     <h2 class="text-2xl font-black uppercase tracking-tight">Runway</h2>
                     <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Finansinis planavimas ir prognozės</p>
                     <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-                        <span class="text-xs font-bold font-mono text-teal-400">COMING SOON v1.3</span>
+                        <span class="text-xs font-bold font-mono text-teal-400">COMING SOON</span>
                     </div>
                 </div>
             </section>
 
             <section id="tab-future" class="tab-content space-y-4 animate-slideUp">
                 <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
-                    <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4 text-blue-500 text-2xl shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                    <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4 text-blue-500 text-2xl">
                         <i class="fa-solid fa-bullseye"></i>
                     </div>
                     <h2 class="text-2xl font-black uppercase tracking-tight">Goals</h2>
                     <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Tikslų sekimas ir pasiekimai</p>
                     <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-                        <span class="text-xs font-bold font-mono text-blue-400">COMING SOON v1.3</span>
+                        <span class="text-xs font-bold font-mono text-blue-400">COMING SOON</span>
                     </div>
                 </div>
             </section>
 
             <section id="tab-vault" class="tab-content space-y-4 animate-slideUp">
                 <div class="bento-card text-center py-12 flex flex-col items-center justify-center h-[60vh]">
-                    <div class="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mb-4 text-yellow-500 text-2xl shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                    <div class="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mb-4 text-yellow-500 text-2xl">
                         <i class="fa-solid fa-vault"></i>
                     </div>
                     <h2 class="text-2xl font-black uppercase tracking-tight">Vault</h2>
                     <p class="text-sm opacity-50 mt-2 max-w-[200px] mx-auto">Dokumentų saugykla ir archyvas</p>
                     <div class="mt-6 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-                        <span class="text-xs font-bold font-mono text-yellow-400">COMING SOON v1.3</span>
+                        <span class="text-xs font-bold font-mono text-yellow-400">COMING SOON</span>
                     </div>
                 </div>
             </section>
@@ -327,8 +333,14 @@
             </div>
 
             <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">
-                <div><label class="label-xs">Gallons</label><input type="number" inputmode="decimal" id="tx-gal" class="input-field text-sm"></div>
-                <div><label class="label-xs">Odometer</label><input type="number" inputmode="decimal" id="tx-odo" class="input-field text-sm"></div>
+                <div>
+                    <label class="label-xs">Gallons</label>
+                    <input type="number" inputmode="decimal" id="tx-gal" class="input-field text-sm">
+                </div>
+                <div>
+                    <label class="label-xs">Odometer</label>
+                    <input type="number" inputmode="decimal" id="tx-odo" class="input-field text-sm">
+                </div>
             </div>
 
             <button onclick="confirmTx()" class="btn-primary-os py-4 mb-3">SAVE</button>
@@ -336,7 +348,7 @@
         </div>
     </div>
 
-    <!-- GARAGE MODAL -->
+    <!-- GARAGE MODAL (must exist) -->
     <div id="garage-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp">
             <h3 id="garage-modal-title" style="text-align: center; font-size: 1.25rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; color: #14b8a6;">GARAGE MANAGEMENT</h3>
@@ -385,7 +397,7 @@
         </div>
     </div>
 
-    <!-- SETTINGS MODAL -->
+    <!-- SETTINGS MODAL (must exist) -->
     <div id="settings-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp" style="text-align: center; max-height: 85vh; overflow-y: auto;">
             <h3 style="font-size: 1.25rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; color: #a855f7;">SETTINGS</h3>
@@ -411,8 +423,7 @@
 
                 <label class="label-xs" style="margin-left: 0.25rem; display: block; margin-bottom: 0.25rem;">Clock Position</label>
                 <select id="settings-clock-pos" class="input-field" style="font-size: 0.875rem;">
-                    <option value="cockpit">Cockpit (Above Timer)</option>
-                    <option value="header">Header (Top Right)</option>
+                    <option value="header">Header</option>
                     <option value="both">Both</option>
                     <option value="hidden">Hidden</option>
                 </select>
@@ -468,7 +479,6 @@
         </div>
     </div>
 
-    <!-- DELETE MODALS (as in your v1.8) -->
     <div id="delete-modal" class="modal-overlay hidden">
         <div class="modal-content animate-slideUp" style="text-align: center; border: 1px solid rgba(239, 68, 68, 0.3); box-shadow: 0 0 60px rgba(239, 68, 68, 0.4);">
             <div style="width: 4rem; height: 4rem; margin: 0 auto 1rem auto; background-color: rgba(239, 68, 68, 0.1); border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #ef4444; font-size: 2rem;">
@@ -481,8 +491,8 @@
             </p>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                <button onclick="closeModals()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: #9ca3af; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s;">CANCEL</button>
-                <button onclick="confirmLogDelete()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: white; background-color: #ef4444; border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); transition: all 0.2s;">DELETE</button>
+                <button onclick="closeModals()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: #9ca3af; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">CANCEL</button>
+                <button onclick="confirmLogDelete()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: white; background-color: #ef4444; border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">DELETE</button>
             </div>
         </div>
     </div>
@@ -498,13 +508,15 @@
             </p>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                <button onclick="cancelDeleteVehicle()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: #9ca3af; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s;">CANCEL</button>
-                <button onclick="confirmDeleteVehicle()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: white; background-color: #ef4444; border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); transition: all 0.2s;">DELETE</button>
+                <button onclick="cancelDeleteVehicle()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: #9ca3af; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">CANCEL</button>
+                <button onclick="confirmDeleteVehicle()" style="padding-top: 0.75rem; padding-bottom: 0.75rem; border-radius: 0.75rem; font-weight: 700; color: white; background-color: #ef4444; border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">DELETE</button>
             </div>
         </div>
     </div>
 
-    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-white/80 dark:bg-black/80 backdrop-blur-md flex items-center justify-center text-black dark:text-white font-mono font-bold">SYNCING...</div>
+    <div id="loading" class="hidden fixed inset-0 z-[1000] bg-white/80 dark:bg-black/80 backdrop-blur-md flex items-center justify-center text-black dark:text-white font-mono font-bold">
+        SYNCING...
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="js/app.js"></script>

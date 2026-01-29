@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.0.1
-// Audit + Transactions + Shift Details Modal (ASCII Accordion)
-// Fixes: Fuel ODO autofill + validation, cleaner modal for light/dark, no double icons
+// ROBERT OS - MODULES/FINANCE.JS v2.1.0
+// Purpose: Audit + Transactions + Shift Details Modal (Accordion)
+// Notes: Theme-safe, richer History cards, fuel odometer guards
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -9,7 +9,7 @@ import { state } from '../state.js';
 import { showToast, vibrate, formatCurrency } from '../utils.js';
 import { openModal, closeModals } from './ui.js';
 
-let txDraft = { direction: 'in', category: 'tips', shiftId: null };
+let txDraft = { direction: 'in', category: 'tips' };
 let itemsToDelete = [];
 
 // ────────────────────────────────────────────────────────────────
@@ -27,49 +27,39 @@ function escapeHtml(input) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// HELPERS (ODO / SHIFT)
+// FORMAT HELPERS
 // ────────────────────────────────────────────────────────────────
 
-function toInt(v, fallback = 0) {
-  const n = parseInt(String(v ?? ''), 10);
-  return Number.isFinite(n) ? n : fallback;
+function fmtHM(d) {
+  return new Date(d).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
 }
 
-function toNum(v, fallback = 0) {
-  const n = parseFloat(String(v ?? ''));
-  return Number.isFinite(n) ? n : fallback;
+function fmtDateISO(d) {
+  // 2026-01-28
+  try {
+    return new Date(d).toISOString().slice(0, 10);
+  } catch {
+    return '—';
+  }
 }
 
-function getVehicleById(id) {
-  return (state.fleet || []).find(v => String(v.id) === String(id)) || null;
+function fmtDurationFromTimes(startISO, endISO) {
+  if (!startISO || !endISO) return '…';
+  const ms = Math.max(0, new Date(endISO).getTime() - new Date(startISO).getTime());
+  const mins = Math.round(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h ${m}m`;
 }
 
-function getShiftById(id) {
-  const shifts = window._auditData?.shifts || [];
-  return shifts.find(s => String(s.id) === String(id)) || null;
+function fmtDurationHours(hrs) {
+  const h = Math.floor(hrs);
+  const m = Math.round((hrs % 1) * 60);
+  return `${h}h ${m}m`;
 }
 
-function getTxShiftContext() {
-  // Prefer explicit shiftId (when opened from details modal),
-  // otherwise active shift.
-  const shiftId = txDraft.shiftId || state.activeShift?.id || null;
-  const shift = shiftId ? (state.activeShift?.id === shiftId ? state.activeShift : getShiftById(shiftId)) : null;
-
-  const vehicleId = shift?.vehicle_id || state.activeShift?.vehicle_id || null;
-  const veh = vehicleId ? getVehicleById(vehicleId) : null;
-
-  const startOdo = toInt(shift?.start_odo, 0);
-  const lastOdo = toInt(veh?.last_odo, 0);
-  const minOdo = Math.max(startOdo, lastOdo);
-
-  return { shiftId, shift, veh, startOdo, lastOdo, minOdo };
-}
-
-function setIfEmpty(inputEl, value) {
-  if (!inputEl) return;
-  if (String(inputEl.value ?? '').trim() !== '') return;
-  if (value === null || value === undefined) return;
-  inputEl.value = String(value);
+function money(n) {
+  return formatCurrency(Number(n || 0));
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -81,8 +71,6 @@ export function openTxModal(dir, shiftId = null) {
 
   txDraft.direction = dir;
   txDraft.category = dir === 'in' ? 'tips' : 'fuel';
-  txDraft.shiftId = shiftId; // <-- important for fuel odo when opened from shift details
-
   updateTxModalUI(dir);
 
   const inp = document.getElementById('tx-amount');
@@ -91,95 +79,20 @@ export function openTxModal(dir, shiftId = null) {
     setTimeout(() => inp.focus(), 100);
   }
 
-  // If opening from shift details, hide that modal under (your old behavior)
+  // if opened from shift details modal, hide it (UX)
   if (shiftId) document.getElementById('shift-details-modal')?.classList.add('hidden');
 
-  // Default category visuals + fuel fields
-  // (setExpType handles showing fuel-fields)
-  setExpType(txDraft.category, null);
-
-  // Autofill fuel odo if needed
-  if (txDraft.category === 'fuel') {
-    const ctx = getTxShiftContext();
-    const odoEl = document.getElementById('tx-odo');
-    setIfEmpty(odoEl, ctx.minOdo);
-  }
-
   openModal('tx-modal');
-}
-
-export async function confirmTx() {
-  vibrate([20]);
-
-  const amount = toNum(document.getElementById('tx-amount')?.value, 0);
-  if (!amount || amount <= 0) return showToast('Įveskite sumą', 'warning');
-
-  // Fuel validation: ODO + gallons sanity + minOdo rules
-  const meta = {};
-  if (txDraft.category === 'fuel') {
-    const ctx = getTxShiftContext();
-
-    const gal = toNum(document.getElementById('tx-gal')?.value, 0);
-    const odo = toInt(document.getElementById('tx-odo')?.value, 0);
-
-    if (!odo) return showToast('Įveskite ridą (ODO)', 'warning');
-    if (odo < ctx.minOdo) {
-      return showToast(`ODO per mažas. Min: ${ctx.minOdo} (Start: ${ctx.startOdo}, Last: ${ctx.lastOdo})`, 'warning');
-    }
-
-    // gallons optional, but if provided must be > 0
-    if (document.getElementById('tx-gal')?.value?.trim?.() && gal <= 0) {
-      return showToast('Gallons turi būti > 0', 'warning');
-    }
-
-    meta.gallons = gal;
-    meta.odometer = odo;
-  }
-
-  state.loading = true;
-  try {
-    const ctx = getTxShiftContext();
-
-    const { error } = await db.from('expenses').insert({
-      user_id: state.user.id,
-      shift_id: ctx.shiftId || null,
-      type: txDraft.direction === 'in' ? 'income' : 'expense',
-      category: txDraft.category,
-      amount,
-      ...meta,
-      created_at: new Date().toISOString()
-    });
-
-    if (error) throw error;
-
-    showToast('SAVED', 'success');
-    closeModals();
-    window.dispatchEvent(new Event('refresh-data'));
-  } catch (e) {
-    showToast(e?.message || 'Klaida', 'error');
-  } finally {
-    state.loading = false;
-  }
 }
 
 export function setExpType(cat, el) {
   txDraft.category = cat;
 
-  // Active state only if element was clicked
-  if (el) {
-    document.querySelectorAll('.exp-btn, .inc-btn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-  }
+  document.querySelectorAll('.exp-btn, .inc-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
 
   const f = document.getElementById('fuel-fields');
   if (f) cat === 'fuel' ? f.classList.remove('hidden') : f.classList.add('hidden');
-
-  // When switching to fuel, autofill odo immediately
-  if (cat === 'fuel') {
-    const ctx = getTxShiftContext();
-    const odoEl = document.getElementById('tx-odo');
-    setIfEmpty(odoEl, ctx.minOdo);
-  }
 }
 
 function updateTxModalUI(dir) {
@@ -191,8 +104,55 @@ function updateTxModalUI(dir) {
   document.getElementById('fuel-fields')?.classList.add('hidden');
 }
 
+export async function confirmTx() {
+  vibrate([20]);
+
+  const amount = parseFloat(document.getElementById('tx-amount')?.value || 0);
+  if (!amount || amount <= 0) return showToast('Įveskite sumą', 'warning');
+
+  // Meta for fuel
+  const meta = {};
+  if (txDraft.category === 'fuel') {
+    meta.gallons = parseFloat(document.getElementById('tx-gal')?.value || 0) || 0;
+    meta.odometer = parseInt(document.getElementById('tx-odo')?.value || 0, 10) || 0;
+
+    // ✅ ODOMETER GUARD (fuel)
+    // If you log fuel during an active shift, odometer must be >= start_odo.
+    if (state.activeShift?.id) {
+      const startOdo = Number(state.activeShift.start_odo || 0);
+      const odo = Number(meta.odometer || 0);
+
+      if (odo > 0 && odo < startOdo) {
+        return showToast(`Kuro rida negali būti mažesnė už start: ${odo} < ${startOdo}`, 'warning');
+      }
+    }
+  }
+
+  state.loading = true;
+  try {
+    const { error } = await db.from('expenses').insert({
+      user_id: state.user.id,
+      shift_id: state.activeShift?.id || null,
+      type: txDraft.direction === 'in' ? 'income' : 'expense',
+      category: txDraft.category,
+      amount,
+      ...meta,
+      created_at: new Date().toISOString()
+    });
+
+    if (error) throw error;
+
+    closeModals();
+    window.dispatchEvent(new Event('refresh-data'));
+  } catch (e) {
+    showToast(e?.message || 'Klaida išsaugant', 'error');
+  } finally {
+    state.loading = false;
+  }
+}
+
 // ────────────────────────────────────────────────────────────────
-// AUDIT
+// AUDIT (History)
 // ────────────────────────────────────────────────────────────────
 
 export async function refreshAudit() {
@@ -203,14 +163,17 @@ export async function refreshAudit() {
     const [shiftsRes, expensesRes] = await Promise.all([
       db
         .from('finance_shifts')
-        .select('*, vehicles(name)')
+        .select('id,user_id,vehicle_id,start_time,end_time,start_odo,end_odo,gross_earnings,status,weather,target_hours,vehicles(name)')
         .eq('user_id', state.user.id)
         .order('start_time', { ascending: false }),
       db
         .from('expenses')
-        .select('*')
+        .select('id,user_id,shift_id,type,category,amount,gallons,odometer,created_at')
         .eq('user_id', state.user.id)
     ]);
+
+    if (shiftsRes.error) throw shiftsRes.error;
+    if (expensesRes.error) throw expensesRes.error;
 
     const shifts = shiftsRes.data || [];
     const expenses = expensesRes.data || [];
@@ -225,7 +188,8 @@ export async function refreshAudit() {
     listEl.innerHTML = renderHierarchy(grouped);
     updateDeleteButtonLocal();
   } catch (e) {
-    listEl.innerHTML = 'Klaida';
+    console.error(e);
+    listEl.innerHTML = '<div class="text-center py-10 opacity-30">Klaida</div>';
   }
 }
 
@@ -246,10 +210,10 @@ function groupData(shifts, expenses) {
     if (!years[y].months[m]) years[y].months[m] = { net: 0, items: [] };
 
     const sExp = expensesByShift[shift.id] || [];
-    const inc = sExp.filter(e => e.type === 'income').reduce((a, b) => a + (b.amount || 0), 0);
-    const exp = sExp.filter(e => e.type === 'expense').reduce((a, b) => a + (b.amount || 0), 0);
+    const inc = sExp.filter(e => e.type === 'income').reduce((a, b) => a + (Number(b.amount) || 0), 0);
+    const exp = sExp.filter(e => e.type === 'expense').reduce((a, b) => a + (Number(b.amount) || 0), 0);
 
-    const gross = Math.max(inc, shift.gross_earnings || 0);
+    const gross = Math.max(inc, Number(shift.gross_earnings) || 0);
     const net = gross - exp;
 
     years[y].net += net;
@@ -268,7 +232,7 @@ function groupData(shifts, expenses) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// HISTORY RENDER
+// HISTORY RENDER (rich cards like OS 2.2)
 // ────────────────────────────────────────────────────────────────
 
 function renderHierarchy(data) {
@@ -285,8 +249,8 @@ function renderHierarchy(data) {
           .sort((a, b) => b[0] - a[0])
           .map(([m, mD]) => `
             <div class="mb-2">
-              <div class="px-2 text-teal-500 font-bold text-xs mb-1 uppercase tracking-widest">${monthsLT[m]}</div>
-              ${mD.items.sort((a, b) => b._date - a._date).map(s => renderShiftStrip(s)).join('')}
+              <div class="px-2 text-teal-500 font-bold text-xs mb-2 uppercase tracking-widest">${monthsLT[m]}</div>
+              ${mD.items.sort((a, b) => b._date - a._date).map(s => renderShiftCard(s)).join('')}
             </div>
           `).join('')}
       </div>
@@ -300,30 +264,78 @@ function renderStatusBadge(status) {
   return `<span class="${cls}">${label}</span>`;
 }
 
-function renderShiftStrip(s) {
-  const t1 = new Date(s.start_time).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
-  const t2 = s.end_time ? new Date(s.end_time).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' }) : '...';
-  const badge = renderStatusBadge(s.status);
+function renderShiftCard(s) {
+  const dateStr = fmtDateISO(s.start_time);
 
+  const t1 = fmtHM(s.start_time);
+  const t2 = s.end_time ? fmtHM(s.end_time) : '…';
+
+  const dur = s.end_time
+    ? fmtDurationFromTimes(s.start_time, s.end_time)
+    : (s.status === 'paused' ? 'PAUSED' : 'ACTIVE');
+
+  const startOdo = Number(s.start_odo || 0);
+  const endOdo = Number(s.end_odo || 0);
+  const dist = (endOdo > 0 && endOdo >= startOdo) ? (endOdo - startOdo) : 0;
+
+  const gross = Number(s.gross || s.gross_earnings || 0);
+  const expSum = Number(s.exp || 0);
+  const net = Number(s.net || 0);
+
+  const vehicleName = escapeHtml(s.vehicles?.name || '—');
+  const badge = renderStatusBadge(s.status);
+  const netCls = net >= 0 ? 'text-green-400' : 'text-red-400';
+
+  // NOTE: "os-card" can be styled in CSS to match your OS 2.2 look in light/dark
   return `
-    <div onclick="openShiftDetails('${s.id}')" class="shift-strip cursor-pointer bg-white/5 border border-white/10 rounded-xl p-3 mb-2 flex justify-between items-center">
-      <div class="flex items-center gap-3">
-        <input type="checkbox" onclick="event.stopPropagation(); updateDeleteButtonLocal()" value="shift:${s.id}" class="log-checkbox w-5 h-5 rounded border-gray-600 bg-transparent text-teal-500">
-        <div>
+    <div onclick="openShiftDetails('${s.id}')"
+         class="os-card cursor-pointer border border-white/10 rounded-2xl p-4 mb-3 flex justify-between items-start">
+      <div class="flex items-start gap-3 min-w-0">
+        <input type="checkbox"
+               onclick="event.stopPropagation(); updateDeleteButtonLocal()"
+               value="shift:${s.id}"
+               class="log-checkbox w-5 h-5 rounded border-gray-600 bg-transparent text-teal-500 mt-1">
+
+        <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <div class="text-[10px] opacity-50 font-bold uppercase">${s._date.toLocaleDateString('lt-LT')}</div>
+            <i class="fa-solid fa-calendar text-teal-500 opacity-80"></i>
+            <div class="text-sm font-bold tracking-tight">${dateStr}</div>
             ${badge}
           </div>
-          <div class="text-sm font-bold">${t1} - ${t2}</div>
+
+          <div class="text-[22px] font-black tracking-tight leading-tight mt-1">
+            ${t1} - ${t2}
+            <span class="text-sm font-bold opacity-60 ml-2">(${dur})</span>
+          </div>
+
+          <div class="flex items-center gap-4 mt-2 text-sm opacity-70">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-road"></i>
+              <span>${dist} mi</span>
+            </div>
+            <div class="flex items-center gap-2 min-w-0">
+              <i class="fa-solid fa-car"></i>
+              <span class="truncate">${vehicleName}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4 mt-2 text-[12px] font-bold uppercase tracking-widest opacity-60">
+            <span>Gross: ${money(gross)}</span>
+            <span>Exp: ${money(expSum)}</span>
+          </div>
         </div>
       </div>
-      <div class="font-bold ${s.net >= 0 ? 'text-green-400' : 'text-red-400'}">${formatCurrency(s.net)}</div>
+
+      <div class="text-right pl-3">
+        <div class="text-3xl font-black ${netCls} leading-none">${money(net)}</div>
+        <div class="text-[11px] font-black uppercase tracking-widest opacity-60 mt-1">NET PROFIT</div>
+      </div>
     </div>
   `;
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT DETAILS (ASCII ACCORDION) — CLEANER UI
+// SHIFT DETAILS MODAL (Accordion, theme-safe, no double icons)
 // ────────────────────────────────────────────────────────────────
 
 function calcShiftEconomics(s, expensesAll) {
@@ -331,12 +343,12 @@ function calcShiftEconomics(s, expensesAll) {
   const income = sExp.filter(e => e.type === 'income');
   const expense = sExp.filter(e => e.type === 'expense');
 
-  const incomeSum = income.reduce((a, b) => a + (b.amount || 0), 0);
-  const gross = Math.max(incomeSum, s.gross_earnings || 0);
-  const totalExp = expense.reduce((a, b) => a + (b.amount || 0), 0);
+  const incomeSum = income.reduce((a, b) => a + (Number(b.amount) || 0), 0);
+  const gross = Math.max(incomeSum, Number(s.gross_earnings) || 0);
+  const totalExp = expense.reduce((a, b) => a + (Number(b.amount) || 0), 0);
   const net = gross - totalExp;
 
-  const dist = (s.end_odo || 0) - (s.start_odo || 0);
+  const dist = Math.max(0, (Number(s.end_odo) || 0) - (Number(s.start_odo) || 0));
   const durMs = new Date(s.end_time || new Date()) - new Date(s.start_time);
   const hrs = Math.max(0.1, durMs / (1000 * 60 * 60));
 
@@ -350,54 +362,27 @@ function calcShiftEconomics(s, expensesAll) {
   return { sExp, income, expense, gross, totalExp, net, dist, hrs, gal, mpg, perHour, perMile };
 }
 
-function fmtMoney(n) {
-  return formatCurrency(Number(n || 0));
-}
-
 function fmtTimeRange(s) {
-  const t1 = new Date(s.start_time).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
-  const t2 = s.end_time ? new Date(s.end_time).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' }) : '...';
+  const t1 = fmtHM(s.start_time);
+  const t2 = s.end_time ? fmtHM(s.end_time) : '…';
   return { t1, t2 };
 }
 
-function fmtDuration(hrs) {
-  const h = Math.floor(hrs);
-  const m = Math.round((hrs % 1) * 60);
-  return `${h}h ${m}m`;
-}
-
-function renderAccItem(key, title, icon, asciiLines, isOpen = false) {
-  const safe = escapeHtml(asciiLines);
+function renderAccItem(key, title, iconClass, lines, isOpen = false) {
+  // lines are plain text, we escape and render in <pre>
+  const safe = escapeHtml(lines);
   return `
-    <div class="acc-item" style="border: 1px solid rgba(255,255,255,0.10); border-radius: 16px; overflow: hidden; background: rgba(255,255,255,0.04);">
-      <button class="acc-header" onclick="toggleAccordion('${key}')" style="
-        width: 100%;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        padding:12px 14px;
-        background: rgba(0,0,0,0.08);
-        color: inherit;
-      ">
-        <div class="acc-head-left" style="display:flex; align-items:center; gap:10px;">
-          <span class="acc-ico" style="font-size: 18px; line-height: 1;">${icon}</span>
-          <span class="acc-title" style="font-weight: 800; letter-spacing: .12em; font-size: 12px;">${title}</span>
+    <div class="acc-item">
+      <button class="acc-header" onclick="toggleAccordion('${key}')">
+        <div class="acc-head-left">
+          <i class="fa-solid ${iconClass} acc-ico"></i>
+          <span class="acc-title">${escapeHtml(title)}</span>
         </div>
-        <i class="fa-solid fa-chevron-down acc-chevron ${isOpen ? 'open' : ''}" style="opacity:.7;"></i>
+        <i class="fa-solid fa-chevron-down acc-chevron ${isOpen ? 'open' : ''}"></i>
       </button>
-
-      <div id="acc-${key}" class="acc-panel ${isOpen ? 'open' : ''}" style="display:${isOpen ? 'block' : 'none'};">
-        <div class="acc-body" style="padding: 12px 14px;">
-          <pre class="ascii-pre" style="
-            margin:0;
-            white-space:pre-wrap;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.5;
-            font-weight: 500;
-            opacity: .95;
-          ">${safe}</pre>
+      <div id="acc-${key}" class="acc-panel ${isOpen ? 'open' : ''}">
+        <div class="acc-body">
+          <pre class="ascii-pre ascii-soft">${safe}</pre>
         </div>
       </div>
     </div>
@@ -406,19 +391,13 @@ function renderAccItem(key, title, icon, asciiLines, isOpen = false) {
 
 export function toggleAccordion(key) {
   const panel = document.getElementById(`acc-${key}`);
+  const btn = panel?.previousElementSibling;
+  const chev = btn?.querySelector('.acc-chevron');
   if (!panel) return;
 
-  const item = panel.closest('.acc-item');
-  const header = item?.querySelector('.acc-header');
-  const chev = header?.querySelector('.acc-chevron');
-
-  const isOpen = panel.classList.contains('open');
-
-  panel.classList.toggle('open', !isOpen);
-  chev?.classList.toggle('open', !isOpen);
-
-  // simple show/hide to avoid CSS dependency
-  panel.style.display = isOpen ? 'none' : 'block';
+  const open = panel.classList.contains('open');
+  panel.classList.toggle('open', !open);
+  chev?.classList.toggle('open', !open);
 }
 
 export function openShiftDetails(id) {
@@ -432,37 +411,37 @@ export function openShiftDetails(id) {
   const eco = calcShiftEconomics(s, expenses);
   const { t1, t2 } = fmtTimeRange(s);
 
-  const vehicleName = escapeHtml(s.vehicles?.name || 'Unknown');
-  const dateStr = new Date(s.start_time).toLocaleDateString('lt-LT');
+  const vehicleName = escapeHtml(s.vehicles?.name || '—');
+  const dateStr = fmtDateISO(s.start_time);
   const weather = escapeHtml(s.weather || '—');
 
-  // Header block — no double titles inside sections
+  // Clean, readable blocks (no double icons inside)
   const headBlock =
-`🚗  ${dateStr}
-${t1} - ${t2}   (${fmtDuration(eco.hrs)})
+`${dateStr}
+${t1} - ${t2}   (${fmtDurationHours(eco.hrs)})
 Vehicle: ${vehicleName}`;
 
   const detailsBlock =
-`├─ Duration: ${fmtDuration(eco.hrs)}
-├─ Distance: ${eco.dist} mi
-└─ Weather:  ${weather}`;
+`Duration: ${fmtDurationHours(eco.hrs)}
+Distance: ${eco.dist} mi
+Weather:  ${weather}`;
 
   const earningsLines = eco.income.length
     ? eco.income.map((i, idx) => {
         const branch = idx === eco.income.length - 1 ? '└─' : '├─';
-        return `${branch} ${i.category}: ${fmtMoney(i.amount || 0)}`;
+        return `${branch} ${i.category}: ${money(i.amount || 0)}`;
       }).join('\n')
-    : `└─ App (Uber): ${fmtMoney(eco.gross)}`;
+    : `└─ App (Uber): ${money(eco.gross)}`;
 
   const earningsBlock =
 `${earningsLines}
-Total: ${fmtMoney(eco.gross)}`;
+Total: ${money(eco.gross)}`;
 
   const expenseLines = eco.expense.length
     ? eco.expense.map((e, idx) => {
         const branch = idx === eco.expense.length - 1 ? '└─' : '├─';
         const extra = e.category === 'fuel' ? ` (${Number(e.gallons || 0)} gal)` : '';
-        return `${branch} ${e.category}: ${fmtMoney(e.amount || 0)}${extra}`;
+        return `${branch} ${e.category}: ${money(e.amount || 0)}${extra}`;
       }).join('\n')
     : `└─ None`;
 
@@ -473,67 +452,61 @@ Total: ${fmtMoney(eco.gross)}`;
 `${expenseLines}
 → MPG: ${mpgLine}
 → Cost/mi: $${cpm}
-Total: ${fmtMoney(eco.totalExp)}`;
+Total: ${money(eco.totalExp)}`;
 
   const economicsBlock =
-`├─ Net: ${fmtMoney(eco.net)}
-├─ Per mile: ${eco.perMile !== null ? fmtMoney(eco.perMile) : '—'}
-└─ Per hour: ${fmtMoney(eco.perHour)}`;
+`Net: ${money(eco.net)}
+Per mile: ${eco.perMile !== null ? money(eco.perMile) : '—'}
+Per hour: ${money(eco.perHour)}`;
 
-  // Theme-safe paper styles (works even if your CSS changes)
-  // Light theme: paper-like. Dark theme: glass dark.
   const html =
-    `<div class="shift-modal-paper" style="
-        border-radius: 18px;
-        overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.12);
-        background: rgba(0,0,0,0.55);
-        color: rgba(255,255,255,0.92);
-      ">
-        <div class="shift-modal-head" style="
-          padding: 14px;
-          background: rgba(255,255,255,0.06);
-          border-bottom: 1px solid rgba(255,255,255,0.10);
-        ">
-          <pre class="ascii-pre ascii-head" style="
-            margin:0;
-            white-space:pre-wrap;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.5;
-            font-weight: 600;
-          ">${escapeHtml(headBlock)}</pre>
+    `<div class="shift-modal-paper theme-surface">
+        <div class="shift-modal-head">
+          <pre class="ascii-pre ascii-head ascii-soft">${escapeHtml(headBlock)}</pre>
         </div>
 
-        <div class="acc-wrap" style="display:flex; flex-direction:column; gap:10px; padding: 12px;">
-          ${renderAccItem('details', 'SHIFT DETAILS', '📊', detailsBlock, true)}
-          ${renderAccItem('earnings', 'EARNINGS', '💰', earningsBlock, true)}
-          ${renderAccItem('expenses', 'EXPENSES', '💸', expensesBlock, true)}
-          ${renderAccItem('economics', 'ECONOMICS', '📈', economicsBlock, true)}
+        <div class="acc-wrap">
+          ${renderAccItem('details', 'SHIFT DETAILS', 'fa-chart-column', detailsBlock, true)}
+          ${renderAccItem('earnings', 'EARNINGS', 'fa-sack-dollar', earningsBlock, true)}
+          ${renderAccItem('expenses', 'EXPENSES', 'fa-money-bill', expensesBlock, true)}
+          ${renderAccItem('economics', 'ECONOMICS', 'fa-chart-line', economicsBlock, true)}
         </div>
-      </div>`;
+     </div>`;
 
   const target = document.getElementById('shift-details-content');
   if (target) target.innerHTML = html;
 
-  // If you're in light theme and your global CSS flips to white bg,
-  // we force readable contrast by setting the modal container background via inline.
   openModal('shift-details-modal');
 }
 
 // ────────────────────────────────────────────────────────────────
-// DELETE (keep your existing)
+// DELETE
 // ────────────────────────────────────────────────────────────────
 
-export function toggleSelectAll() { /* ... */ }
+export function toggleSelectAll() {
+  const selectAll = document.getElementById('select-all-logs');
+  const checked = !!selectAll?.checked;
+
+  document.querySelectorAll('.log-checkbox').forEach(cb => {
+    cb.checked = checked;
+  });
+
+  updateDeleteButtonLocal();
+}
 
 export function requestLogDelete() {
   const checked = document.querySelectorAll('.log-checkbox:checked');
-  if (checked.length) {
-    itemsToDelete = Array.from(checked).map(el => ({ type: el.value.split(':')[0], id: el.value.split(':')[1] }));
-    document.getElementById('del-modal-count').textContent = itemsToDelete.length;
-    openModal('delete-modal');
-  }
+  if (!checked.length) return;
+
+  itemsToDelete = Array.from(checked).map(el => ({
+    type: String(el.value || '').split(':')[0],
+    id: String(el.value || '').split(':')[1]
+  }));
+
+  const cEl = document.getElementById('del-modal-count');
+  if (cEl) cEl.textContent = String(itemsToDelete.length);
+
+  openModal('delete-modal');
 }
 
 export async function confirmLogDelete() {
@@ -551,9 +524,11 @@ export async function confirmLogDelete() {
     }
 
     closeModals();
-    refreshAudit();
+    await refreshAudit();
+    window.dispatchEvent(new Event('refresh-data'));
   } catch (e) {
-    showToast('Error', 'error');
+    console.error(e);
+    showToast(e?.message || 'Klaida trinant', 'error');
   } finally {
     state.loading = false;
   }
@@ -562,8 +537,23 @@ export async function confirmLogDelete() {
 export function updateDeleteButtonLocal() {
   const c = document.querySelectorAll('.log-checkbox:checked').length;
   document.getElementById('btn-delete-logs')?.classList.toggle('hidden', c === 0);
+
   const el = document.getElementById('delete-count');
-  if (el) el.textContent = c;
+  if (el) el.textContent = String(c);
 }
 
-export function exportAI() {}
+// ────────────────────────────────────────────────────────────────
+// EXPORT (placeholder - keep your implementation if you had one)
+// ────────────────────────────────────────────────────────────────
+
+export function exportAI() {
+  try {
+    const payload = window._auditData || { shifts: [], expenses: [] };
+    const text = JSON.stringify(payload, null, 2);
+
+    navigator.clipboard?.writeText(text);
+    showToast('Nukopijuota į Clipboard!', 'success');
+  } catch (e) {
+    showToast('Nepavyko eksportuoti', 'error');
+  }
+}

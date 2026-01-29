@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - MODULES/UI.JS v2.0.0
-// Purpose: Theme (auto/dark/light), Clocks (with seconds), Tabs, Modals, Progress UI
+// Purpose: Theme (auto/dark/light), Clocks (client-side, with seconds), Tabs, Modals, Progress UI
 // ════════════════════════════════════════════════════════════════
 
 import { state } from '../state.js';
@@ -19,18 +19,13 @@ export function applyTheme() {
 
     const mode = (localStorage.getItem(THEME_KEY) || 'auto').toLowerCase();
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-
     const isDark = (mode === 'auto') ? prefersDark : (mode === 'dark');
 
-    // ✅ Keep compatibility with your CSS approach (:root.light overrides)
     html.classList.toggle('light', !isDark);
     html.setAttribute('data-theme', isDark ? 'dark' : 'light');
 
-    if (metaThemeColor) {
-        metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
-    }
+    if (metaThemeColor) metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f3f4f6');
 
-    // Button icon reflects MODE (not computed isDark)
     if (themeBtn) {
         const icons = { auto: 'fa-circle-half-stroke', dark: 'fa-moon', light: 'fa-sun' };
         themeBtn.innerHTML = `<i class="fa-solid ${icons[mode] || icons.auto}"></i>`;
@@ -53,19 +48,30 @@ export function syncThemeIfAuto() {
     if (mode === 'auto') applyTheme();
 }
 
-// React to OS theme change when in AUTO
 if (window.matchMedia) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    // Safari iOS older fallback: addListener/removeListener
     if (mq.addEventListener) mq.addEventListener('change', syncThemeIfAuto);
     else if (mq.addListener) mq.addListener(syncThemeIfAuto);
 }
 
 // ────────────────────────────────────────────────────────────────
-// CLOCK ENGINE (with seconds) + LEAK-SAFE cleanup
+// CLOCK ENGINE (NO DB DEPENDENCY) + leak-safe cleanup
 // ────────────────────────────────────────────────────────────────
 
 let clockInterval = null;
+
+function getClockTimezones() {
+    // ✅ LocalStorage first (no schema headaches)
+    const lsPrimary = localStorage.getItem('timezone_primary');
+    const lsSecondary = localStorage.getItem('timezone_secondary');
+
+    // ✅ Then state.userSettings (if exists)
+    const us = state.userSettings || {};
+    const primary = lsPrimary || us.timezone_primary || 'America/Chicago';
+    const secondary = lsSecondary || us.timezone_secondary || 'Europe/Vilnius';
+
+    return { primary, secondary };
+}
 
 export function startClocks() {
     stopClocks();
@@ -79,14 +85,11 @@ export function stopClocks() {
 }
 
 function updateClocks() {
-    const settings = state.userSettings || {};
-
-    const tzPrimary = settings.timezone_primary || settings.timezone || 'America/Chicago';
-    const tzSecondary = settings.timezone_secondary || 'America/Chicago';
+    const { primary, secondary } = getClockTimezones();
 
     try {
         const primaryTime = new Date().toLocaleTimeString('lt-LT', {
-            timeZone: tzPrimary,
+            timeZone: primary,
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
@@ -94,7 +97,7 @@ function updateClocks() {
         });
 
         const secondaryTime = new Date().toLocaleTimeString('lt-LT', {
-            timeZone: tzSecondary,
+            timeZone: secondary,
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
@@ -111,14 +114,9 @@ function updateClocks() {
     }
 }
 
-// Cleanup on page hide/unload to avoid intervals kept alive in bfcache
-(function bindClockLifecycleGuards() {
-    const onHide = () => stopClocks();
-    const onShow = () => startClocks();
-
-    window.addEventListener('pagehide', onHide);
-    window.addEventListener('pageshow', onShow);
-})();
+// Prevent intervals sticking in bfcache / tab suspend scenarios
+window.addEventListener('pagehide', () => stopClocks());
+window.addEventListener('pageshow', () => startClocks());
 
 // ────────────────────────────────────────────────────────────────
 // UI STATE UPDATES
@@ -141,7 +139,6 @@ export function updateUI(key) {
         if (btnPause && hasShift) {
             if (isPaused) {
                 btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
-                // Keep it compatible with your Tailwind classes in index
                 btnPause.className = 'col-span-1 btn-bento bg-green-500/10 text-green-500 border-green-500/50 hover:bg-green-500/20';
             } else {
                 btnPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
@@ -161,8 +158,6 @@ export function openModal(id) {
     if (!el) return;
     el.classList.remove('hidden');
     el.classList.add('flex');
-
-    // Optional: prevent background scroll (simple + safe)
     document.body.style.overflow = 'hidden';
 }
 
@@ -172,33 +167,28 @@ export function closeModals() {
         m.classList.add('hidden');
         m.classList.remove('flex');
     });
-
     document.body.style.overflow = '';
 }
 
 // ────────────────────────────────────────────────────────────────
-// TAB NAVIGATION (v1.8 CSS contract: .tab-content + .active)
+// TAB NAVIGATION (v1.8 CSS contract)
 // ────────────────────────────────────────────────────────────────
 
 export function switchTab(id) {
     vibrate([5]);
 
-    // Hide all
     document.querySelectorAll('.tab-content').forEach(t => {
         t.classList.add('hidden');
         t.classList.remove('active', 'animate-slideUp');
     });
 
-    // Show selected
     const activeTab = document.getElementById(`tab-${id}`);
     if (activeTab) {
         activeTab.classList.remove('hidden');
-        // ✅ critical for v1.8 CSS: display: block via .active selector
         activeTab.classList.add('active');
         requestAnimationFrame(() => activeTab.classList.add('animate-slideUp'));
     }
 
-    // Update nav buttons
     document.querySelectorAll('.nav-item').forEach(n => {
         n.classList.remove('active', 'text-teal-500');
         n.classList.add('opacity-50');
@@ -211,8 +201,6 @@ export function switchTab(id) {
     }
 
     state.currentTab = id;
-
-    // Refresh audit tab data
     if (id === 'audit') window.dispatchEvent(new Event('refresh-data'));
 }
 
@@ -226,8 +214,6 @@ export function renderProgressBar(id, cur, tar, colors = {}) {
 
     const percent = tar > 0 ? Math.min((cur / tar) * 100, 100) : 0;
     el.style.width = `${percent}%`;
-
-    // Reset class to base, then apply color
     el.className = 'h-full transition-all duration-500 relative';
 
     const warning = typeof colors.warning === 'number' ? colors.warning : 70;
@@ -244,13 +230,9 @@ export function renderProgressText(id, txt) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// BOOTSTRAP HELPERS
+// BOOTSTRAP
 // ────────────────────────────────────────────────────────────────
 
-/**
- * Call once on app init (after userSettings loaded if possible).
- * Safe even if called multiple times.
- */
 export function initUI() {
     applyTheme();
     startClocks();

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
 // ROBERT OS - MODULES/SHIFTS.JS v2.0.0
-// Purpose: Shift lifecycle (start/pause/end) + safe timer + safe modal IO
+// Purpose: Shift lifecycle (start/pause/end) + odometer autofill + last_odo sync
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -11,21 +11,76 @@ import { openModal, closeModals } from './ui.js';
 let timerInterval = null;
 
 // ────────────────────────────────────────────────────────────────
+// ODOMETER HELPERS
+// ────────────────────────────────────────────────────────────────
+
+function getVehicleById(id) {
+    return (state.fleet || []).find(v => String(v.id) === String(id)) || null;
+}
+
+/**
+ * Returns best-known odometer for a vehicle.
+ * Priority: last_odo -> initial_odo -> 0
+ */
+function getVehicleOdoSeed(vehicle) {
+    if (!vehicle) return 0;
+    const last = parseInt(vehicle.last_odo ?? '', 10);
+    if (Number.isFinite(last) && last > 0) return last;
+
+    const init = parseInt(vehicle.initial_odo ?? '', 10);
+    if (Number.isFinite(init) && init > 0) return init;
+
+    return 0;
+}
+
+function setInputValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = value === 0 ? '' : String(value);
+}
+
+// ────────────────────────────────────────────────────────────────
 // START SHIFT
 // ────────────────────────────────────────────────────────────────
 
 export function openStartModal() {
     vibrate();
+
     const select = document.getElementById('start-vehicle');
+    const odoInput = document.getElementById('start-odo');
 
     if (!select) {
         showToast('UI error: missing vehicle selector', 'error');
         return;
     }
 
+    // Populate fleet
     select.innerHTML = (state.fleet || [])
         .map(v => `<option value="${v.id}">${v.name}</option>`)
         .join('');
+
+    // Auto-fill start odo based on selected vehicle
+    const applyOdo = () => {
+        const v = getVehicleById(select.value);
+        const seed = getVehicleOdoSeed(v);
+        if (odoInput && (odoInput.value === '' || odoInput.value == null)) {
+            setInputValue('start-odo', seed);
+        }
+    };
+
+    // Bind once (no duplicates)
+    if (!select.dataset.odoBound) {
+        select.addEventListener('change', () => {
+            // When vehicle changes, always update start odo (this is what you wanted)
+            const v = getVehicleById(select.value);
+            const seed = getVehicleOdoSeed(v);
+            setInputValue('start-odo', seed);
+        });
+        select.dataset.odoBound = '1';
+    }
+
+    // Initial fill
+    applyOdo();
 
     openModal('start-modal');
 }
@@ -78,10 +133,11 @@ export function openEndModal() {
     vibrate();
     if (!state.activeShift) return;
 
-    // Optional: auto-fill end odo with start odo if empty
+    // Auto-fill end odo with shift start odo if empty
     const endOdoEl = document.getElementById('end-odo');
-    if (endOdoEl && !endOdoEl.value) {
-        endOdoEl.value = String(state.activeShift.start_odo || '');
+    if (endOdoEl && (endOdoEl.value === '' || endOdoEl.value == null)) {
+        const seed = parseInt(state.activeShift.start_odo || '0', 10) || 0;
+        setInputValue('end-odo', seed);
     }
 
     openModal('end-modal');
@@ -101,17 +157,22 @@ export async function confirmEnd() {
     const endOdoRaw = endOdoEl?.value;
     const earnRaw = earnEl?.value;
 
-    // ✅ Required fields (your flow depends on these)
+    // Required fields
     if (endOdoRaw === '' || endOdoRaw == null) return showToast('Įveskite ridą', 'warning');
     if (earnRaw === '' || earnRaw == null) return showToast('Įveskite uždarbį', 'warning');
 
     const endOdo = parseInt(endOdoRaw || '0', 10) || 0;
     const earn = parseFloat(earnRaw || '0') || 0;
 
-    // ✅ SAFE OPTIONAL FIELDS (these inputs are NOT present in your current index.html)
+    // Odometer sanity
+    const startOdo = parseInt(state.activeShift.start_odo || '0', 10) || 0;
+    if (endOdo < startOdo) {
+        return showToast('Rida negali būti mažesnė už START', 'warning');
+    }
+
+    // Optional fields (safe if missing in HTML)
     const washOtherEl = document.getElementById('end-carwash-other');
     const washCostEl = document.getElementById('manual-wash-cost');
-
     const washOther = washOtherEl ? washOtherEl.checked : false;
     const washCost = (washOther && washCostEl) ? (parseFloat(washCostEl.value || '0') || 0) : 0;
 
@@ -119,14 +180,15 @@ export async function confirmEnd() {
 
     state.loading = true;
     try {
-        // Stop timer immediately for better UX
+        // Stop timer immediately for UX
         stopTimer();
 
+        // 1) Complete shift
         const { error: updErr } = await db
             .from('finance_shifts')
             .update({
                 end_time: new Date().toISOString(),
-                end_odo: endOdo || (state.activeShift.start_odo || 0),
+                end_odo: endOdo,
                 gross_earnings: earn,
                 status: 'completed',
                 weather
@@ -135,7 +197,7 @@ export async function confirmEnd() {
 
         if (updErr) throw updErr;
 
-        // Optional: paid wash expense
+        // 2) Optional: paid wash expense
         if (washOther && washCost > 0) {
             const { error: washErr } = await db.from('expenses').insert({
                 user_id: state.user.id,
@@ -148,12 +210,33 @@ export async function confirmEnd() {
             if (washErr) throw washErr;
         }
 
+        // 3) ✅ CRITICAL: Update vehicle.last_odo
+        const vehicleId = state.activeShift.vehicle_id;
+        if (vehicleId) {
+            const { error: vehErr } = await db
+                .from('vehicles')
+                .update({
+                    last_odo: endOdo,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', vehicleId)
+                .eq('user_id', state.user.id);
+
+            if (vehErr) throw vehErr;
+
+            // Keep local fleet in sync (no full refetch needed)
+            const v = getVehicleById(vehicleId);
+            if (v) v.last_odo = endOdo;
+        }
+
         showToast('END SHIFT', 'success');
         state.activeShift = null;
         closeModals();
         window.dispatchEvent(new Event('refresh-data'));
     } catch (e) {
         showToast(e?.message || 'End error', 'error');
+        // If failure happened, allow timer restart via refreshAll (source of truth)
+        window.dispatchEvent(new Event('refresh-data'));
     } finally {
         state.loading = false;
     }
@@ -168,7 +251,6 @@ export async function togglePause() {
     const s = state.activeShift;
     if (!s?.id) return;
 
-    // Optimistic update
     const wasActive = s.status === 'active';
     const newStatus = wasActive ? 'paused' : 'active';
     s.status = newStatus;
@@ -192,7 +274,6 @@ export async function togglePause() {
         if (error) throw error;
     } catch (e) {
         console.error(e);
-        // revert via refresh
         window.dispatchEvent(new Event('refresh-data'));
     }
 }
@@ -243,13 +324,11 @@ function pad(n) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// WEATHER (End modal)
+// WEATHER
 // ────────────────────────────────────────────────────────────────
 
 export function selectWeather(type) {
     vibrate();
-
-    // Visual highlight (optional)
     document.querySelectorAll('.weather-btn').forEach(b => {
         b.classList.remove('border-teal-500', 'bg-teal-500/20');
     });

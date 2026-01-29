@@ -653,3 +653,153 @@ body {
 :root.light .month-head-line{
   opacity: .85;
 }
+
+/* ════════════════════════════════════════════════════════════════ */
+/* SOFT BENTO (Variant A) — paste at END of style.css              */
+/* Targets: .os-card (preferred), also .log-card / .shift-strip     */
+/* ════════════════════════════════════════════════════════════════ */
+
+:root{
+  --soft-card-radius: 22px;
+  --soft-card-pad: 16px;
+  --soft-stroke: rgba(255,255,255,0.10);
+  --soft-stroke-light: rgba(0,0,0,0.08);
+
+  --soft-shadow-dark: 0 14px 40px rgba(0,0,0,0.55);
+  --soft-shadow-light: 0 14px 28px rgba(17,24,39,0.10);
+
+  --soft-green: #22c55e; /* calmer than neon */
+  --soft-subtle: rgba(255,255,255,0.04);
+  --soft-subtle-light: rgba(0,0,0,0.03);
+}
+
+/* Universal card selector (works even if renderer uses different class) */
+.os-card,
+.log-card,
+.shift-strip{
+  border-radius: var(--soft-card-radius) !important;
+  padding: var(--soft-card-pad) !important;
+  border: 1px solid var(--soft-stroke) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)) !important;
+  box-shadow: var(--soft-shadow-dark) !important;
+  backdrop-filter: none !important;
+}
+
+:root.light .os-card,
+:root.light .log-card,
+:root.light .shift-strip{
+  border: 1px solid var(--soft-stroke-light) !important;
+  background:
+    linear-gradient(180deg, #ffffff, #fbfbfc) !important;
+  box-shadow: var(--soft-shadow-light) !important;
+}
+
+/* Hover/press feel (mobile friendly) */
+.os-card:active,
+.log-card:active,
+.shift-strip:active{
+  transform: scale(0.992);
+}
+
+/* Typography tuning inside cards */
+.os-card *,
+.log-card *,
+.shift-strip *{
+  letter-spacing: 0 !important;
+}
+
+/* Make times less “dominant” and more bento-like */
+.os-card .time,
+.log-card .time,
+.shift-strip .time{
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.1 !important;
+}
+
+.os-card .dur,
+.log-card .dur,
+.shift-strip .dur{
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  opacity: 0.65 !important;
+}
+
+/* Secondary row (miles + vehicle) calmer */
+.os-card .meta,
+.log-card .meta,
+.shift-strip .meta{
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  opacity: 0.70 !important;
+}
+
+/* “Gross / Exp” line should look like a tidy caption */
+.os-card .subline,
+.log-card .subline,
+.shift-strip .subline{
+  margin-top: 10px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase !important;
+  opacity: 0.55 !important;
+}
+
+/* Profit number: calm green, not neon */
+.os-card .profit,
+.log-card .profit,
+.shift-strip .profit{
+  color: var(--soft-green) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Profit label */
+.os-card .profit-label,
+.log-card .profit-label,
+.shift-strip .profit-label{
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  opacity: 0.55 !important;
+}
+
+/* Checkbox styling to match bento */
+.os-card input[type="checkbox"],
+.log-card input[type="checkbox"],
+.shift-strip input[type="checkbox"]{
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  background: rgba(255,255,255,0.04) !important;
+}
+:root.light .os-card input[type="checkbox"],
+:root.light .log-card input[type="checkbox"],
+:root.light .shift-strip input[type="checkbox"]{
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  background: rgba(0,0,0,0.03) !important;
+}
+
+/* Month header line (SAUSIS row) — a bit more elegant */
+.history-month-row,
+.month-row{
+  display:flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-month-row .month-title,
+.month-row .month-title{
+  letter-spacing: 0.02em;
+}
+
+/* Optional: reduce overall “flatness” in light mode background */
+:root.light body{
+  background: linear-gradient(180deg, #f3f4f6, #eef2f7) !important;
+}

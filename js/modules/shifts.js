@@ -1,7 +1,10 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/SHIFTS.JS v2.2.0
-// Purpose: Shift lifecycle + Pause DB log (finance_shift_pauses) + stable timers
-// Notes: DB-driven time calc => refresh no longer "resets" real elapsed time
+// ROBERT OS - MODULES/SHIFTS.JS v2.2.1
+// Pause DB log: supports BOTH schemas:
+//   A) started_at / ended_at
+//   B) start_time / end_time
+// Uses auto-detect (caches chosen column names after first DB error)
+// Stable timers (DB-driven): active = (now-start) - paused
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -11,9 +14,12 @@ import { openModal, closeModals } from './ui.js';
 
 let timerInterval = null;
 
-// ────────────────────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────────────────────
+// Pause column mapping (auto detected)
+const pauseCols = {
+  start: 'started_at',
+  end: 'ended_at',
+  detected: false
+};
 
 function pad(n) {
   return n < 10 ? '0' + n : String(n);
@@ -25,43 +31,6 @@ function fmtHMS(ms) {
   const mins = Math.floor((s % 3600) / 60);
   const secs = s % 60;
   return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
-}
-
-async function getTotalPausedMs(shiftId) {
-  // Sum all completed pauses + include currently open pause
-  const { data, error } = await db
-    .from('finance_shift_pauses')
-    .select('started_at, ended_at')
-    .eq('shift_id', shiftId);
-
-  if (error) throw error;
-
-  let total = 0;
-  const now = Date.now();
-
-  (data || []).forEach(p => {
-    const a = p.started_at ? new Date(p.started_at).getTime() : null;
-    const b = p.ended_at ? new Date(p.ended_at).getTime() : null;
-    if (!a) return;
-    total += (b ? b : now) - a;
-  });
-
-  return Math.max(0, total);
-}
-
-async function getOpenPauseRow(shiftId) {
-  // Get currently open pause (if any)
-  const { data, error } = await db
-    .from('finance_shift_pauses')
-    .select('id, started_at, ended_at')
-    .eq('shift_id', shiftId)
-    .is('ended_at', null)
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data || null;
 }
 
 function setPauseButtonUI(isPaused) {
@@ -87,6 +56,119 @@ function setTimerUIActive(isActive) {
     el.classList.add('opacity-50');
     el.classList.remove('pulse-text');
   }
+}
+
+// ────────────────────────────────────────────────────────────────
+// Pause schema auto-detect
+// ────────────────────────────────────────────────────────────────
+
+function isMissingColumnError(e) {
+  const msg = String(e?.message || e || '');
+  return msg.includes('does not exist') && msg.includes('finance_shift_pauses');
+}
+
+function adaptPauseColsFromError(e) {
+  const msg = String(e?.message || e || '');
+  // If it complains about started_at, switch to start_time/end_time
+  if (msg.includes('.started_at') || msg.includes('started_at')) {
+    pauseCols.start = 'start_time';
+    pauseCols.end = 'end_time';
+    pauseCols.detected = true;
+    return true;
+  }
+  // If it complains about start_time, switch back
+  if (msg.includes('.start_time') || msg.includes('start_time')) {
+    pauseCols.start = 'started_at';
+    pauseCols.end = 'ended_at';
+    pauseCols.detected = true;
+    return true;
+  }
+  return false;
+}
+
+async function selectPauses(shiftId) {
+  // Tries current mapping; if fails due to missing column, flips mapping and retries once
+  const sel = `id, ${pauseCols.start}, ${pauseCols.end}`;
+
+  const attempt = async () => {
+    const { data, error } = await db
+      .from('finance_shift_pauses')
+      .select(sel)
+      .eq('shift_id', shiftId);
+
+    if (error) throw error;
+    return data || [];
+  };
+
+  try {
+    return await attempt();
+  } catch (e) {
+    if (isMissingColumnError(e) && adaptPauseColsFromError(e)) {
+      // retry with new mapping
+      const sel2 = `id, ${pauseCols.start}, ${pauseCols.end}`;
+      const { data, error } = await db
+        .from('finance_shift_pauses')
+        .select(sel2)
+        .eq('shift_id', shiftId);
+
+      if (error) throw error;
+      return data || [];
+    }
+    throw e;
+  }
+}
+
+async function getOpenPauseRow(shiftId) {
+  const sel = `id, ${pauseCols.start}, ${pauseCols.end}`;
+
+  const attempt = async () => {
+    const { data, error } = await db
+      .from('finance_shift_pauses')
+      .select(sel)
+      .eq('shift_id', shiftId)
+      .is(pauseCols.end, null)
+      .order(pauseCols.start, { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data || null;
+  };
+
+  try {
+    return await attempt();
+  } catch (e) {
+    if (isMissingColumnError(e) && adaptPauseColsFromError(e)) {
+      const sel2 = `id, ${pauseCols.start}, ${pauseCols.end}`;
+      const { data, error } = await db
+        .from('finance_shift_pauses')
+        .select(sel2)
+        .eq('shift_id', shiftId)
+        .is(pauseCols.end, null)
+        .order(pauseCols.start, { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data || null;
+    }
+    throw e;
+  }
+}
+
+async function getTotalPausedMs(shiftId) {
+  const rows = await selectPauses(shiftId);
+  let total = 0;
+  const now = Date.now();
+
+  rows.forEach(p => {
+    const a = p[pauseCols.start] ? new Date(p[pauseCols.start]).getTime() : null;
+    const b = p[pauseCols.end] ? new Date(p[pauseCols.end]).getTime() : null;
+    if (!a) return;
+    total += (b ? b : now) - a;
+  });
+
+  return Math.max(0, total);
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -143,7 +225,6 @@ export async function confirmStart() {
     closeModals();
     window.dispatchEvent(new Event('refresh-data'));
 
-    // start timer
     startTimer();
     setPauseButtonUI(false);
   } catch (e) {
@@ -193,13 +274,14 @@ export async function confirmEnd() {
 
   state.loading = true;
   try {
-    // Close an open pause if user ends while paused
+    // Close open pause if ending while paused
     const openPause = await getOpenPauseRow(state.activeShift.id);
     if (openPause?.id) {
       const { error: closePauseErr } = await db
         .from('finance_shift_pauses')
-        .update({ ended_at: new Date().toISOString() })
+        .update({ [pauseCols.end]: new Date().toISOString() })
         .eq('id', openPause.id);
+
       if (closePauseErr) throw closePauseErr;
     }
 
@@ -242,23 +324,21 @@ export async function togglePause() {
   state.loading = true;
 
   try {
-    // Determine current true pause state from DB (not from UI)
     const openPause = await getOpenPauseRow(s.id);
     const isPaused = !!openPause;
 
     if (!isPaused) {
-      // Start pause: insert a pause row
+      // Start pause
       const { error: insErr } = await db
         .from('finance_shift_pauses')
         .insert({
           user_id: state.user.id,
           shift_id: s.id,
-          started_at: new Date().toISOString()
+          [pauseCols.start]: new Date().toISOString()
         });
 
       if (insErr) throw insErr;
 
-      // Update shift status
       const { error: stErr } = await db
         .from('finance_shifts')
         .update({ status: 'paused' })
@@ -271,15 +351,14 @@ export async function togglePause() {
       setTimerUIActive(false);
       showToast('PAUSED', 'info');
     } else {
-      // Resume: close pause row
+      // Resume (close pause)
       const { error: updErr } = await db
         .from('finance_shift_pauses')
-        .update({ ended_at: new Date().toISOString() })
+        .update({ [pauseCols.end]: new Date().toISOString() })
         .eq('id', openPause.id);
 
       if (updErr) throw updErr;
 
-      // Update shift status
       const { error: stErr } = await db
         .from('finance_shifts')
         .update({ status: 'active' })
@@ -293,15 +372,12 @@ export async function togglePause() {
       showToast('RESUMED', 'success');
     }
 
-    // Keep timer running always (it renders DB-driven elapsed)
-    // but UI becomes "inactive" when paused
+    // Timer keeps rendering DB-driven elapsed
     startTimer();
-
     window.dispatchEvent(new Event('refresh-data'));
   } catch (e) {
     console.error(e);
     showToast(e?.message || 'Pause error', 'error');
-    // Re-sync from DB
     window.dispatchEvent(new Event('refresh-data'));
   } finally {
     state.loading = false;
@@ -309,7 +385,9 @@ export async function togglePause() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// TIMER (DB-driven: on-duty minus pauses)
+// TIMER (DB-driven)
+// main = Active time (minus pauses)
+// optional: #shift-timer-onduty, #shift-timer-paused, #shift-timer-left
 // ────────────────────────────────────────────────────────────────
 
 export function startTimer() {
@@ -336,28 +414,19 @@ async function renderTimers() {
   const startMs = new Date(s.start_time).getTime();
   const nowMs = Date.now();
 
-  // Total elapsed from start to now (on duty, raw)
   const onDutyMs = Math.max(0, nowMs - startMs);
-
-  // Pause time from DB
   const pausedMs = await getTotalPausedMs(s.id);
-
-  // Active working time (excludes pauses)
   const activeMs = Math.max(0, onDutyMs - pausedMs);
 
-  // Decide UI state by shift status
   const isActive = s.status === 'active';
   setTimerUIActive(isActive);
-  setPauseButtonUI(!isActive); // if paused => play icon
+  setPauseButtonUI(!isActive);
 
-  // Show main timer as ACTIVE time (with pauses excluded)
   timerEl.textContent = fmtHMS(activeMs);
 
-  // OPTIONAL: if you have extra labels in DOM, fill them
-  // (won't error if not present)
   const onDutyEl = document.getElementById('shift-timer-onduty');
   const pausedEl = document.getElementById('shift-timer-paused');
-  const leftEl = document.getElementById('shift-timer-left'); // countdown to target_hours
+  const leftEl = document.getElementById('shift-timer-left');
 
   if (onDutyEl) onDutyEl.textContent = fmtHMS(onDutyMs);
   if (pausedEl) pausedEl.textContent = fmtHMS(pausedMs);

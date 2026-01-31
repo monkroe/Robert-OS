@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.2.4
+// ROBERT OS - MODULES/FINANCE.JS v2.2.6
 // Goals (kept):
 // - History strips (date + start-end + duration + miles)
 // - Shift Details modal (icons + status badge) + tx list + pause list + sums
@@ -19,10 +19,22 @@
 //    * if standalone -> odo must be >= last fuel odo for that vehicle (if exists)
 // - Adds dynamic Vehicle picker into Fuel fields (NO index.html change required)
 //
-// FIX v2.2.4 (UI polish):
+// FIX v2.2.4 (kept, UI polish):
 // - Vehicle picker is inserted BEFORE "FULL TANK" block (not after)
 // - When no shift: hide non-fuel OUT categories (prevents expanded meta grid confusion)
 // - When no shift: Cockpit IN is blocked at modal open (toast + no modal)
+//
+// ADD v2.2.5 (kept):
+// - Fuel metrics in Shift Details:
+//    * FULL→FULL (needs 2 FULL markers)
+//    * Since last FULL (needs 1 FULL marker; uses shift end_odo as anchor)
+// - Category labels shown in Title Case (Food, Snow, Private, Bonus, etc.)
+//
+// FIX v2.2.6:
+// - Bind inline onclick targets to window: openShiftDetails/openTxModal/setExpType/closeModals
+// - getShiftById checks state.activeShift first
+// - ensureFuelVehiclePicker race-safe (mutex/promise)
+// - safeUUID gating for ids injected into onclick strings (XSS hardening)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -43,6 +55,14 @@ function safeText(v) {
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;');
+}
+
+// Allow only UUID-like ids to ever be injected into HTML attributes (onclick)
+function safeUUID(v) {
+  const s = String(v ?? '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+    ? s
+    : '';
 }
 
 function toLTDateISO(d) {
@@ -122,6 +142,12 @@ function hasShiftContextNow() {
 
 function getShiftById(id) {
   if (!id) return null;
+
+  // FIX v2.2.6: check activeShift first
+  if (state.activeShift && String(state.activeShift.id) === String(id)) {
+    return state.activeShift;
+  }
+
   const shifts = window._auditData?.shifts || [];
   return shifts.find(x => String(x.id) === String(id)) || null;
 }
@@ -130,6 +156,25 @@ function getTxVehiclePickerValue() {
   const sel = document.getElementById('tx-veh');
   const v = sel?.value || '';
   return v ? v : null;
+}
+
+function toTitleCaseWords(s) {
+  return String(s || '')
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function formatCategoryLabel(catRaw) {
+  const raw = String(catRaw || '').trim();
+  if (!raw) return '';
+  const spaced = raw
+    .replaceAll('_', ' ')
+    .replaceAll('-', ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return toTitleCaseWords(spaced);
 }
 
 // Resolve vehicle_id for tx
@@ -170,9 +215,159 @@ async function getLastFuelOdo(userId, vehicleId) {
 }
 
 // ────────────────────────────────────────────────────────────────
+// Fuel analytics (FULL→FULL and Since last FULL)
+// ────────────────────────────────────────────────────────────────
+
+function getFuelTxForVehicle(vehicleId) {
+  if (!vehicleId) return [];
+  const exp = window._auditData?.expenses || [];
+  return exp
+    .filter(e =>
+      String(e.category || '') === 'fuel' &&
+      String(e.vehicle_id || '') === String(vehicleId) &&
+      asInt(e.odometer) > 0
+    )
+    .slice()
+    .sort((a, b) => {
+      const ao = asInt(a.odometer);
+      const bo = asInt(b.odometer);
+      if (ao !== bo) return ao - bo;
+      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+    });
+}
+
+function calcFullToFullSegment(vehicleId, anchorOdo) {
+  const tx = getFuelTxForVehicle(vehicleId);
+  const anchor = asInt(anchorOdo);
+  if (!tx.length || anchor <= 0) return null;
+
+  const fulls = tx
+    .filter(x => !!x.is_full)
+    .map(x => ({ ...x, _odo: asInt(x.odometer) }))
+    .filter(x => x._odo > 0);
+
+  if (fulls.length < 2) return null;
+
+  const endFull = fulls.filter(x => x._odo <= anchor).at(-1);
+  if (!endFull) return null;
+
+  const startFull = fulls.filter(x => x._odo < endFull._odo).at(-1);
+  if (!startFull) return null;
+
+  const startOdo = startFull._odo;
+  const endOdo = endFull._odo;
+  const miles = Math.max(0, endOdo - startOdo);
+  if (miles <= 0) return null;
+
+  const windowTx = tx.filter(x => {
+    const o = asInt(x.odometer);
+    return o > startOdo && o <= endOdo;
+  });
+
+  const gallons = sum(windowTx, x => x.gallons);
+  const cost = sum(windowTx, x => x.amount);
+  if (gallons <= 0) return null;
+
+  return {
+    kind: 'full_to_full',
+    label: 'Fuel Metrics (FULL→FULL)',
+    startOdo,
+    endOdo,
+    miles,
+    gallons,
+    cost,
+    mpg: miles / gallons,
+    costPerMile: cost / miles,
+    costPerGal: cost / gallons
+  };
+}
+
+function calcSinceLastFullSegment(vehicleId, anchorOdo) {
+  const tx = getFuelTxForVehicle(vehicleId);
+  const anchor = asInt(anchorOdo);
+  if (!tx.length || anchor <= 0) return null;
+
+  const fulls = tx
+    .filter(x => !!x.is_full)
+    .map(x => ({ ...x, _odo: asInt(x.odometer) }))
+    .filter(x => x._odo > 0 && x._odo <= anchor);
+
+  if (!fulls.length) return null;
+
+  const lastFull = fulls.at(-1);
+  const startOdo = asInt(lastFull._odo);
+  const endOdo = anchor;
+
+  const miles = Math.max(0, endOdo - startOdo);
+  if (miles <= 0) return null;
+
+  const windowTx = tx.filter(x => {
+    const o = asInt(x.odometer);
+    return o > startOdo && o <= endOdo;
+  });
+
+  const gallons = sum(windowTx, x => x.gallons);
+  const cost = sum(windowTx, x => x.amount);
+  if (gallons <= 0) return null;
+
+  return {
+    kind: 'since_last_full',
+    label: 'Fuel Metrics (Since last FULL)',
+    startOdo,
+    endOdo,
+    miles,
+    gallons,
+    cost,
+    mpg: miles / gallons,
+    costPerMile: cost / miles,
+    costPerGal: cost / gallons
+  };
+}
+
+function renderFuelMetricsBlock(seg) {
+  if (!seg) return '';
+
+  const line = (fa, label, value, hint = '') => `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,.08);">
+      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+        <i class="fa-solid ${fa}" style="width:18px; text-align:center; opacity:.85;"></i>
+        <div style="min-width:0;">
+          <div style="font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.70;">${safeText(label)}</div>
+          ${hint ? `<div style="font-size:11px; opacity:.45; margin-top:2px;">${safeText(hint)}</div>` : ''}
+        </div>
+      </div>
+      <div style="font-size:14px; font-weight:900; opacity:.95; text-align:right; white-space:nowrap;">${safeText(value)}</div>
+    </div>
+  `;
+
+  const mpg = Number(seg.mpg || 0);
+  const cpm = Number(seg.costPerMile || 0);
+  const cpg = Number(seg.costPerGal || 0);
+
+  return `
+    <div style="margin-top:14px; border:1px solid rgba(20,184,166,.20); border-radius:14px; overflow:hidden;">
+      <div style="padding:10px 12px; background: rgba(20,184,166,.06); font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:900; opacity:.9; color:#14b8a6;">
+        <i class="fa-solid fa-gas-pump" style="opacity:.9; margin-right:.5rem;"></i> ${safeText(seg.label)}
+      </div>
+      <div style="padding:0 12px;">
+        ${line('fa-gauge', 'mpg', `${mpg.toFixed(1)} mpg`, `${seg.startOdo} → ${seg.endOdo}`)}
+        ${line('fa-dollar-sign', 'cost per mile', `${formatCurrency(cpm)} / mi`)}
+        ${line('fa-droplet', 'cost per gallon', `${formatCurrency(cpg)} / gal`)}
+        ${line('fa-road', 'segment miles', `${Math.round(seg.miles)} mi`)}
+        ${line('fa-jug-detergent', 'fuel total', `${Number(seg.gallons).toFixed(2)} gal`)}
+        ${line('fa-receipt', 'fuel cost', `${formatCurrency(seg.cost)}`)}
+      </div>
+    </div>
+  `;
+}
+
+// ────────────────────────────────────────────────────────────────
 // Dynamic Vehicle Picker for Fuel (no HTML change required)
 // Insert BEFORE FULL TANK block
+// Race-safe with promise lock
 // ────────────────────────────────────────────────────────────────
+
+let fuelPickerPromise = null;
 
 async function ensureFuelVehiclePicker() {
   const fuelBox = document.getElementById('fuel-fields');
@@ -181,71 +376,78 @@ async function ensureFuelVehiclePicker() {
   // already exists
   if (document.getElementById('tx-veh')) return;
 
-  // create wrapper
-  const wrap = document.createElement('div');
-  wrap.className = 'col-span-2 mt-2';
-  wrap.innerHTML = `
-    <label class="label-xs ml-1">Vehicle</label>
-    <select id="tx-veh" class="input-field text-sm h-12"></select>
-    <div id="tx-veh-hint" class="text-[11px] opacity-60 mt-1" style="display:none;">
-      Fuel be shift reikalauja Vehicle + Odometer.
-    </div>
-  `;
+  // FIX v2.2.6: mutex (if called twice quickly, second awaits the first)
+  if (fuelPickerPromise) return fuelPickerPromise;
 
-  // INSERTION POINT: before FULL TANK block if present
-  // FULL TANK checkbox exists in HTML as #tx-full; find its closest block container
-  const full = document.getElementById('tx-full');
-  const fullBlock =
-    full?.closest('.col-span-2') ||
-    full?.closest('div') ||
-    null;
+  fuelPickerPromise = (async () => {
+    // re-check after acquiring lock
+    if (document.getElementById('tx-veh')) return;
 
-  if (fullBlock && fullBlock.parentElement === fuelBox) {
-    fuelBox.insertBefore(wrap, fullBlock);
-  } else {
-    // fallback: append (shouldn't happen unless HTML changed)
-    fuelBox.appendChild(wrap);
-  }
+    const wrap = document.createElement('div');
+    wrap.className = 'col-span-2 mt-2';
+    wrap.innerHTML = `
+      <label class="label-xs ml-1">Vehicle</label>
+      <select id="tx-veh" class="input-field text-sm h-12"></select>
+      <div id="tx-veh-hint" class="text-[11px] opacity-60 mt-1" style="display:none;">
+        Fuel be shift reikalauja Vehicle + Odometer.
+      </div>
+    `;
 
-  const sel = document.getElementById('tx-veh');
-  if (!sel) return;
+    const full = document.getElementById('tx-full');
+    const fullBlock = full?.closest('.col-span-2') || full?.closest('div') || null;
 
-  // load vehicles
-  sel.innerHTML = `<option value="">Loading vehicles...</option>`;
-
-  try {
-    const { data, error } = await db
-      .from('vehicles')
-      .select('id, name, year, type')
-      .eq('user_id', state.user?.id || '')
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-
-    const vehicles = data || [];
-    if (!vehicles.length) {
-      sel.innerHTML = `<option value="">No vehicles</option>`;
-      return;
+    if (fullBlock && fullBlock.parentElement === fuelBox) {
+      fuelBox.insertBefore(wrap, fullBlock);
+    } else {
+      fuelBox.appendChild(wrap);
     }
 
-    const last = localStorage.getItem('tx_last_vehicle_id') || '';
+    const sel = document.getElementById('tx-veh');
+    if (!sel) return;
 
-    sel.innerHTML =
-      `<option value="">Select vehicle...</option>` +
-      vehicles
-        .map(v => {
-          const label = `${v.name || 'Vehicle'}${v.year ? ` (${v.year})` : ''}`;
-          const selected = String(v.id) === String(last) ? 'selected' : '';
-          return `<option value="${safeText(v.id)}" ${selected}>${safeText(label)}</option>`;
-        })
-        .join('');
+    sel.innerHTML = `<option value="">Loading vehicles...</option>`;
 
-    sel.addEventListener('change', () => {
-      const val = sel.value || '';
-      if (val) localStorage.setItem('tx_last_vehicle_id', val);
-    });
-  } catch (e) {
-    sel.innerHTML = `<option value="">Vehicle load error</option>`;
+    try {
+      const { data, error } = await db
+        .from('vehicles')
+        .select('id, name, year, type')
+        .eq('user_id', state.user?.id || '')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const vehicles = data || [];
+      if (!vehicles.length) {
+        sel.innerHTML = `<option value="">No vehicles</option>`;
+        return;
+      }
+
+      const last = localStorage.getItem('tx_last_vehicle_id') || '';
+
+      sel.innerHTML =
+        `<option value="">Select vehicle...</option>` +
+        vehicles
+          .map(v => {
+            const label = `${v.name || 'Vehicle'}${v.year ? ` (${v.year})` : ''}`;
+            const selected = String(v.id) === String(last) ? 'selected' : '';
+            return `<option value="${safeText(v.id)}" ${selected}>${safeText(label)}</option>`;
+          })
+          .join('');
+
+      sel.addEventListener('change', () => {
+        const val = sel.value || '';
+        if (val) localStorage.setItem('tx_last_vehicle_id', val);
+      });
+    } catch (e) {
+      sel.innerHTML = `<option value="">Vehicle load error</option>`;
+    }
+  })();
+
+  try {
+    await fuelPickerPromise;
+  } finally {
+    // allow future calls to run if DOM was cleared/rebuilt
+    fuelPickerPromise = null;
   }
 }
 
@@ -274,21 +476,18 @@ export async function openTxModal(dir, shiftId = null) {
       return;
     }
     if (dir === 'out') {
-      // force fuel
       txDraft.category = 'fuel';
     }
   }
 
   updateTxModalUI(dir);
 
-  // reset amount each open
   const inp = document.getElementById('tx-amount');
   if (inp) {
     inp.value = '';
     setTimeout(() => inp.focus(), 100);
   }
 
-  // reset fuel fields each open (prevents stale values)
   const gal = document.getElementById('tx-gal');
   const odo = document.getElementById('tx-odo');
   const full = document.getElementById('tx-full');
@@ -296,16 +495,12 @@ export async function openTxModal(dir, shiftId = null) {
   if (odo) odo.value = '';
   if (full) full.checked = false;
 
-  // If OUT (fuel default), ensure vehicle picker exists (needed for standalone fuel)
   if (dir === 'out') {
     await ensureFuelVehiclePicker();
-
-    // show hint if there is no active shift and no shiftId
     const noShiftContext = !txShiftId && !state.activeShift?.id;
     setFuelVehicleHintVisible(noShiftContext);
   }
 
-  // keep modal stacking safe
   if (shiftId) document.getElementById('shift-details-modal')?.classList.add('hidden');
   openModal('tx-modal');
 }
@@ -318,15 +513,12 @@ export async function confirmTx() {
 
   state.loading = true;
   try {
-    // Decide which shift to bind:
     const shift_id = txShiftId || state.activeShift?.id || null;
 
-    // Variant A: if NO shift -> allow ONLY fuel
     if (!shift_id && txDraft.category !== 'fuel') {
       return showToast('Nėra aktyvios pamainos. IN/OUT pridėk per Shift Details.', 'warning');
     }
 
-    // Vehicle bind
     const vehicle_id = resolveVehicleIdForTx();
     if (txDraft.category === 'fuel' && !vehicle_id) {
       return showToast('Fuel įrašui reikia Vehicle (pasirink Vehicle).', 'warning');
@@ -342,7 +534,6 @@ export async function confirmTx() {
       if (meta.gallons <= 0) return showToast('Įveskite gallons', 'warning');
       if (meta.odometer <= 0) return showToast('Įveskite odometer', 'warning');
 
-      // odometer guards:
       if (shift_id) {
         const s = getShiftById(shift_id) || state.activeShift || null;
         const startOdo = asInt(s?.start_odo);
@@ -359,8 +550,8 @@ export async function confirmTx() {
 
     const payload = {
       user_id: state.user.id,
-      shift_id,      // can be null ONLY for fuel (standalone)
-      vehicle_id,    // required for fuel
+      shift_id,   // can be null ONLY for fuel (standalone)
+      vehicle_id, // required for fuel
       type: txDraft.direction === 'in' ? 'income' : 'expense',
       category: txDraft.category,
       amount,
@@ -370,7 +561,6 @@ export async function confirmTx() {
 
     await db.from('expenses').insert(payload);
 
-    // reset context
     txShiftId = null;
 
     closeModals();
@@ -391,7 +581,6 @@ export function setExpType(cat, el) {
   const f = document.getElementById('fuel-fields');
   if (f) cat === 'fuel' ? f.classList.remove('hidden') : f.classList.add('hidden');
 
-  // If switched to fuel, ensure picker exists
   if (cat === 'fuel') {
     ensureFuelVehiclePicker();
     const noShiftContext = !txShiftId && !state.activeShift?.id;
@@ -408,14 +597,12 @@ function updateTxModalUI(dir) {
   document.getElementById('income-types')?.classList.toggle('hidden', dir !== 'in');
   document.getElementById('expense-types')?.classList.toggle('hidden', dir === 'in');
 
-  // show fuel-fields by default for OUT (fuel default)
   const fuelFields = document.getElementById('fuel-fields');
   if (fuelFields) {
     if (dir === 'out' && txDraft.category === 'fuel') fuelFields.classList.remove('hidden');
     else fuelFields.classList.add('hidden');
   }
 
-  // UI gating: when no shift, show ONLY fuel category in OUT
   if (dir === 'out') {
     const hasShiftContext = hasShiftContextNow();
     const expWrap = document.getElementById('expense-types');
@@ -429,7 +616,6 @@ function updateTxModalUI(dir) {
       else b.classList.remove('hidden');
     });
 
-    // ensure fuel is selected visually too
     if (!hasShiftContext) {
       btns.forEach(x => x.classList.remove('active'));
       const fuelBtn = btns.find(b => (b.getAttribute('onclick') || '').includes("setExpType('fuel'"));
@@ -477,6 +663,7 @@ export async function refreshAudit() {
 
     listEl.innerHTML = shifts
       .map(s => {
+        const sid = safeUUID(s.id);
         const start = new Date(s.start_time);
         const end = s.end_time ? new Date(s.end_time) : null;
 
@@ -490,13 +677,13 @@ export async function refreshAudit() {
         const miles = shiftMiles(s);
 
         return `
-          <div class="shift-strip flex items-center justify-between gap-3" onclick="openShiftDetails('${s.id}')">
+          <div class="shift-strip flex items-center justify-between gap-3" onclick="${sid ? `openShiftDetails('${sid}')` : ''}">
             <div class="flex items-center gap-3 min-w-0">
               <input
                 type="checkbox"
                 class="log-checkbox"
                 onclick="event.stopPropagation(); updateDeleteButtonLocal()"
-                value="shift:${s.id}"
+                value="shift:${safeText(String(s.id))}"
               />
               <div class="min-w-0">
                 <div class="text-[10px] uppercase tracking-widest opacity-70">
@@ -591,7 +778,8 @@ export function openShiftDetails(id) {
     const ic = isIn ? 'fa-circle-plus' : 'fa-circle-minus';
     const col = isIn ? '#22c55e' : '#ef4444';
     const sign = isIn ? '+' : '−';
-    const cat = safeText(String(e.category || ''));
+
+    const catLabel = formatCategoryLabel(e.category || '');
     const amt = formatCurrency(Number(e.amount || 0));
 
     const isFuel = String(e.category || '') === 'fuel';
@@ -611,7 +799,7 @@ export function openShiftDetails(id) {
         <div style="display:flex; align-items:center; gap:10px; min-width:0;">
           <i class="fa-solid ${ic}" style="width:18px; text-align:center; color:${col};"></i>
           <div style="min-width:0;">
-            <div style="font-size:13px; font-weight:800; opacity:.92; line-height:1.2;">${cat}${extraFuel}</div>
+            <div style="font-size:13px; font-weight:800; opacity:.92; line-height:1.2;">${safeText(catLabel)}${extraFuel}</div>
             <div style="font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.55;">${safeText(isIn ? 'income' : 'expense')}</div>
           </div>
         </div>
@@ -653,6 +841,15 @@ export function openShiftDetails(id) {
         .join('')
     : `<div style="padding:10px 0; border-top:1px solid rgba(255,255,255,.06); opacity:.55; font-size:13px;">No pauses</div>`;
 
+  const anchorOdo = asInt(endOdo);
+  let seg = null;
+  if (s.vehicle_id && anchorOdo > 0) {
+    seg = calcFullToFullSegment(s.vehicle_id, anchorOdo) || calcSinceLastFullSegment(s.vehicle_id, anchorOdo);
+  }
+  const segBlock = seg ? renderFuelMetricsBlock(seg) : '';
+
+  const sid = safeUUID(s.id);
+
   const target = document.getElementById('shift-details-content');
   if (target) {
     target.innerHTML = `
@@ -685,7 +882,7 @@ export function openShiftDetails(id) {
         <div style="padding: 1rem;">
           <div style="border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; background: rgba(255,255,255,.02);">
             ${row('fa-car-side', 'vehicle', vehicleName)}
-            ${weather ? row('fa-cloud-sun', 'weather', weather) : ''}
+            ${weather ? row('fa-cloud-sun', 'weather', formatCategoryLabel(weather)) : ''}
             ${row('fa-gauge-high', 'odometer', `${startOdo} → ${endOdo || '…'}`)}
             ${row('fa-route', 'miles', `${miles} mi`)}
             ${row('fa-stopwatch', 'duration', driveStr)}
@@ -694,6 +891,8 @@ export function openShiftDetails(id) {
             ${row('fa-sack-dollar', 'earnings', formatCurrency(gross))}
             ${row('fa-receipt', 'expenses', formatCurrency(expSum))}
           </div>
+
+          ${segBlock}
 
           <div style="margin-top:14px; border:1px solid rgba(255,255,255,.10); border-radius:14px; overflow:hidden;">
             <div style="padding:10px 12px; background: rgba(255,255,255,.03); font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:900; opacity:.8;">
@@ -714,10 +913,10 @@ export function openShiftDetails(id) {
           </div>
 
           <div style="display:flex; gap:.6rem; margin-top:1rem;">
-            <button class="btn-bento" onclick="openTxModal('in', '${s.id}')">
+            <button class="btn-bento" onclick="${sid ? `openTxModal('in', '${sid}')` : ''}">
               <i class="fa-solid fa-circle-plus"></i> IN
             </button>
-            <button class="btn-bento" onclick="openTxModal('out', '${s.id}')">
+            <button class="btn-bento" onclick="${sid ? `openTxModal('out', '${sid}')` : ''}">
               <i class="fa-solid fa-circle-minus"></i> OUT
             </button>
           </div>
@@ -787,3 +986,16 @@ export function updateDeleteButtonLocal() {
 
 export function toggleAccordion() {}
 export function exportAI() {}
+
+// ────────────────────────────────────────────────────────────────
+// FIX v2.2.6: bind inline onclick targets to window
+// (needed because UI uses onclick="...").
+// ────────────────────────────────────────────────────────────────
+
+window.openTxModal = openTxModal;
+window.openShiftDetails = openShiftDetails;
+window.setExpType = setExpType;
+window.closeModals = closeModals;
+window.updateDeleteButtonLocal = updateDeleteButtonLocal;
+window.requestLogDelete = requestLogDelete;
+window.confirmLogDelete = confirmLogDelete;

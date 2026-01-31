@@ -1,9 +1,11 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/SHIFTS.JS v2.2.2
+// ROBERT OS - MODULES/SHIFTS.JS v2.2.3
 // Purpose: Shift lifecycle (start/pause/end) + safe timer + pause DB log
 //
-// FIX v2.2.2:
-// - selectWeather() now visually highlights selected button
+// FIX v2.2.3:
+// - Timer now shows WORK TIME (excludes paused time)
+// - Rehydrates pause clock from DB when timer starts (survives refresh)
+// - selectWeather() highlight fix retained (v2.2.2)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -15,6 +17,12 @@ let timerInterval = null;
 let pauseInFlight = false;
 
 let startMinCache = {};
+
+// Work-time clock (pause-aware)
+let pauseStartedAt = null;     // ms timestamp when pause began (client)
+let pauseAccumMs = 0;          // total paused ms (closed intervals)
+let pauseClockShiftId = null;  // which shift this clock belongs to
+let pauseClockHydrated = false;
 
 // ────────────────────────────────────────────────────────────────
 // Helpers
@@ -37,6 +45,65 @@ function getVehicleById(id) {
 function getDefaultTargetHours() {
   const def = Number(state.userSettings?.default_shift_target_hours ?? 12);
   return Number.isFinite(def) && def > 0 ? def : 12;
+}
+
+function resetPauseClockForShift(shiftId) {
+  pauseStartedAt = null;
+  pauseAccumMs = 0;
+  pauseClockShiftId = shiftId || null;
+  pauseClockHydrated = false;
+}
+
+async function hydratePauseClockFromDB(shiftId) {
+  if (!shiftId || !state.user?.id) return;
+
+  // Avoid rehydrating repeatedly for same shift unless needed
+  if (pauseClockHydrated && String(pauseClockShiftId) === String(shiftId)) return;
+
+  pauseClockShiftId = shiftId;
+  pauseStartedAt = null;
+  pauseAccumMs = 0;
+
+  try {
+    const { data, error } = await db
+      .from('finance_shift_pauses')
+      .select('start_time, end_time')
+      .eq('user_id', state.user.id)
+      .eq('shift_id', shiftId);
+
+    if (error) throw error;
+
+    const rows = data || [];
+    let closed = 0;
+    let hasOpen = false;
+
+    rows.forEach(p => {
+      const a = p.start_time ? new Date(p.start_time).getTime() : 0;
+      const b = p.end_time ? new Date(p.end_time).getTime() : 0;
+
+      if (a > 0 && b > 0) {
+        closed += Math.max(0, b - a);
+      } else if (a > 0 && !p.end_time) {
+        hasOpen = true;
+        // do NOT add open interval to accum; it will be accounted via pauseStartedAt
+        // (only relevant when shift status is paused)
+      }
+    });
+
+    pauseAccumMs = Math.max(0, closed);
+
+    // If shift is currently paused and there is an open pause record,
+    // treat pause as active now so work time won't advance.
+    const s = state.activeShift;
+    if (s?.id && String(s.id) === String(shiftId) && String(s.status) === 'paused' && hasOpen) {
+      pauseStartedAt = Date.now(); // client "now"; DB start_time already counted only when closed
+    }
+
+    pauseClockHydrated = true;
+  } catch (e) {
+    // If hydration fails, we still keep local clock; better than breaking UI
+    pauseClockHydrated = true;
+  }
 }
 
 async function fetchVehicleStartMinOdo(vehicleId) {
@@ -169,6 +236,10 @@ export async function confirmStart() {
     if (error) throw error;
 
     state.activeShift = data;
+
+    // reset pause-aware timer clock for this shift
+    resetPauseClockForShift(data?.id);
+
     showToast('START SHIFT', 'success');
     closeModals();
     window.dispatchEvent(new Event('refresh-data'));
@@ -233,7 +304,7 @@ export async function confirmEnd() {
       .update({
         end_time: new Date().toISOString(),
         end_odo: endOdo,
-        gross_earnings: earn,
+        gross_earnings: earn, // BASE (no tips) — Model A
         status: 'completed',
         weather
       })
@@ -243,6 +314,10 @@ export async function confirmEnd() {
 
     showToast('END SHIFT', 'success');
     state.activeShift = null;
+
+    // clear pause clock
+    resetPauseClockForShift(null);
+
     closeModals();
     window.dispatchEvent(new Event('refresh-data'));
   } catch (e) {
@@ -273,6 +348,19 @@ export async function togglePause() {
 
   const wasActive = s.status === 'active';
   const newStatus = wasActive ? 'paused' : 'active';
+
+  // Optimistic UI, but timer clock must be correct
+  if (newStatus === 'paused') {
+    // start pause clock immediately
+    if (!pauseStartedAt) pauseStartedAt = Date.now();
+  } else {
+    // resume: fold pause interval into accum
+    if (pauseStartedAt) {
+      pauseAccumMs += Math.max(0, Date.now() - pauseStartedAt);
+      pauseStartedAt = null;
+    }
+  }
+
   s.status = newStatus;
 
   if (btn) {
@@ -362,11 +450,18 @@ async function closeOpenPauseSilently(shiftId) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// TIMER
+// TIMER (WORK TIME — excludes pause)
 // ────────────────────────────────────────────────────────────────
 
 export function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
+
+  // Ensure pause clock is aligned with DB (survives refreshes)
+  const s = state.activeShift;
+  if (s?.id) {
+    hydratePauseClockFromDB(s.id);
+  }
+
   updateTimerDisplay();
   timerInterval = setInterval(updateTimerDisplay, 1000);
 }
@@ -388,7 +483,12 @@ function updateTimerDisplay() {
 
   const start = new Date(s.start_time).getTime();
   const now = Date.now();
-  const diff = Math.max(0, now - start);
+
+  // paused time = closed pauses + (open pause if somehow present while active)
+  let pausedMs = pauseAccumMs;
+  if (pauseStartedAt) pausedMs += Math.max(0, now - pauseStartedAt);
+
+  const diff = Math.max(0, now - start - pausedMs);
 
   const hrs = Math.floor(diff / (1000 * 60 * 60));
   const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));

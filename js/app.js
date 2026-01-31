@@ -1,11 +1,10 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - APP.JS v2.0.1
+// ROBERT OS - APP.JS v2.0.2
 // Purpose: System bootstrap + bindings + refresh cycle with safe cleanup
 //
-// FIX v2.0.1:
-// - Daily target + Earnings no longer NaN (hard numeric guards)
-// - Uses await Costs.calculateShiftEarnings() (now async)
-// - Removes duplicate earningsEl block
+// FIX v2.0.2:
+// - Centralized all window.* bindings (single hub)
+// - Fixed audit tab visibility check (uses .active class)
 // ════════════════════════════════════════════════════════════════
 
 import { db } from './db.js';
@@ -139,8 +138,9 @@ export async function refreshAll() {
     UI.updateUI('activeShift');
     await updateProgressBars();
 
+    // v2.0.2 fix: check .active class instead of .hidden
     const auditTab = document.getElementById('tab-audit');
-    if (auditTab && !auditTab.classList.contains('hidden')) {
+    if (auditTab && auditTab.classList.contains('active')) {
       await Finance.refreshAudit();
     }
   } catch (error) {
@@ -178,20 +178,24 @@ async function updateProgressBars() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// GLOBAL BINDINGS
+// GLOBAL BINDINGS (v2.0.2: single centralized hub)
 // ────────────────────────────────────────────────────────────────
 
+// Auth
 window.login = Auth.login;
 window.logout = Auth.logout;
 
+// UI
 window.cycleTheme = UI.cycleTheme;
 window.switchTab = UI.switchTab;
 window.openModal = UI.openModal;
 window.closeModals = UI.closeModals;
 
+// Settings
 window.openSettings = Settings.openSettings;
 window.saveSettings = Settings.saveSettings;
 
+// Garage
 window.openGarage = Garage.openGarage;
 window.saveVehicle = Garage.saveVehicle;
 window.editVehicle = Garage.editVehicle;
@@ -201,6 +205,7 @@ window.cancelDeleteVehicle = Garage.cancelDeleteVehicle;
 window.setVehType = Garage.setVehType;
 window.toggleTestMode = Garage.toggleTestMode;
 
+// Shifts
 window.openStartModal = Shifts.openStartModal;
 window.confirmStart = Shifts.confirmStart;
 window.openEndModal = Shifts.openEndModal;
@@ -208,17 +213,20 @@ window.confirmEnd = Shifts.confirmEnd;
 window.togglePause = Shifts.togglePause;
 window.selectWeather = Shifts.selectWeather;
 
+// Finance (TX + Audit)
 window.openTxModal = Finance.openTxModal;
 window.setExpType = Finance.setExpType;
 window.confirmTx = Finance.confirmTx;
-
 window.toggleSelectAll = Finance.toggleSelectAll;
 window.requestLogDelete = Finance.requestLogDelete;
 window.confirmLogDelete = Finance.confirmLogDelete;
 window.exportAI = Finance.exportAI;
 window.updateDeleteButtonLocal = Finance.updateDeleteButtonLocal;
 window.openShiftDetails = Finance.openShiftDetails;
-
 window.toggleAccordion = Finance.toggleAccordion;
+
+// ────────────────────────────────────────────────────────────────
+// BOOTSTRAP
+// ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', init);

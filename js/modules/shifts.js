@@ -1,12 +1,9 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/SHIFTS.JS v2.2.1
+// ROBERT OS - MODULES/SHIFTS.JS v2.2.2
 // Purpose: Shift lifecycle (start/pause/end) + safe timer + pause DB log
-// FIXES:
-// 1) Start ODO auto-fills to MIN allowed for selected vehicle
-//    MIN = max(end_odo) of completed shifts for that vehicle OR vehicle.last_odo OR 0
-// 2) Guards: start_odo >= min, end_odo >= start_odo
-// 3) Default target hours auto-fill from settings (state.userSettings.default_shift_target_hours)
-// 4) Keeps pause safe logic (unique one_open_per_shift) + timer behavior
+//
+// FIX v2.2.2:
+// - selectWeather() now visually highlights selected button
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -17,7 +14,6 @@ import { openModal, closeModals } from './ui.js';
 let timerInterval = null;
 let pauseInFlight = false;
 
-// Cache min-odo per vehicle to avoid repeated queries while modal open
 let startMinCache = {};
 
 // ────────────────────────────────────────────────────────────────
@@ -43,7 +39,6 @@ function getDefaultTargetHours() {
   return Number.isFinite(def) && def > 0 ? def : 12;
 }
 
-// Compute MIN allowed start ODO for selected vehicle
 async function fetchVehicleStartMinOdo(vehicleId) {
   if (!state.user?.id || !vehicleId) return 0;
 
@@ -52,7 +47,6 @@ async function fetchVehicleStartMinOdo(vehicleId) {
 
   let min = 0;
 
-  // 1) DB: last completed shift end_odo
   try {
     const { data, error } = await db
       .from('finance_shifts')
@@ -68,11 +62,8 @@ async function fetchVehicleStartMinOdo(vehicleId) {
       const lastEnd = toInt(data[0]?.end_odo);
       if (lastEnd > min) min = lastEnd;
     }
-  } catch (_) {
-    // ignore
-  }
+  } catch (_) {}
 
-  // 2) fallback: vehicle.last_odo
   const veh = getVehicleById(vehicleId);
   const vLast = toInt(veh?.last_odo);
   if (vLast > min) min = vLast;
@@ -100,7 +91,6 @@ function applyDefaultTargetToUI() {
   const goalEl = document.getElementById('start-goal');
   if (!goalEl) return;
 
-  // Only fill if empty
   if (goalEl.value === '' || goalEl.value == null) {
     goalEl.value = String(getDefaultTargetHours());
   }
@@ -110,7 +100,6 @@ function setStartVehicleChangeHandler() {
   const select = document.getElementById('start-vehicle');
   if (!select) return;
 
-  // Avoid stacking handlers
   select.onchange = async () => {
     vibrate([10]);
     await applyStartMinToUI(select.value);
@@ -123,7 +112,7 @@ function setStartVehicleChangeHandler() {
 
 export async function openStartModal() {
   vibrate();
-  startMinCache = {}; // reset cache each open
+  startMinCache = {};
 
   const select = document.getElementById('start-vehicle');
   if (!select) return showToast('UI error: missing vehicle selector', 'error');
@@ -132,11 +121,8 @@ export async function openStartModal() {
   select.innerHTML = fleet.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
 
   setStartVehicleChangeHandler();
-
-  // Default target hours (from settings)
   applyDefaultTargetToUI();
 
-  // Apply min ODO for default selected vehicle
   const initialVehicleId = select.value || fleet[0]?.id;
   if (initialVehicleId) {
     select.value = String(initialVehicleId);
@@ -157,11 +143,9 @@ export async function confirmStart() {
 
   const startOdo = toInt(startOdoRaw);
 
-  // target fallback -> settings default
   const fallbackTarget = getDefaultTargetHours();
   const target = toFloat(targetRaw || String(fallbackTarget)) || fallbackTarget;
 
-  // HARD GUARD: start_odo must be >= min for that vehicle
   const min = await fetchVehicleStartMinOdo(vehicleId);
   if (startOdo < min) {
     return showToast(`Start rida per maža. Min: ${min}`, 'warning');
@@ -207,6 +191,13 @@ export function openEndModal() {
   if (endOdoEl && !endOdoEl.value) {
     endOdoEl.value = String(state.activeShift.start_odo || '');
   }
+
+  // Reset weather selection visually
+  document.querySelectorAll('.weather-btn').forEach(b => {
+    b.classList.remove('border-teal-500', 'bg-teal-500/20');
+  });
+  const hiddenWeather = document.getElementById('end-weather');
+  if (hiddenWeather) hiddenWeather.value = '';
 
   openModal('end-modal');
 }
@@ -262,7 +253,7 @@ export async function confirmEnd() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// PAUSE / RESUME (DB log safe)
+// PAUSE / RESUME
 // ────────────────────────────────────────────────────────────────
 
 export async function togglePause() {
@@ -314,7 +305,6 @@ export async function togglePause() {
 
 // ────────────────────────────────────────────────────────────────
 // PAUSE DB HELPERS
-// Table: public.finance_shift_pauses
 // ────────────────────────────────────────────────────────────────
 
 async function beginPauseSafe(shiftId) {
@@ -417,16 +407,24 @@ function pad(n) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// WEATHER (End modal)
+// WEATHER (End modal) — v2.2.2 fix: visual highlight
 // ────────────────────────────────────────────────────────────────
 
 export function selectWeather(type) {
   vibrate();
 
+  // Remove highlight from all
   document.querySelectorAll('.weather-btn').forEach(b => {
     b.classList.remove('border-teal-500', 'bg-teal-500/20');
   });
 
+  // Find and highlight selected button
+  const selected = document.querySelector(`.weather-btn[onclick*="'${type}'"]`);
+  if (selected) {
+    selected.classList.add('border-teal-500', 'bg-teal-500/20');
+  }
+
+  // Set hidden value
   const hidden = document.getElementById('end-weather');
   if (hidden) hidden.value = type;
 }

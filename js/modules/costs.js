@@ -1,13 +1,14 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/COSTS.JS v2.1.1
+// ROBERT OS - MODULES/COSTS.JS v2.1.2
 // Logic: Financial Projections & Rental Tracking
 //
-// FIXES v2.1.1:
-// - calculateShiftEarnings() now returns LIVE net earnings for ACTIVE shift:
-//   net = max(sum(income), shift.gross_earnings) - sum(expenses)
-//   => reacts immediately to tips/fuel.
-// - No NaN: always returns finite number.
-// - timezone uses settings.timezone_primary (was settings.timezone)
+// FIX v2.1.2:
+// - Model A consistency:
+//   shift.gross_earnings = BASE (no tips)
+//   total_gross = base + sum(income)
+//   net = total_gross - sum(expense)
+// - calculateShiftEarnings() returns LIVE net for ACTIVE shift (base+tips-exp)
+// - calculateWeeklyRentalProgress() includes tips income for completed shifts
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -111,17 +112,38 @@ export async function calculateWeeklyRentalProgress() {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
 
-    const { data: shifts, error } = await db
+    // Pull completed shifts (BASE) in the week
+    const { data: shifts, error: sErr } = await db
       .from('finance_shifts')
-      .select('gross_earnings')
+      .select('id, gross_earnings')
       .eq('user_id', state.user.id)
       .eq('status', 'completed')
       .gte('end_time', weekStart.toISOString())
-      .lte('end_time', weekEnd.toISOString());
+      .lt('end_time', weekEnd.toISOString());
 
-    if (error) throw error;
+    if (sErr) throw sErr;
 
-    const earned = (shifts || []).reduce((sum, s) => sum + toNumber(s.gross_earnings), 0);
+    const rows = shifts || [];
+    if (!rows.length) {
+      return { earned: 0, target: Math.round(targetAmount), percentage: 0 };
+    }
+
+    const shiftIds = rows.map(s => s.id);
+    const baseEarned = rows.reduce((sum, s) => sum + toNumber(s.gross_earnings), 0);
+
+    // Add income transactions (tips/bonus) for those shifts
+    const { data: incRows, error: iErr } = await db
+      .from('expenses')
+      .select('shift_id, amount')
+      .eq('user_id', state.user.id)
+      .eq('type', 'income')
+      .in('shift_id', shiftIds);
+
+    if (iErr) throw iErr;
+
+    const tipsEarned = (incRows || []).reduce((sum, r) => sum + toNumber(r.amount), 0);
+
+    const earned = baseEarned + tipsEarned;
     const percentage = Math.min((earned / targetAmount) * 100, 100);
 
     return {
@@ -136,7 +158,8 @@ export async function calculateWeeklyRentalProgress() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SHIFT EARNINGS (LIVE NET for ACTIVE shift)
+// SHIFT EARNINGS (LIVE NET for ACTIVE shift) — Model A
+// net = (base + income) - expense
 // ────────────────────────────────────────────────────────────────
 
 export async function calculateShiftEarnings() {
@@ -156,10 +179,10 @@ export async function calculateShiftEarnings() {
     const inc = rows.filter(r => r.type === 'income').reduce((s, r) => s + toNumber(r.amount), 0);
     const exp = rows.filter(r => r.type === 'expense').reduce((s, r) => s + toNumber(r.amount), 0);
 
-    const shiftGross = toNumber(state.activeShift?.gross_earnings);
-    const gross = Math.max(inc, shiftGross);
+    const base = toNumber(state.activeShift?.gross_earnings); // BASE (no tips)
+    const grossTotal = base + inc;
 
-    const net = gross - exp;
+    const net = grossTotal - exp;
     return Number.isFinite(net) ? Math.round(net) : 0;
   } catch (e) {
     console.error('Shift Earnings Error:', e);

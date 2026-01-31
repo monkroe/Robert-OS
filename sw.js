@@ -1,77 +1,92 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - SERVICE WORKER v2.1.0
+// ROBERT OS - SERVICE WORKER v2.2.1
 // Logic: Stale-While-Revalidate for Assets, Network Only for API
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'robert-os-v2.2.0';
+const CACHE_NAME = 'robert-os-v2.2.1';
 
-// Visų būtinų failų sąrašas (GitHub Pages struktūra)
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './manifest.json',
-  // Pagrindiniai JS failai
+  // Core JS
   './js/app.js',
   './js/db.js',
   './js/state.js',
   './js/utils.js',
-  // Moduliai (SVARBU: Github Pages reikalauja tikslių nuorodų)
+  // Modules (all must be listed)
   './js/modules/ui.js',
+  './js/modules/auth.js',
   './js/modules/shifts.js',
   './js/modules/finance.js',
   './js/modules/garage.js',
-  // Išoriniai resursai
+  './js/modules/settings.js',
+  './js/modules/costs.js',
+  // External CDN
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];
 
-// 1. INSTALL - Įrašome failus į telefono atmintį
+// 1. INSTALL
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('✅ OS CACHE: Užregistruoti visi moduliai');
-      return cache.addAll(ASSETS);
-    })
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('✅ OS CACHE: Registering all modules');
+        return cache.addAll(ASSETS);
+      })
+      .catch((err) => {
+        console.error('❌ OS CACHE: Install failed', err);
+      })
   );
 });
 
-// 2. ACTIVATE - Išvalome senas versijas (kad neužimtų vietos)
+// 2. ACTIVATE
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+        keys
+          .filter(key => key !== CACHE_NAME)
+          .map(key => {
+            console.log('🗑️ OS CACHE: Removing old cache', key);
+            return caches.delete(key);
+          })
       );
     })
   );
-  self.clients.claim(); // Perimame valdymą iškart po aktyvavimo
+  self.clients.claim();
 });
 
-// 3. FETCH - Protingas užklausų valdymas
+// 3. FETCH
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
-  // ⚠️ SVARBU: Supabase API užklausų NIEKADA nekašuojame per SW.
-  // Jos turi eiti tiesiai į serverį, kad matytum realius pinigus.
+  // Skip Supabase API calls (always network)
   if (url.hostname.includes('supabase.co')) {
-    return; // Leidžiame naršyklei pačiai tvarkyti šias užklausas
+    return;
   }
 
-  // Strategija: Stale-While-Revalidate
+  // Skip non-GET requests
+  if (e.request.method !== 'GET') {
+    return;
+  }
+
+  // Stale-While-Revalidate strategy
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
-      const fetchPromise = fetch(e.request).then((networkResponse) => {
-        // Jei gavome naują versiją - atnaujiname kešą fone
-        if (networkResponse && networkResponse.status === 200) {
-          const resClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
-        }
-        return networkResponse;
-      });
+      const fetchPromise = fetch(e.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const resClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse); // Fallback to cache on network error
 
-      // Grąžiname tai, ką turime atmintyje, arba laukiame tinklo
       return cachedResponse || fetchPromise;
     })
   );

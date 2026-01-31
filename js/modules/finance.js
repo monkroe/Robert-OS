@@ -1,8 +1,12 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.2.9
+// ROBERT OS - MODULES/FINANCE.JS v2.3.0
 //
-// FIX v2.2.9:
-// - Added proper error handling for expenses insert
+// FIX v2.3.0:
+// - Model A: shift.gross_earnings = BASE (no tips)
+// - Shift Details gross/net now include income tx (tips) correctly:
+//   gross_total = base + sum(income)
+//   net = gross_total - sum(expenses)
+// - keeps existing fuel vehicle picker + fuel analytics
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -545,7 +549,6 @@ export async function confirmTx() {
       created_at: new Date().toISOString()
     };
 
-    // ✅ v2.2.9: Proper error handling for insert
     const { error: insErr } = await db.from('expenses').insert(payload);
     if (insErr) throw insErr;
 
@@ -723,7 +726,9 @@ export function openShiftDetails(id) {
   const incSum = sum(income, x => x.amount);
   const expSum = sum(expense, x => x.amount);
 
-  const gross = Math.max(incSum, Number(s.gross_earnings || 0));
+  // ✅ Model A: shift.gross_earnings is BASE (no tips)
+  const base = Number(s.gross_earnings || 0);
+  const gross = base + incSum;
   const net = gross - expSum;
 
   const start = new Date(s.start_time);

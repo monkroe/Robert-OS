@@ -1,7 +1,9 @@
 <!-- ════════════════════════════════════════════════════════════════
-     ROBERT OS - INDEX.HTML v2.0.2
+     ROBERT OS - INDEX.HTML v2.0.4
      Fixes:
      - ✅ Full tank checkbox added to Fuel TX fields (tx-full)
+     - ✅ step="any" for decimal inputs (crypto-ready)
+     - ✅ Removed pattern (ignored on type="number")
      ════════════════════════════════════════════════════════════════ -->
 
 <!DOCTYPE html>
@@ -16,7 +18,7 @@
   <meta name="theme-color" content="#000000" />
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/993/993683.png" />
 
-  <title>ROBERT OS 2.0.2</title>
+  <title>ROBERT OS 2.0.4</title>
 
   <!-- ✅ THEME PRELOAD (prevents dark->light flash) -->
   <script>
@@ -38,7 +40,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="style.css?v=2.0.2" />
+  <link rel="stylesheet" href="style.css?v=2.0.4" />
 </head>
 
 <body class="antialiased selection:bg-teal-500 selection:text-black">
@@ -70,7 +72,7 @@
         <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-black font-bold text-xs">R</div>
 
         <div class="flex flex-col leading-tight">
-          <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.0.0</span>
+          <span class="font-bold uppercase tracking-widest text-[10px]">OS 2.0.4</span>
 
           <span id="clock-primary" class="font-mono text-[10px] opacity-60 tracking-tight">00:00:00</span>
           <span id="clock-secondary" class="font-mono text-[9px] opacity-40 uppercase tracking-widest">LOCAL: 00:00:00</span>
@@ -262,10 +264,10 @@
         </select>
 
         <label class="label-xs ml-1">Start Odometer</label>
-        <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-odo" class="input-field mb-2" placeholder="123456" />
+        <input type="number" inputmode="numeric" step="1" id="start-odo" class="input-field mb-2" placeholder="123456" />
 
         <label class="label-xs ml-1">Shift Target (hours)</label>
-        <input type="number" inputmode="decimal" pattern="[0-9]*" id="start-goal" class="input-field" placeholder="12 (optional)" />
+        <input type="number" inputmode="decimal" step="any" id="start-goal" class="input-field" placeholder="12 (optional)" />
       </div>
       <button onclick="confirmStart()" class="btn-primary-os py-4 mb-3">CONFIRM</button>
       <button onclick="closeModals()" class="text-xs font-bold uppercase opacity-50 py-3 w-full">Cancel</button>
@@ -278,10 +280,10 @@
       <h3 class="text-xl font-bold uppercase mb-4">End Shift</h3>
       <div class="text-left mb-4">
         <label class="label-xs ml-1">End Odometer</label>
-        <input type="number" inputmode="decimal" pattern="[0-9]*" id="end-odo" class="input-field mb-4" />
+        <input type="number" inputmode="numeric" step="1" id="end-odo" class="input-field mb-4" />
 
         <label class="label-xs ml-1">Total Earnings ($)</label>
-        <input type="number" inputmode="decimal" pattern="[0-9]*" id="end-earn" class="input-field text-green-500 mb-4" />
+        <input type="number" inputmode="decimal" step="any" id="end-earn" class="input-field text-green-500 mb-4" />
 
         <label class="label-xs ml-1 block mb-2">Driving Conditions</label>
 
@@ -314,7 +316,7 @@
   <div id="tx-modal" class="modal-overlay hidden">
     <div class="modal-content animate-slideUp text-center">
       <h3 id="tx-title" class="text-xl font-bold uppercase mb-4">Transaction</h3>
-      <input type="number" inputmode="decimal" pattern="[0-9]*" id="tx-amount" class="input-field text-3xl mb-4 text-center" placeholder="$0.00" />
+      <input type="number" inputmode="decimal" step="any" id="tx-amount" class="input-field text-3xl mb-4 text-center" placeholder="$0.00" />
 
       <div id="income-types" class="grid grid-cols-2 gap-3 mb-6 hidden">
         <button onclick="setExpType('tips', this)" class="inc-btn p-3 border border-gray-800 rounded-xl text-xs font-bold uppercase hover:bg-green-500/10 transition-all flex flex-col items-center gap-2 group">
@@ -366,14 +368,14 @@
       <div id="fuel-fields" class="hidden grid grid-cols-2 gap-2 mb-4 text-left">
         <div>
           <label class="label-xs">Gallons</label>
-          <input type="number" inputmode="decimal" id="tx-gal" class="input-field text-sm" />
+          <input type="number" inputmode="decimal" step="any" id="tx-gal" class="input-field text-sm" />
         </div>
         <div>
           <label class="label-xs">Odometer</label>
-          <input type="number" inputmode="decimal" id="tx-odo" class="input-field text-sm" />
+          <input type="number" inputmode="numeric" step="1" id="tx-odo" class="input-field text-sm" />
         </div>
 
-        <!-- ✅ FULL TANK FLAG (new) -->
+        <!-- ✅ FULL TANK FLAG -->
         <div class="col-span-2 mt-2">
           <label class="label-xs ml-1">Fuel Fill Type</label>
           <label style="display:flex; align-items:center; gap:.75rem; cursor:pointer; padding:.75rem; border:1px solid #374151; border-radius:.75rem; transition:background-color .2s;">
@@ -391,7 +393,7 @@
     </div>
   </div>
 
-  <!-- GARAGE MODAL (must exist) -->
+  <!-- GARAGE MODAL -->
   <div id="garage-modal" class="modal-overlay hidden">
     <div class="modal-content animate-slideUp">
       <h3 id="garage-modal-title" style="text-align:center; font-size:1.25rem; font-weight:700; text-transform:uppercase; margin-bottom:1rem; color:#14b8a6;">
@@ -402,8 +404,8 @@
         <p class="label-xs">Add New</p>
 
         <input type="text" id="veh-name" class="input-field" placeholder="Vehicle Name (e.g. Kia Forte)" />
-        <input type="number" inputmode="numeric" id="veh-year" class="input-field" placeholder="Year (optional, e.g. 2024)" min="1990" max="2030" />
-        <input type="number" inputmode="numeric" id="veh-initial-odo" class="input-field" placeholder="Initial Odometer (optional)" />
+        <input type="number" inputmode="numeric" step="1" id="veh-year" class="input-field" placeholder="Year (optional, e.g. 2024)" min="1990" max="2030" />
+        <input type="number" inputmode="numeric" step="1" id="veh-initial-odo" class="input-field" placeholder="Initial Odometer (optional)" />
 
         <div class="veh-type-group mb-3">
           <button onclick="setVehType('rental')" id="btn-type-rental" class="veh-type-btn active">RENTAL</button>
@@ -418,8 +420,8 @@
           </div>
         </div>
 
-        <input type="number" inputmode="decimal" id="veh-cost" class="input-field" placeholder="Weekly Cost ($)" step="0.01" />
-        <input type="number" inputmode="decimal" id="veh-carwash" class="input-field" placeholder="Car Wash Membership ($/month, optional)" step="0.01" />
+        <input type="number" inputmode="decimal" step="any" id="veh-cost" class="input-field" placeholder="Weekly Cost ($)" />
+        <input type="number" inputmode="decimal" step="any" id="veh-carwash" class="input-field" placeholder="Car Wash Membership ($/month, optional)" />
 
         <div onclick="toggleTestMode()" id="btn-test-mode" style="cursor:pointer; border:1px solid #374151; border-radius:.5rem; padding:.75rem; display:flex; align-items:center; justify-content:space-between; opacity:.6; transition:all .2s;">
           <div style="display:flex; align-items:center; gap:.5rem;">
@@ -446,7 +448,7 @@
     </div>
   </div>
 
-  <!-- SETTINGS MODAL (must exist) -->
+  <!-- SETTINGS MODAL -->
   <div id="settings-modal" class="modal-overlay hidden">
     <div class="modal-content animate-slideUp" style="text-align:center; max-height:85vh; overflow-y:auto;">
       <h3 style="font-size:1.25rem; font-weight:700; text-transform:uppercase; margin-bottom:1rem; color:#a855f7;">SETTINGS</h3>
@@ -482,7 +484,7 @@
         <p class="label-xs" style="margin-bottom:.75rem;">Financials</p>
 
         <label class="label-xs" style="margin-left:.25rem; display:block; margin-bottom:.25rem;">Monthly Fixed Expenses ($)</label>
-        <input type="number" inputmode="decimal" id="settings-fixed-expenses" class="input-field" placeholder="0" style="margin-bottom:.75rem;" />
+        <input type="number" inputmode="decimal" step="any" id="settings-fixed-expenses" class="input-field" placeholder="0" style="margin-bottom:.75rem;" />
 
         <label class="label-xs" style="margin-left:.25rem; display:block; margin-bottom:.25rem;">Rental Week Starts On</label>
         <select id="settings-rental-start-day" class="input-field" style="font-size:.875rem;">
@@ -500,7 +502,7 @@
         <p class="label-xs" style="margin-bottom:.75rem;">Work</p>
 
         <label class="label-xs" style="margin-left:.25rem; display:block; margin-bottom:.25rem;">Default Shift Target (hours)</label>
-        <input type="number" inputmode="decimal" id="settings-shift-target" class="input-field" placeholder="12" style="margin-bottom:.75rem;" />
+        <input type="number" inputmode="decimal" step="any" id="settings-shift-target" class="input-field" placeholder="12" style="margin-bottom:.75rem;" />
 
         <label style="display:flex; align-items:center; gap:.75rem; cursor:pointer; padding:.75rem; border:1px solid #374151; border-radius:.5rem; transition:background-color .2s;">
           <input type="checkbox" id="settings-notifications" style="width:1.25rem; height:1.25rem; border-radius:.25rem; accent-color:#14b8a6; cursor:pointer;" />
@@ -612,3 +614,4 @@
   </script>
 </body>
 </html>
+

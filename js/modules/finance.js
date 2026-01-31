@@ -1,40 +1,8 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/FINANCE.JS v2.2.6
-// Goals (kept):
-// - History strips (date + start-end + duration + miles)
-// - Shift Details modal (icons + status badge) + tx list + pause list + sums
-// - Keep delete checkbox behavior
-// - Keep tx modal behavior
+// ROBERT OS - MODULES/FINANCE.JS v2.2.9
 //
-// ADD v2.2.2 (kept):
-// - Fuel TX supports "FULL TANK" flag (tx-full -> is_full)
-// - Fuel TX binds vehicle_id
-// - Fuel lines in Shift Details show FULL marker
-//
-// FIX v2.2.3 (kept, Variant A):
-// - If NO active shift: allow ONLY Fuel OUT (standalone) with required vehicle_id + odometer + gallons
-// - Block other IN/OUT when no shift
-// - Fuel odometer validation:
-//    * if bound to shift -> odo must be >= shift.start_odo
-//    * if standalone -> odo must be >= last fuel odo for that vehicle (if exists)
-// - Adds dynamic Vehicle picker into Fuel fields (NO index.html change required)
-//
-// FIX v2.2.4 (kept, UI polish):
-// - Vehicle picker is inserted BEFORE "FULL TANK" block (not after)
-// - When no shift: hide non-fuel OUT categories (prevents expanded meta grid confusion)
-// - When no shift: Cockpit IN is blocked at modal open (toast + no modal)
-//
-// ADD v2.2.5 (kept):
-// - Fuel metrics in Shift Details:
-//    * FULL→FULL (needs 2 FULL markers)
-//    * Since last FULL (needs 1 FULL marker; uses shift end_odo as anchor)
-// - Category labels shown in Title Case (Food, Snow, Private, Bonus, etc.)
-//
-// FIX v2.2.6:
-// - Bind inline onclick targets to window: openShiftDetails/openTxModal/setExpType/closeModals
-// - getShiftById checks state.activeShift first
-// - ensureFuelVehiclePicker race-safe (mutex/promise)
-// - safeUUID gating for ids injected into onclick strings (XSS hardening)
+// FIX v2.2.9:
+// - Added proper error handling for expenses insert
 // ════════════════════════════════════════════════════════════════
 
 import { db } from '../db.js';
@@ -43,7 +11,7 @@ import { showToast, vibrate, formatCurrency } from '../utils.js';
 import { openModal, closeModals } from './ui.js';
 
 let txDraft = { direction: 'in', category: 'tips' };
-let txShiftId = null; // which shift the tx belongs to (details modal can override)
+let txShiftId = null;
 let itemsToDelete = [];
 
 // ────────────────────────────────────────────────────────────────
@@ -57,7 +25,6 @@ function safeText(v) {
     .replaceAll('>', '&gt;');
 }
 
-// Allow only UUID-like ids to ever be injected into HTML attributes (onclick)
 function safeUUID(v) {
   const s = String(v ?? '').trim();
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
@@ -143,7 +110,6 @@ function hasShiftContextNow() {
 function getShiftById(id) {
   if (!id) return null;
 
-  // FIX v2.2.6: check activeShift first
   if (state.activeShift && String(state.activeShift.id) === String(id)) {
     return state.activeShift;
   }
@@ -177,18 +143,46 @@ function formatCategoryLabel(catRaw) {
   return toTitleCaseWords(spaced);
 }
 
-// Resolve vehicle_id for tx
+function weatherIconHTML(weatherRaw) {
+  const w = String(weatherRaw || '').trim().toLowerCase();
+  if (!w) return '';
+
+  const map = {
+    snow: 'fa-snowflake',
+    rain: 'fa-cloud-rain',
+    drizzle: 'fa-cloud-showers-heavy',
+    fog: 'fa-smog',
+    mist: 'fa-smog',
+    haze: 'fa-smog',
+    clear: 'fa-sun',
+    sunny: 'fa-sun',
+    clouds: 'fa-cloud',
+    cloudy: 'fa-cloud',
+    overcast: 'fa-cloud',
+    wind: 'fa-wind',
+    storm: 'fa-bolt',
+    thunderstorm: 'fa-bolt',
+    ice: 'fa-icicles'
+  };
+
+  const icon = map[w] || 'fa-cloud';
+  const title = formatCategoryLabel(w);
+
+  return `
+    <span title="${safeText(title)}" style="display:inline-flex; align-items:center; gap:.4rem;">
+      <i class="fa-solid ${safeText(icon)}" style="opacity:.9;"></i>
+    </span>
+  `;
+}
+
 function resolveVehicleIdForTx() {
-  // 1) If tx is being created for a specific shift (details modal), use that shift's vehicle_id
   if (txShiftId) {
     const s = getShiftById(txShiftId);
     if (s?.vehicle_id) return s.vehicle_id;
   }
 
-  // 2) Otherwise fallback to active shift vehicle_id
   if (state.activeShift?.vehicle_id) return state.activeShift.vehicle_id;
 
-  // 3) Otherwise try the Fuel Vehicle picker (dynamic)
   const picked = getTxVehiclePickerValue();
   if (picked) return picked;
 
@@ -362,9 +356,7 @@ function renderFuelMetricsBlock(seg) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// Dynamic Vehicle Picker for Fuel (no HTML change required)
-// Insert BEFORE FULL TANK block
-// Race-safe with promise lock
+// Dynamic Vehicle Picker for Fuel
 // ────────────────────────────────────────────────────────────────
 
 let fuelPickerPromise = null;
@@ -373,14 +365,10 @@ async function ensureFuelVehiclePicker() {
   const fuelBox = document.getElementById('fuel-fields');
   if (!fuelBox) return;
 
-  // already exists
   if (document.getElementById('tx-veh')) return;
-
-  // FIX v2.2.6: mutex (if called twice quickly, second awaits the first)
   if (fuelPickerPromise) return fuelPickerPromise;
 
   fuelPickerPromise = (async () => {
-    // re-check after acquiring lock
     if (document.getElementById('tx-veh')) return;
 
     const wrap = document.createElement('div');
@@ -446,7 +434,6 @@ async function ensureFuelVehiclePicker() {
   try {
     await fuelPickerPromise;
   } finally {
-    // allow future calls to run if DOM was cleared/rebuilt
     fuelPickerPromise = null;
   }
 }
@@ -469,7 +456,6 @@ export async function openTxModal(dir, shiftId = null) {
 
   const hasShiftContext = !!(shiftId || state.activeShift?.id);
 
-  // Variant A: no shift => allow ONLY Fuel OUT
   if (!hasShiftContext) {
     if (dir === 'in') {
       showToast('Nėra aktyvios pamainos. IN pridėk per Shift Details.', 'warning');
@@ -550,8 +536,8 @@ export async function confirmTx() {
 
     const payload = {
       user_id: state.user.id,
-      shift_id,   // can be null ONLY for fuel (standalone)
-      vehicle_id, // required for fuel
+      shift_id,
+      vehicle_id,
       type: txDraft.direction === 'in' ? 'income' : 'expense',
       category: txDraft.category,
       amount,
@@ -559,7 +545,9 @@ export async function confirmTx() {
       created_at: new Date().toISOString()
     };
 
-    await db.from('expenses').insert(payload);
+    // ✅ v2.2.9: Proper error handling for insert
+    const { error: insErr } = await db.from('expenses').insert(payload);
+    if (insErr) throw insErr;
 
     txShiftId = null;
 
@@ -758,7 +746,7 @@ export function openShiftDetails(id) {
   const workStr = fmtHhMmFromMs(workMs);
 
   const vehicleName = safeText(s.vehicles?.name || 'Unknown');
-  const weather = safeText(s.weather || '');
+  const weatherRaw = String(s.weather || '').trim();
 
   const startOdo = Number(s.start_odo || 0);
   const endOdo = Number(s.end_odo || 0);
@@ -770,6 +758,18 @@ export function openShiftDetails(id) {
         <div style="font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.70;">${safeText(label)}</div>
       </div>
       <div style="font-size:14px; font-weight:800; opacity:.95; text-align:right; white-space:nowrap;">${safeText(value)}</div>
+    </div>
+  `;
+
+  const rowHtml = (faIcon, label, valueHtml) => `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,.08);">
+      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+        <i class="fa-solid ${faIcon}" style="width:18px; text-align:center; opacity:.85;"></i>
+        <div style="font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.70;">${safeText(label)}</div>
+      </div>
+      <div style="font-size:16px; font-weight:900; opacity:.95; text-align:right; white-space:nowrap;">
+        ${valueHtml || ''}
+      </div>
     </div>
   `;
 
@@ -849,12 +849,13 @@ export function openShiftDetails(id) {
   const segBlock = seg ? renderFuelMetricsBlock(seg) : '';
 
   const sid = safeUUID(s.id);
+  const headerRightSafePx = 84;
 
   const target = document.getElementById('shift-details-content');
   if (target) {
     target.innerHTML = `
       <div class="shift-modal-paper">
-        <div class="shift-modal-head">
+        <div class="shift-modal-head" style="padding-right:${headerRightSafePx}px;">
           <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
             <div style="min-width:0;">
               <div class="ascii-head" style="font-weight:900; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
@@ -870,7 +871,7 @@ export function openShiftDetails(id) {
               </div>
             </div>
 
-            <div style="text-align:right;">
+            <div style="text-align:right; padding-right:4px;">
               <div style="font-size:10px; letter-spacing:.12em; text-transform:uppercase; opacity:.6;">NET</div>
               <div style="font-size:20px; font-weight:900; color:${moneyColor(net)};">
                 ${safeText(formatCurrency(net))}
@@ -882,7 +883,7 @@ export function openShiftDetails(id) {
         <div style="padding: 1rem;">
           <div style="border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; background: rgba(255,255,255,.02);">
             ${row('fa-car-side', 'vehicle', vehicleName)}
-            ${weather ? row('fa-cloud-sun', 'weather', formatCategoryLabel(weather)) : ''}
+            ${weatherRaw ? rowHtml('fa-cloud-sun', 'weather', weatherIconHTML(weatherRaw)) : ''}
             ${row('fa-gauge-high', 'odometer', `${startOdo} → ${endOdo || '…'}`)}
             ${row('fa-route', 'miles', `${miles} mi`)}
             ${row('fa-stopwatch', 'duration', driveStr)}
@@ -931,10 +932,20 @@ export function openShiftDetails(id) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// DELETE (kept)
+// DELETE
 // ────────────────────────────────────────────────────────────────
 
-export function toggleSelectAll() {}
+export function toggleSelectAll() {
+  const masterBox = document.getElementById('select-all-logs');
+  const boxes = document.querySelectorAll('.log-checkbox');
+  const isChecked = masterBox?.checked || false;
+
+  boxes.forEach(box => {
+    box.checked = isChecked;
+  });
+
+  updateDeleteButtonLocal();
+}
 
 export function requestLogDelete() {
   const checked = document.querySelectorAll('.log-checkbox:checked');
@@ -986,16 +997,3 @@ export function updateDeleteButtonLocal() {
 
 export function toggleAccordion() {}
 export function exportAI() {}
-
-// ────────────────────────────────────────────────────────────────
-// FIX v2.2.6: bind inline onclick targets to window
-// (needed because UI uses onclick="...").
-// ────────────────────────────────────────────────────────────────
-
-window.openTxModal = openTxModal;
-window.openShiftDetails = openShiftDetails;
-window.setExpType = setExpType;
-window.closeModals = closeModals;
-window.updateDeleteButtonLocal = updateDeleteButtonLocal;
-window.requestLogDelete = requestLogDelete;
-window.confirmLogDelete = confirmLogDelete;

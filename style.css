@@ -1,10 +1,11 @@
 /* ════════════════════════════════════════════════════════════════ */
-/* ROBERT OS - STYLE.CSS v2.0.2                                     */
+/* ROBERT OS - STYLE.CSS v2.0.3                                     */
 /* Fixes:                                                          */
 /* - Inputs/login/modals: NOT bold, no inherit traps               */
 /* - Logs: v1.8 STRIPS feel (shift-strip) + SAFE tweak vars        */
 /* - Toast: keep v1.8 feel w/ icons                               */
 /* - Auto/Light/Dark preserved                                     */
+/* - v2.0.3: --fw-heavy reduced to 800 (less aggressive)           */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root{
@@ -30,7 +31,7 @@
   --fw-normal: 400;
   --fw-medium: 500;
   --fw-semibold: 650;
-  --fw-heavy: 900;
+  --fw-heavy: 800; /* v2.0.3: reduced from 900 */
 
   /* === v1.8 strip feel (tweak safely here) === */
   --log-strip-radius: 12px;

@@ -18,6 +18,7 @@ import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 import * as SessionSync from './modules/session-sync.js';
+import * as SessionSyncDebug from './modules/session-sync-debug.js'; // TEMPORARY, see file header
 
 let refreshBound = false;
 let lifecycleBound = false;
@@ -54,6 +55,14 @@ async function init() {
         await SessionSync.resumeIfBootstrapped();
       } catch (e) {
         console.warn('⚠️ session-sync: resumeIfBootstrapped failed:', e);
+      }
+
+      // TEMPORARY, §9 acceptance test only -- see session-sync-debug.js
+      // header for removal instructions.
+      try {
+        SessionSyncDebug.mount();
+      } catch (e) {
+        console.warn('⚠️ session-sync-debug: mount failed:', e);
       }
 
       bindRefreshOnce();

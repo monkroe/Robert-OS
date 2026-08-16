@@ -139,17 +139,30 @@ async function fetchCanonicalActiveSession(userId) {
 }
 
 /**
- * Subscribes to work_sessions changes for `userId` (a Benas-project user id,
- * see the identity note above). Idempotent: if a channel already exists for
- * this same user, this is a no-op; if one exists for a DIFFERENT user, it is
- * torn down first. A rerender or a repeated init call can never leave a
- * duplicate channel subscribed.
+ * Subscribes to work_sessions AND session_pauses changes for `userId` (a
+ * Benas-project user id, see the identity note above), on ONE shared
+ * channel. Idempotent: if a channel already exists for this same user, this
+ * is a no-op; if one exists for a DIFFERENT user, it is torn down first. A
+ * rerender or a repeated init call can never leave a duplicate channel
+ * subscribed.
  *
- * `filter` is a convenience -- the actual security boundary is Postgres RLS
- * on work_sessions ("Users manage own data", auth.uid() = user_id), which
- * Realtime enforces server-side regardless of what the client asks for. That
- * is why a leaked event would be a defect in the DATABASE policy, not in
- * this filter string.
+ * BOTH tables are required, not just work_sessions. rpc_session_pause and
+ * rpc_session_resume never touch work_sessions -- verified against
+ * benas-bot db/v2-sessions-rpcs.sql, 2026-08-16: pause inserts an open row
+ * into session_pauses (pause_end IS NULL) and updates the legacy
+ * bf_shifts.ts_pause mirror; resume closes that row. work_sessions.status
+ * stays 'active' through the whole pause. A channel watching only
+ * work_sessions never receives an event for PAUSE or RESUME -- found before
+ * this broke the milestone's own PAUSE/RESUME acceptance check, not after.
+ * Both event sources feed the SAME canonical refetch; a session_pauses
+ * event is a signal to re-ask the database, exactly like a work_sessions
+ * event, never a state to trust from its payload.
+ *
+ * `filter` is a convenience on both bindings -- the actual security boundary
+ * is Postgres RLS (`auth.uid() = user_id`, `FOR ALL`, present on both
+ * work_sessions and session_pauses), which Realtime enforces server-side
+ * regardless of what the client asks for. That is why a leaked event would
+ * be a defect in the DATABASE policy, not in this filter string.
  */
 export async function subscribe(userId) {
     if (channel && currentUserId === userId) return;
@@ -157,24 +170,26 @@ export async function subscribe(userId) {
     await unsubscribe();
     currentUserId = userId;
 
+    const onSignal = () => {
+        // Never read the event payload as truth -- always refetch canonical.
+        fetchCanonicalActiveSession(userId);
+    };
+
     channel = benasDb
         .channel(`session-sync:${userId}`)
         .on(
             'postgres_changes',
-            {
-                event: '*',
-                schema: 'public',
-                table: 'work_sessions',
-                filter: `user_id=eq.${userId}`,
-            },
-            () => {
-                // Never read the event payload as truth -- always refetch canonical.
-                fetchCanonicalActiveSession(userId);
-            },
+            { event: '*', schema: 'public', table: 'work_sessions', filter: `user_id=eq.${userId}` },
+            onSignal,
+        )
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'session_pauses', filter: `user_id=eq.${userId}` },
+            onSignal,
         )
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
-                console.log('%c✅ session-sync: subscribed to work_sessions', 'color:#14b8a6; font-weight:bold;');
+                console.log('%c✅ session-sync: subscribed to work_sessions + session_pauses', 'color:#14b8a6; font-weight:bold;');
                 fetchCanonicalActiveSession(userId);
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                 console.warn('⚠️ session-sync: channel', status);

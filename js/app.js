@@ -17,6 +17,7 @@ import * as Finance from './modules/finance.js';
 import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
+import * as SessionSync from './modules/session-sync.js';
 
 let refreshBound = false;
 let lifecycleBound = false;
@@ -43,6 +44,17 @@ async function init() {
 
       await Garage.fetchFleet();
       await refreshAll();
+
+      // Session Domain Multi-Door milestone, step 3: resumes Realtime
+      // observation of work_sessions if this client already has a Benas
+      // session (from a prior login's bootstrap). Isolated failure handling
+      // -- this is new, unproven code, and it must never take down the
+      // primary init sequence above it.
+      try {
+        await SessionSync.resumeIfBootstrapped();
+      } catch (e) {
+        console.warn('⚠️ session-sync: resumeIfBootstrapped failed:', e);
+      }
 
       bindRefreshOnce();
       bindLifecycleCleanupOnce();

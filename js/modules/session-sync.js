@@ -1,0 +1,167 @@
+// ════════════════════════════════════════════════════════════════
+// ROBERT OS - MODULES/SESSION-SYNC.JS v1.0.0
+// Purpose: Realtime observation of work_sessions in the Benas project.
+//
+// Session Domain Multi-Door milestone, step 3 (Realtime subscription only).
+// robert-os-hub/docs/05-roadmap/session-domain-multi-door-milestone.md §9
+//
+// SCOPE, DELIBERATE: this module does not touch state.activeShift, does not
+// call any rpc_session_* write path, and does not read or write
+// finance_shifts or expenses. It is a SECOND, independent Supabase client.
+// The primary db.js client stays pointed at this PWA's own project for
+// everything else, because work_sessions has no equivalent table there and
+// switching the shared client would break existing shift/expense
+// functionality -- the milestone's own acceptance criterion is that
+// existing PWA behaviour without Realtime must not break.
+//
+// CANONICAL-REFETCH DISCIPLINE: on ANY postgres_changes event this module
+// re-SELECTs the active session row rather than trusting the event payload.
+// Event ordering, reconnects and missed updates are handled by "go ask the
+// database again", not by reconstructing state from whatever the event
+// happened to carry.
+//
+// CROSS-PROJECT IDENTITY TRAP, do not repeat it here: the milestone doc's
+// §10 found the same email resolves to a DIFFERENT auth.users UUID in each
+// Supabase project. Every filter/query below uses the user id from THIS
+// client's OWN session (`benasDb.auth`), never state.user.id, which belongs
+// to the primary (PWA-project) session.
+// ════════════════════════════════════════════════════════════════
+
+import { state } from '../state.js';
+
+const BENAS_CONFIG = {
+    SUPABASE_URL: 'https://vcenflikaxwcuqhtqori.supabase.co',
+    SUPABASE_KEY: 'sb_publishable_jsLejK7NODrOdyRmi0Ys_A_V2QMZzOt',
+};
+
+// Explicit storageKey, not left to the library default. Verified 2026-08-16
+// (same jsdelivr @supabase/supabase-js@2 chain this app loads, resolved to
+// 2.112.3): the default key is already project-ref-derived and does not
+// collide with db.js's primary client (sb-sopcisskptiqlllehhgb-auth-token
+// vs sb-vcenflikaxwcuqhtqori-auth-token). Named here anyway so isolation is
+// a stated fact in this file, not an inference from Supabase internals a
+// future reader would have to re-derive.
+export const benasDb = window.supabase.createClient(BENAS_CONFIG.SUPABASE_URL, BENAS_CONFIG.SUPABASE_KEY, {
+    auth: { storageKey: 'sb-benas-work-sessions-auth-token' },
+});
+
+let channel = null;
+let currentUserId = null;
+
+/**
+ * One-time bootstrap: call right after a successful PRIMARY login, with the
+ * same email/password the user just typed. This establishes this second
+ * client's own session in the Benas project, which it then persists itself
+ * (its own localStorage key, same mechanism db.js's primary client already
+ * relies on) -- the credentials are never stored anywhere beyond this call.
+ *
+ * Failure here must never block the primary login/reload; it only means
+ * Realtime observation stays off until the next successful bootstrap.
+ */
+export async function bootstrapWithCredentials(email, password) {
+    try {
+        const { data, error } = await benasDb.auth.signInWithPassword({ email, password });
+        if (error) {
+            console.warn('⚠️ session-sync: Benas bootstrap login failed:', error.message);
+            return;
+        }
+        await subscribe(data.user.id);
+    } catch (err) {
+        console.warn('⚠️ session-sync: Benas bootstrap threw:', err);
+    }
+}
+
+/**
+ * Call on every app init, not just fresh logins. If this client already
+ * holds a persisted Benas session from a prior bootstrap, resumes the
+ * subscription silently. If not -- e.g. the first load after this feature
+ * shipped, with no fresh login since -- it does nothing and logs why,
+ * rather than guessing at credentials it was never given. Logging out and
+ * back in once bootstraps it.
+ */
+export async function resumeIfBootstrapped() {
+    try {
+        const { data: { session } } = await benasDb.auth.getSession();
+        if (!session) {
+            console.log('ℹ️ session-sync: no Benas session yet – log out/in once to bootstrap Realtime observation.');
+            return;
+        }
+        await subscribe(session.user.id);
+    } catch (err) {
+        console.warn('⚠️ session-sync: resume failed:', err);
+    }
+}
+
+async function fetchCanonicalActiveSession(userId) {
+    try {
+        const { data, error } = await benasDb
+            .from('work_sessions')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('⚠️ session-sync: canonical refetch failed:', error.message);
+            return;
+        }
+
+        state._benasSessionPreview = data || null;
+        console.log('%c🔄 session-sync: canonical active session refetched', 'color:#14b8a6', data);
+    } catch (err) {
+        console.warn('⚠️ session-sync: canonical refetch threw:', err);
+    }
+}
+
+/**
+ * Subscribes to work_sessions changes for `userId` (a Benas-project user id,
+ * see the identity note above). Idempotent: if a channel already exists for
+ * this same user, this is a no-op; if one exists for a DIFFERENT user, it is
+ * torn down first. A rerender or a repeated init call can never leave a
+ * duplicate channel subscribed.
+ *
+ * `filter` is a convenience -- the actual security boundary is Postgres RLS
+ * on work_sessions ("Users manage own data", auth.uid() = user_id), which
+ * Realtime enforces server-side regardless of what the client asks for. That
+ * is why a leaked event would be a defect in the DATABASE policy, not in
+ * this filter string.
+ */
+export async function subscribe(userId) {
+    if (channel && currentUserId === userId) return;
+
+    await unsubscribe();
+    currentUserId = userId;
+
+    channel = benasDb
+        .channel(`session-sync:${userId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'work_sessions',
+                filter: `user_id=eq.${userId}`,
+            },
+            () => {
+                // Never read the event payload as truth -- always refetch canonical.
+                fetchCanonicalActiveSession(userId);
+            },
+        )
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log('%c✅ session-sync: subscribed to work_sessions', 'color:#14b8a6; font-weight:bold;');
+                fetchCanonicalActiveSession(userId);
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                console.warn('⚠️ session-sync: channel', status);
+            }
+        });
+}
+
+export async function unsubscribe() {
+    if (channel) {
+        await benasDb.removeChannel(channel);
+        channel = null;
+    }
+    currentUserId = null;
+}

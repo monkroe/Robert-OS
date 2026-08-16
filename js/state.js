@@ -20,7 +20,17 @@ const INITIAL_STATE = {
     txDirection: 'in',
 
     // Internal (allowed because starts with "_")
-    _lastRefresh: null
+    _lastRefresh: null,
+
+    // Session Domain Multi-Door milestone, step 3 (Realtime subscription
+    // only): the canonical work_sessions row from the Benas project,
+    // refetched on every Realtime event. Deliberately NOT state.activeShift
+    // -- that field is read in shift-record shape (finance_shifts) by
+    // shifts.js/costs.js/finance.js/ui.js, and work_sessions has a different
+    // shape (money lives inside `metadata`, not flat columns). This field
+    // stays unread by the rest of the app until the milestone's read-path
+    // switch step; for now it exists so the value can be observed/logged.
+    _benasSessionPreview: null
 };
 
 function cloneInitial() {

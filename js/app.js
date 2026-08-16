@@ -89,6 +89,12 @@ function bindLifecycleCleanupOnce() {
       UI.stopClocks?.();
     } else {
       if (state.user) UI.startClocks?.();
+      // Session Domain Multi-Door milestone, §9 recovery half: catches up
+      // the canonical Benas session if a Realtime event was missed while
+      // backgrounded. Fire-and-forget (refetchCanonical never throws, see
+      // session-sync.js) -- this listener's own job (clocks) is already
+      // done by the line above and must not wait on this.
+      SessionSync.refetchCanonical();
     }
   });
 

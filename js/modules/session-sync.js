@@ -92,6 +92,30 @@ export async function resumeIfBootstrapped() {
     }
 }
 
+/**
+ * Recovery refetch for the visibilitychange listener in app.js: re-reads the
+ * canonical active session for whichever user this client is currently
+ * signed in as, WITHOUT touching subscribe()/channel/currentUserId. A
+ * foreground event firing repeatedly (tab switches, quick lock/unlock) must
+ * never create a new Realtime subscription -- only `subscribe()` does that,
+ * and this function never calls it. If Realtime silently missed an update
+ * while backgrounded, this is what catches it back up; if it did not, this
+ * is a harmless duplicate read of the same row.
+ *
+ * Never throws -- errors are logged and swallowed, same as every other
+ * exported function here, so a failure can never break the caller's
+ * lifecycle handler.
+ */
+export async function refetchCanonical() {
+    try {
+        const { data: { session } } = await benasDb.auth.getSession();
+        if (!session) return; // nothing to refetch if this client was never bootstrapped
+        await fetchCanonicalActiveSession(session.user.id);
+    } catch (err) {
+        console.warn('⚠️ session-sync: recovery refetch failed:', err);
+    }
+}
+
 async function fetchCanonicalActiveSession(userId) {
     try {
         const { data, error } = await benasDb

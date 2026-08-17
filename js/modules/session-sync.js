@@ -20,6 +20,13 @@
 // database again", not by reconstructing state from whatever the event
 // happened to carry.
 //
+// READINESS, step 2 of the PWA canonical controller work: every fetch here
+// resolves state._benasCanonicalStatus to exactly one of 'ready' or
+// 'unavailable' -- never leaves it stuck on the initial 'loading' past the
+// first attempt, and never reports 'ready' with data that came from a
+// failed query. A later step's UI is expected to disable session controls
+// for both 'loading' and 'unavailable', with no third, undeclared state.
+//
 // CROSS-PROJECT IDENTITY TRAP, do not repeat it here: the milestone doc's
 // §10 found the same email resolves to a DIFFERENT auth.users UUID in each
 // Supabase project. Every filter/query below uses the user id from THIS
@@ -49,6 +56,20 @@ let channel = null;
 let currentUserId = null;
 
 /**
+ * Sets the three readiness fields to 'unavailable' together, so they can
+ * never be read as three independently-stale values. Also clears the
+ * session/pause fields -- 'unavailable' must not leave the last-known-good
+ * snapshot readable as if it were still trustworthy.
+ */
+function markUnavailable(message) {
+    state._benasSessionPreview = null;
+    state._benasSessionPauses = [];
+    state._benasOpenPause = null;
+    state._benasCanonicalStatus = 'unavailable';
+    state._benasCanonicalError = message || 'unknown error';
+}
+
+/**
  * One-time bootstrap: call right after a successful PRIMARY login, with the
  * same email/password the user just typed. This establishes this second
  * client's own session in the Benas project, which it then persists itself
@@ -63,11 +84,13 @@ export async function bootstrapWithCredentials(email, password) {
         const { data, error } = await benasDb.auth.signInWithPassword({ email, password });
         if (error) {
             console.warn('⚠️ session-sync: Benas bootstrap login failed:', error.message);
+            markUnavailable(error.message);
             return;
         }
         await subscribe(data.user.id);
     } catch (err) {
         console.warn('⚠️ session-sync: Benas bootstrap threw:', err);
+        markUnavailable(err?.message || String(err));
     }
 }
 
@@ -84,11 +107,13 @@ export async function resumeIfBootstrapped() {
         const { data: { session } } = await benasDb.auth.getSession();
         if (!session) {
             console.log('ℹ️ session-sync: no Benas session yet – log out/in once to bootstrap Realtime observation.');
+            markUnavailable('no Benas session bootstrapped yet');
             return;
         }
         await subscribe(session.user.id);
     } catch (err) {
         console.warn('⚠️ session-sync: resume failed:', err);
+        markUnavailable(err?.message || String(err));
     }
 }
 
@@ -109,13 +134,32 @@ export async function resumeIfBootstrapped() {
 export async function refetchCanonical() {
     try {
         const { data: { session } } = await benasDb.auth.getSession();
-        if (!session) return; // nothing to refetch if this client was never bootstrapped
+        if (!session) {
+            // nothing to refetch if this client was never bootstrapped
+            markUnavailable('no Benas session bootstrapped yet');
+            return;
+        }
         await fetchCanonicalActiveSession(session.user.id);
     } catch (err) {
         console.warn('⚠️ session-sync: recovery refetch failed:', err);
+        markUnavailable(err?.message || String(err));
     }
 }
 
+/**
+ * The one place that decides the canonical snapshot: the active
+ * work_sessions row (or null, confirmed none), its full session_pauses
+ * history (closed rows included, oldest first), and the open pause row
+ * split out from that history. Always leaves _benasCanonicalStatus at
+ * 'ready' or 'unavailable' -- never returns early with status still
+ * 'loading', and never partially updates the snapshot fields on failure
+ * (markUnavailable clears all of them together).
+ *
+ * Two queries when a session exists (work_sessions, then session_pauses by
+ * that session's id) -- sequential, not Promise.all, because the second
+ * query needs the id the first one returns. Single-user, small tables; the
+ * extra round trip is not a real cost here.
+ */
 async function fetchCanonicalActiveSession(userId) {
     try {
         const { data, error } = await benasDb
@@ -128,13 +172,37 @@ async function fetchCanonicalActiveSession(userId) {
 
         if (error) {
             console.warn('⚠️ session-sync: canonical refetch failed:', error.message);
+            markUnavailable(error.message);
             return;
         }
 
+        let pauses = [];
+        if (data) {
+            const { data: pauseRows, error: pauseError } = await benasDb
+                .from('session_pauses')
+                .select('*')
+                .eq('session_id', data.id)
+                .is('deleted_at', null)
+                .order('pause_start', { ascending: true });
+
+            if (pauseError) {
+                console.warn('⚠️ session-sync: pause history fetch failed:', pauseError.message);
+                markUnavailable(pauseError.message);
+                return;
+            }
+            pauses = pauseRows || [];
+        }
+
         state._benasSessionPreview = data || null;
-        console.log('%c🔄 session-sync: canonical active session refetched', 'color:#14b8a6', data);
+        state._benasSessionPauses = pauses;
+        state._benasOpenPause = pauses.find((p) => p.pause_end === null) || null;
+        state._benasCanonicalStatus = 'ready';
+        state._benasCanonicalError = null;
+
+        console.log('%c🔄 session-sync: canonical snapshot refetched', 'color:#14b8a6', { session: data, pauses });
     } catch (err) {
         console.warn('⚠️ session-sync: canonical refetch threw:', err);
+        markUnavailable(err?.message || String(err));
     }
 }
 

@@ -30,7 +30,37 @@ const INITIAL_STATE = {
     // shape (money lives inside `metadata`, not flat columns). This field
     // stays unread by the rest of the app until the milestone's read-path
     // switch step; for now it exists so the value can be observed/logged.
-    _benasSessionPreview: null
+    _benasSessionPreview: null,
+
+    // Full session_pauses history (closed rows included) for the session in
+    // _benasSessionPreview, same refetch. Needed later to compute
+    // accumulated pause time with the same per-pause floor-to-minute rule
+    // rpc_session_end applies server-side (session-domain-multi-door-milestone.md,
+    // "Recorded debt" -- the rpc_session_end pause-flooring entry). Not read
+    // by anything yet.
+    _benasSessionPauses: [],
+
+    // The one OPEN row (pause_end IS NULL) from _benasSessionPauses, or null
+    // if there is none. Derived by session-sync.js at fetch time so nothing
+    // else has to re-scan the array to answer "is this session paused".
+    _benasOpenPause: null,
+
+    // Deterministic canonical readiness -- 'loading' | 'ready' | 'unavailable'.
+    // 'loading' until the first bootstrap/fetch resolves one way or the
+    // other; 'ready' means _benasSessionPreview is trustworthy (null = no
+    // active session, confirmed, not unknown); 'unavailable' means the last
+    // attempt to reach canonical truth failed (bootstrap never happened, or
+    // a fetch errored). Deliberately three states, not a boolean: a future
+    // consumer must be able to disable session controls for BOTH 'loading'
+    // and 'unavailable' while still telling them apart, because only the
+    // second is an error worth surfacing. Session Domain Multi-Door
+    // milestone, "no runtime legacy fallback after cutover" fix -- state.activeShift
+    // is never touched by this field or by anything that sets it.
+    _benasCanonicalStatus: 'loading',
+
+    // Last error message behind a 'unavailable' _benasCanonicalStatus, or
+    // null. Only meaningful when _benasCanonicalStatus === 'unavailable'.
+    _benasCanonicalError: null
 };
 
 function cloneInitial() {

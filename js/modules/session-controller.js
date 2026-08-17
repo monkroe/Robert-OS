@@ -217,6 +217,29 @@ async function applyLastOdoToUI(vehicleId) {
     }
 }
 
+/** Mirrors benas-bot database.ts's getActiveVehicleId() -- bf_users.active_vehicle_id
+ * only, no bf_bot_sessions.temp_data fallback (the PWA has no bot-flow session of
+ * its own for that fallback to read). */
+async function fetchActiveVehicleId() {
+    try {
+        const { data: { session } } = await SessionSync.benasDb.auth.getSession();
+        if (!session) return null;
+        const { data, error } = await SessionSync.benasDb
+            .from('bf_users')
+            .select('active_vehicle_id')
+            .eq('id', session.user.id)
+            .maybeSingle();
+        if (error) {
+            console.warn('⚠️ session-controller: bf_users.active_vehicle_id fetch failed:', error.message);
+            return null;
+        }
+        return data?.active_vehicle_id || null;
+    } catch (err) {
+        console.warn('⚠️ session-controller: bf_users.active_vehicle_id fetch threw:', err);
+        return null;
+    }
+}
+
 export async function openStartModal() {
     vibrate();
     const view = getCanonicalSessionView();
@@ -230,6 +253,11 @@ export async function openStartModal() {
     select.innerHTML = vehicles.length
         ? vehicles.map((v) => `<option value="${v.id}">${v.name}</option>`).join('')
         : '<option value="">No vehicles found</option>';
+
+    const activeVehicleId = await fetchActiveVehicleId();
+    if (activeVehicleId && vehicles.some((v) => v.id === activeVehicleId)) {
+        select.value = activeVehicleId;
+    }
 
     const goalEl = document.getElementById('start-goal');
     if (goalEl && (goalEl.value === '' || goalEl.value == null)) {

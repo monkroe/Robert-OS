@@ -148,6 +148,46 @@ export function updateUI(key) {
     }
 }
 
+/**
+ * PWA canonical session controller, step 4b. Parallel to updateUI('activeShift')
+ * above -- same DOM elements, same classes -- but driven by a passed-in
+ * canonical view object instead of reading state.activeShift, and with two
+ * extra states that block above never had to represent: 'loading' and
+ * 'unavailable' both fail closed (session-domain-multi-door-milestone.md,
+ * "no runtime legacy fallback after cutover" fix) -- #btn-start stays
+ * visible but disabled, #active-controls stays hidden, so a user can see
+ * the app is not ready to accept a session action without it looking like
+ * a real "no shift" state they could act on.
+ *
+ * The existing updateUI() function above is not modified by this addition.
+ */
+export function updateCanonicalUI(view) {
+    const btnStart = document.getElementById('btn-start');
+    const activeControls = document.getElementById('active-controls');
+    const btnPause = document.getElementById('btn-pause');
+
+    const blocked = view.readiness !== 'ready';
+    const hasShift = view.status === 'active' || view.status === 'paused';
+    const isPaused = view.status === 'paused';
+
+    if (btnStart) {
+        btnStart.classList.toggle('hidden', hasShift);
+        btnStart.disabled = blocked;
+        btnStart.classList.toggle('opacity-50', blocked);
+    }
+    activeControls?.classList.toggle('hidden', !hasShift);
+
+    if (btnPause && hasShift) {
+        if (isPaused) {
+            btnPause.innerHTML = '<i class="fa-solid fa-play"></i>';
+            btnPause.className = 'col-span-1 btn-bento bg-green-500/10 text-green-500 border-green-500/50 hover:bg-green-500/20';
+        } else {
+            btnPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            btnPause.className = 'col-span-1 btn-bento bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20';
+        }
+    }
+}
+
 // ────────────────────────────────────────────────────────────────
 // MODALS
 // ────────────────────────────────────────────────────────────────

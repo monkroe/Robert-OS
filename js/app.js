@@ -18,6 +18,7 @@ import * as UI from './modules/ui.js';
 import * as Settings from './modules/settings.js';
 import * as Costs from './modules/costs.js';
 import * as SessionSync from './modules/session-sync.js';
+import * as SessionController from './modules/session-controller.js';
 import * as SessionSyncDebug from './modules/session-sync-debug.js'; // TEMPORARY, see file header
 
 let refreshBound = false;
@@ -55,6 +56,19 @@ async function init() {
         await SessionSync.resumeIfBootstrapped();
       } catch (e) {
         console.warn('⚠️ session-sync: resumeIfBootstrapped failed:', e);
+      }
+
+      // PWA canonical session controller, step 4b: registers the
+      // canonical UI re-render on every relevant state change and paints
+      // once immediately. Runs after resumeIfBootstrapped() above has
+      // resolved, so the first paint reflects real readiness, not the
+      // initial 'loading' default. Isolated failure handling, same reason
+      // as resumeIfBootstrapped above -- new, unproven code must never
+      // take down the primary init sequence.
+      try {
+        SessionController.initCanonicalUI();
+      } catch (e) {
+        console.warn('⚠️ session-controller: initCanonicalUI failed:', e);
       }
 
       // TEMPORARY, §9 acceptance test only -- see session-sync-debug.js
@@ -130,39 +144,35 @@ export async function refreshAll() {
 
     state.activeShift = shift || null;
 
-    const timerEl = document.getElementById('shift-timer');
-    const pauseBtn = document.getElementById('btn-pause');
+    // PWA canonical session controller, step 4b: #shift-timer/#btn-start/
+    // #active-controls/#btn-pause are now owned UNCONDITIONALLY by
+    // session-controller.js's renderCanonicalSession() (registered once via
+    // initCanonicalUI(), reacting to canonical state changes) -- for EVERY
+    // readiness/status combination: 'loading', 'unavailable', 'ready'+'none',
+    // 'ready'+'active', 'ready'+'paused'. "canonical ready + none is an
+    // authoritative NONE, not a legacy-fallback signal" applies here exactly
+    // as everywhere else in this cutover -- there is no combination in which
+    // this refreshAll() call site may still render these elements, so
+    // nothing here checks canonicalView at all. An earlier version of this
+    // guard checked `status !== 'none'`, which is wrong: it let 'ready'+'none'
+    // fall through to this block, exactly the split-brain the readiness
+    // model exists to prevent (a stale state.activeShift could then render
+    // as a phantom legacy shift while canonical was correctly reporting
+    // none). Caught before this shipped, not after.
+    //
+    // Legacy DOM writes for these four elements are REMOVED from this call
+    // site, not left as a dead conditional branch -- a branch that always
+    // evaluates one way reads as a bug waiting to happen, not a design.
+    // shifts.js itself is unmodified and git history has the prior version
+    // of this block; a full rollback reinstates both together with
+    // reverting app.js's window.* bindings, never a runtime toggle between
+    // the two systems.
+    //
+    // state.activeShift is still tracked above -- costs.js/finance.js and
+    // shifts.js's own (now button-unreachable) functions still read it.
+    // Only the DOM rendering derived from it, for these specific shared
+    // elements, stops here.
 
-    if (state.activeShift) {
-      const isActive = state.activeShift.status === 'active';
-
-      if (isActive) {
-        Shifts.startTimer();
-        timerEl?.classList.remove('opacity-50');
-        timerEl?.classList.add('pulse-text');
-
-        if (pauseBtn) {
-          pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-          pauseBtn.classList.remove('bg-yellow-500/20', 'text-yellow-500');
-          pauseBtn.classList.add('bg-yellow-500/10');
-        }
-      } else {
-        Shifts.stopTimer();
-        timerEl?.classList.add('opacity-50');
-        timerEl?.classList.remove('pulse-text');
-
-        if (pauseBtn) {
-          pauseBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-          pauseBtn.classList.add('bg-yellow-500/20', 'text-yellow-500');
-        }
-      }
-    } else {
-      Shifts.stopTimer();
-      timerEl?.classList.add('opacity-50');
-      timerEl?.classList.remove('pulse-text');
-    }
-
-    UI.updateUI('activeShift');
     await updateProgressBars();
 
     // v2.0.2 fix: check .active class instead of .hidden
@@ -232,12 +242,16 @@ window.cancelDeleteVehicle = Garage.cancelDeleteVehicle;
 window.setVehType = Garage.setVehType;
 window.toggleTestMode = Garage.toggleTestMode;
 
-// Shifts
-window.openStartModal = Shifts.openStartModal;
-window.confirmStart = Shifts.confirmStart;
-window.openEndModal = Shifts.openEndModal;
-window.confirmEnd = Shifts.confirmEnd;
-window.togglePause = Shifts.togglePause;
+// Shifts -- PWA canonical session controller, step 4b: repointed from
+// Shifts.* to SessionController.*. shifts.js itself is unmodified and
+// remains the full rollback path -- reverting these five lines to
+// Shifts.* (and Shifts.togglePause for the sixth) is the entire rollback,
+// no other file needs to change.
+window.openStartModal = SessionController.openStartModal;
+window.confirmStart = SessionController.confirmStart;
+window.openEndModal = SessionController.openEndModal;
+window.confirmEnd = SessionController.confirmEnd;
+window.togglePause = SessionController.togglePauseClick;
 window.selectWeather = Shifts.selectWeather;
 
 // Finance (TX + Audit)

@@ -1,18 +1,22 @@
 // ════════════════════════════════════════════════════════════════
-// ROBERT OS - MODULES/SESSION-SYNC.JS v1.0.0
-// Purpose: Realtime observation of work_sessions in the Benas project.
+// ROBERT OS - MODULES/SESSION-SYNC.JS v1.1.0
+// Purpose: Realtime observation of, and (step 4a) writes to, work_sessions
+//          in the Benas project.
 //
-// Session Domain Multi-Door milestone, step 3 (Realtime subscription only).
+// Session Domain Multi-Door milestone. Steps 1/3: Realtime subscription +
+// canonical read-model. Step 4a: rpc_session_* write wrappers, added below
+// under WRITE FUNCTIONS -- read this header's claim about scope as "true
+// through step 3"; the write functions are new as of step 4a and are
+// scoped precisely in their own section comment, not here.
 // robert-os-hub/docs/05-roadmap/session-domain-multi-door-milestone.md §9
 //
-// SCOPE, DELIBERATE: this module does not touch state.activeShift, does not
-// call any rpc_session_* write path, and does not read or write
-// finance_shifts or expenses. It is a SECOND, independent Supabase client.
-// The primary db.js client stays pointed at this PWA's own project for
-// everything else, because work_sessions has no equivalent table there and
-// switching the shared client would break existing shift/expense
-// functionality -- the milestone's own acceptance criterion is that
-// existing PWA behaviour without Realtime must not break.
+// SCOPE, DELIBERATE: this module does not touch state.activeShift and does
+// not read or write finance_shifts or expenses. It is a SECOND, independent
+// Supabase client. The primary db.js client stays pointed at this PWA's own
+// project for everything else, because work_sessions has no equivalent
+// table there and switching the shared client would break existing
+// shift/expense functionality -- the milestone's own acceptance criterion
+// is that existing PWA behaviour without Realtime must not break.
 //
 // CANONICAL-REFETCH DISCIPLINE: on ANY postgres_changes event this module
 // re-SELECTs the active session row rather than trusting the event payload.
@@ -271,4 +275,77 @@ export async function unsubscribe() {
         channel = null;
     }
     currentUserId = null;
+}
+
+// ────────────────────────────────────────────────────────────────
+// WRITE FUNCTIONS -- step 4a, PWA canonical session controller.
+//
+// Each function below is a thin wrapper around one rpc_session_* call on
+// the already-bootstrapped native benasDb client (the same session
+// established by bootstrapWithCredentials/resumeIfBootstrapped above).
+// None of them write to `state` -- the resulting change is observed the
+// SAME way a Benas-originated write already is, through the existing
+// Realtime subscription's canonical refetch (fetchCanonicalActiveSession).
+// There is no optimistic write here and no second code path for
+// PWA-originated vs bot-originated changes.
+//
+// p_source is always 'pwa:*', giving these their own distinct provenance
+// in audit_log, the same door-plus-action shape already proven for
+// bot:* sources (milestone doc §6).
+//
+// pause/resume take no session-id argument, matching the RPCs' own design
+// (each always operates on the caller's own current active session) -- see
+// the security audit in benas-bot/db/session-rpcs-grant-authenticated.sql.
+//
+// Callers are expected to gate on canonical readiness (session-controller.js,
+// step 4a) before calling any of these -- these functions themselves do
+// not check state and will simply surface whatever error the RPC itself
+// returns (e.g. "no active session") if called out of turn.
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * params: { logical_date, vehicle, odo_start, target_minutes, notes }.
+ * vehicle is the jsonb shape rpc_session_start expects, {id, name, plate}
+ * -- step 4b's responsibility to source that from bf_vehicles, not from
+ * state.fleet/PWA vehicles (session-domain-multi-door-milestone.md,
+ * "RPC parameter mapping" -- the two projects use different UUIDs for the
+ * same real vehicle).
+ */
+export function startCanonicalSession({ logical_date, vehicle, odo_start, target_minutes, notes } = {}) {
+    return benasDb.rpc('rpc_session_start', {
+        p_logical_date: logical_date,
+        p_vehicle: vehicle,
+        p_odo_start: odo_start ?? null,
+        p_target_minutes: target_minutes ?? null,
+        p_notes: notes ?? null,
+        p_source: 'pwa:session_start',
+    });
+}
+
+export function pauseCanonicalSession() {
+    return benasDb.rpc('rpc_session_pause', { p_source: 'pwa:session_pause' });
+}
+
+export function resumeCanonicalSession() {
+    return benasDb.rpc('rpc_session_resume', { p_source: 'pwa:session_resume' });
+}
+
+/**
+ * params: { odo_end, money }. money is the jsonb patch rpc_session_end
+ * merges into metadata -- today just { gross_earnings } (weather is
+ * deliberately not sent, see the milestone doc's RPC parameter mapping).
+ *
+ * The RETURNED row's `active_duration` is the authoritative final
+ * worked-time figure for the END-while-PAUSED case -- canonical-session-view.js's
+ * deriveElapsedActiveMs() is a live approximation only and can read low by
+ * up to one open pause's floor remainder at exactly this moment. Step 4b's
+ * END confirmation must display data.active_duration from THIS function's
+ * return value, never a client-side recomputation.
+ */
+export function endCanonicalSession({ odo_end, money } = {}) {
+    return benasDb.rpc('rpc_session_end', {
+        p_odo_end: odo_end ?? null,
+        p_money: money ?? {},
+        p_source: 'pwa:session_end',
+    });
 }

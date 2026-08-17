@@ -30,6 +30,26 @@
 // rpc_session_end -- canonical work_sessions has no weather field. An
 // explicit boundary, not an oversight.
 //
+// ODO MONOTONICITY, found missing and closed the same day as the first
+// live acceptance test (2026-08-17): rpc_session_start itself enforces
+// only odo_start >= 0 -- the "odo must not go backward" rule the Benas bot
+// enforces (index.ts's conversational flow, and again in database.ts's
+// startShift() right before calling the RPC) was never ported here, since
+// it lives entirely in the bot's own TypeScript, a different codebase.
+// Closed by calling the SAME DB-level function the bot calls,
+// bf_get_global_last_odo (see fetchLastOdo()'s own docstring below) --
+// not a reimplementation, the identical source of truth. rpc_session_start
+// itself is NOT changed; this stays a client-side guard on both doors,
+// exactly as the bot's own "TEMPORARY bot-level guard" comment already
+// described before this file existed.
+//
+// NOT closed here, recorded for later: bf_get_global_last_odo also grants
+// EXECUTE to anon (confirmed live) -- likely low-risk, since it is
+// SECURITY INVOKER over RLS-protected tables (an anon caller should get
+// null/no data back, not another user's odometer), but this was not
+// verified to the same standard as the rpc_session_* grant audits earlier
+// in this milestone, and is out of scope for this patch specifically.
+//
 // DOM CONFLICT WITH LEGACY, resolved in app.js not here: refreshAll()'s
 // existing calls to Shifts.startTimer/stopTimer and UI.updateUI('activeShift')
 // write to the SAME #shift-timer/#btn-start/#active-controls/#btn-pause
@@ -153,6 +173,50 @@ async function fetchCanonicalVehicles() {
     }
 }
 
+/**
+ * The SAME DB-level odo monotonicity check the Benas bot enforces before
+ * calling rpc_session_start (benas-bot/supabase/functions/benas/database.ts
+ * startShift() -- "TEMPORARY bot-level guard... The session-domain
+ * invariant lives in the RPC" -- it does not; this is the guard). Confirmed
+ * live, 2026-08-17: bf_get_global_last_odo(p_user_id, p_vehicle_id) is
+ * GREATEST(last bf_shifts odo, last bf_fuel_logs odo) -- already granted
+ * EXECUTE to authenticated. Returns null (not 0) when there is no prior
+ * reading, matching the RPC's own NULLIF(..., 0) -- callers must treat
+ * null as "no floor to enforce", not as a literal 0.
+ */
+async function fetchLastOdo(vehicleId) {
+    try {
+        const { data: { session } } = await SessionSync.benasDb.auth.getSession();
+        if (!session || !vehicleId) return null;
+        const { data, error } = await SessionSync.benasDb.rpc('bf_get_global_last_odo', {
+            p_user_id: session.user.id,
+            p_vehicle_id: vehicleId,
+        });
+        if (error) {
+            console.warn('⚠️ session-controller: bf_get_global_last_odo failed:', error.message);
+            return null;
+        }
+        return typeof data === 'number' ? data : null;
+    } catch (err) {
+        console.warn('⚠️ session-controller: bf_get_global_last_odo threw:', err);
+        return null;
+    }
+}
+
+/** Refetches and shows the last-known ODO for whichever vehicle is
+ * currently selected -- called once at modal-open and again on every
+ * #start-vehicle change, so switching vehicles never leaves a stale
+ * other-vehicle's number sitting in the field. */
+async function applyLastOdoToUI(vehicleId) {
+    const odoEl = document.getElementById('start-odo');
+    if (!odoEl) return;
+    const last = await fetchLastOdo(vehicleId);
+    odoEl.placeholder = last != null ? String(last) : '123456';
+    if (!odoEl.value) {
+        odoEl.value = last != null ? String(last) : '';
+    }
+}
+
 export async function openStartModal() {
     vibrate();
     const view = getCanonicalSessionView();
@@ -175,6 +239,9 @@ export async function openStartModal() {
     const odoEl = document.getElementById('start-odo');
     if (odoEl) odoEl.value = '';
 
+    select.onchange = () => applyLastOdoToUI(select.value);
+    await applyLastOdoToUI(select.value);
+
     openModal('start-modal');
 }
 
@@ -190,6 +257,16 @@ export async function confirmStart() {
     if (!vehicleId) return showToast('Pasirinkite automobilį', 'warning');
 
     const startOdo = toInt(startOdoRaw);
+
+    // Re-fetched fresh here, not trusted from the modal-open prefill --
+    // matches legacy shifts.js's own confirmStart(), which re-fetches its
+    // equivalent (fetchVehicleStartMinOdo) at confirm time rather than
+    // relying on whatever was shown when the modal opened.
+    const lastOdo = await fetchLastOdo(vehicleId);
+    if (lastOdo !== null && startOdo < lastOdo) {
+        return showToast(`Rida negali būti mažesnė nei paskutinė (${lastOdo})`, 'warning');
+    }
+
     const targetHours = toFloat(targetRaw) || getDefaultTargetHours();
     const targetMinutes = Math.round(targetHours * 60);
 
